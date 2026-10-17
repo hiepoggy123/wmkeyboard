@@ -819,6 +819,13 @@ object SmartSuggest {
     }
 
     /**
+     * A unit by any name the chips understand ("km", "miles", "°F", "light
+     * years"), for the AI's converter (#698). Read as the glued form, so the
+     * one-letter abbreviations count: a model naming a unit means a unit.
+     */
+    fun unitNamed(name: String): UnitConvert.ConvUnit? = resolveUnit(name.trim().replace(" ", ""), spaced = false)
+
+    /**
      * A typed unit token → catalog unit. [spaced] is false for the glued
      * "30c" form, which is the only place the one-letter temperature and
      * mass abbreviations are safe — "30 c" is far more likely to be prose.
@@ -1768,8 +1775,10 @@ object SmartSuggest {
         ToolbarTool.MOON_PHASE to listOf("moon"),
         ToolbarTool.COMPASS to listOf("compass"),
         ToolbarTool.LOCATION to listOf("location", "gps"),
-        // Not "time": that one is ordinary prose far too often to offer a chip for.
-        ToolbarTool.CLOCK to listOf("clock", "alarm", "timer", "stopwatch"),
+        // Not "time" or "watch": those are ordinary prose far too often to offer a chip for.
+        ToolbarTool.CLOCK to listOf("clock", "alarm", "timer", "stopwatch", "countdown", "planner", "date"),
+        // Not "photo" or "picture" alone: said in passing far more often than meant as "send one".
+        ToolbarTool.GALLERY to listOf("gallery", "photos", "pics"),
         ToolbarTool.LEVEL to listOf("level"),
         ToolbarTool.THEMES to listOf("theme", "themes"),
         ToolbarTool.MODES to listOf("modes"),

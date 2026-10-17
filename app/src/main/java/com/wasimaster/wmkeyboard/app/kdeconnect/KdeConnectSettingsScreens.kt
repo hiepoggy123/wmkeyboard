@@ -108,6 +108,7 @@ internal fun KdeConnectToolSettings(
     // What decides which rows and groups the page holds; each row reads its own value.
     val kdeOn = settings.watch { it.kdeConnect.enabled }
     val remoteTyping = settings.watch { it.kdeConnect.remoteTyping }
+    val clipboardReceive = settings.watch { it.kdeConnect.clipboardReceive }
     val exposeMedia = settings.watch { it.kdeConnect.exposeMedia }
     val connected = hub.connected
     val pairedCount = if (hub.running) hub.paired.size else if (KdeConnectHub.hasPairedDevices()) 1 else 0
@@ -198,9 +199,22 @@ internal fun KdeConnectToolSettings(
             ToggleSetting(
                 R.string.kdeconnect_clipboard_receive_title,
                 stringResource(R.string.kdeconnect_clipboard_receive_subtitle),
-                settings.watch { it.kdeConnect.clipboardReceive },
+                clipboardReceive,
                 default = defaults.clipboardReceive,
             ) { scope.launch { repository.setKdeClipboardReceive(it) } }
+        }
+        item(visible = clipboardReceive) {
+            val minutesFormat = stringResource(R.string.values_minutes)
+            val off = stringResource(R.string.kdeconnect_clear_secrets_off)
+            SliderSetting(
+                R.string.kdeconnect_clear_secrets_title,
+                subtitle = stringResource(R.string.kdeconnect_clear_secrets_subtitle),
+                value = settings.watch { it.kdeConnect.clearSecretsMinutes }.toFloat(),
+                range = 0f..KdeConnectSettings.MAX_CLEAR_SECRETS_MINUTES.toFloat(),
+                display = { if (it.toInt() == 0) off else minutesFormat.format(it.toInt()) },
+                info = stringResource(R.string.kdeconnect_clear_secrets_info),
+                default = defaults.clearSecretsMinutes.toFloat(),
+            ) { scope.launch { repository.setKdeClearSecretsMinutes(it.toInt()) } }
         }
         item {
             ToggleSetting(
@@ -316,6 +330,15 @@ internal fun KdeConnectToolSettings(
         }
         item {
             ToggleSetting(
+                R.string.kdeconnect_codes_title,
+                stringResource(R.string.kdeconnect_codes_subtitle),
+                settings.watch { it.kdeConnect.sendCodes },
+                info = stringResource(R.string.kdeconnect_codes_info),
+                default = defaults.sendCodes,
+            ) { scope.launch { repository.setKdeSendCodes(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.kdeconnect_media_title,
                 stringResource(R.string.kdeconnect_media_subtitle),
                 exposeMedia,
@@ -399,7 +422,7 @@ internal fun KdeDevicesScreen(repository: SettingsRepository, settings: LiveSett
         }
     }
 
-    SettingsGroup(stringResource(R.string.kdeconnect_devices_nearby)) {
+    SettingsGroup(stringResource(R.string.kdeconnect_devices_nearby), info = stringResource(R.string.kdeconnect_devices_pair_code_info)) {
         if (hub.nearby.isEmpty()) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -538,4 +561,5 @@ private val DEVICE_SWITCHES = listOf(
     KdePluginKeys.SHARE to R.string.kdeconnect_device_files,
     KdePluginKeys.MEDIA to R.string.kdeconnect_device_media,
     KdePluginKeys.BATTERY to R.string.kdeconnect_device_battery,
+    KdePluginKeys.SYNC to R.string.kdeconnect_device_sync,
 )

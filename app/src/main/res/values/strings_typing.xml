@@ -368,6 +368,9 @@
     <string name="typing_smart_gifs_title">GIFs for celebrations</string>
     <string name="typing_smart_gifs_subtitle">\"happy birthday\" offers a matching GIF search</string>
 
+    <string name="typing_smart_keep_text_title">Keep the text when a chip opens its tool</string>
+    <string name="typing_smart_keep_text_subtitle">The settings button on a chip leaves what you typed, such as 150 usd or calculator, in the text</string>
+    <string name="typing_smart_keep_text_info">The button at the end of a chip opens the tool with your numbers filled in. When this is off, the button also removes the text that the chip answered, because the tool types its own result in its place. When this is on, your text stays. Either way, if the tool typed nothing, the first backspace after you close the tool puts the removed text back.</string>
     <string name="typing_smart_contacts_title">Call or text a contact</string>
     <string name="typing_smart_contacts_subtitle">Type the name of a contact and the strip offers to call or text that person</string>
     <string name="typing_smart_contacts_info">Type the full name of a contact, in any case, or only the first name with a capital letter when no other contact has that first name. The strip then shows a chip with the name. Tap the name to open your phone app with the number filled in. Tap the message button to open your messages app. The keyboard never makes the call itself, and the name that you typed stays in the text. Each name is offered one time in each text field. This setting needs access to your contacts and is off by default.</string>
@@ -427,12 +430,15 @@
     <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
     <string name="typing_two_thumb_title">Two-thumb typing</string>
     <string name="typing_two_thumb_subtitle">Tap and swipe with both thumbs at once to build one word</string>
-    <string name="typing_two_thumb_info">Use both thumbs together. Each thumb can tap or swipe, at the same time as the other, and every tap and swipe adds to the same word. For example, tap S with the left thumb, swipe O to M with the right, tap E with the left, then swipe T H I N G with the right, and you get "something". A tap that lands while the other thumb is still swiping goes into the word at that point, so a swipe over H E L O and a tap on L give "hello". Backspace removes the last tap or swipe from the word.</string>
+    <string name="typing_two_thumb_info">Use both thumbs together. Each thumb can tap or swipe, at the same time as the other, and every tap and swipe adds to the same word. For example, tap S with the left thumb, swipe O to M with the right, tap E with the left, then swipe T H I N G with the right, and you get "something". A tap that lands while the other thumb is still swiping goes into the word at that point, so a swipe over H E L O and a tap on L give "hello". Backspace removes the last tap or swipe from the word. Features that read one swipe as a whole word are off while this is on: the picker for a toss-up and its Hold to ask, gliding across the spacebar, gliding over Shift for a capital, and the flicks off a key.</string>
     <string name="typing_two_thumb_word_end_title">Finish a two-thumb word</string>
     <string name="typing_two_thumb_word_end_subtitle">What types the word you are building</string>
-    <string name="typing_two_thumb_word_end_info">With space, the word stays open while you tap and swipe, and the keyboard reads it again after each one. Tap space or punctuation to type it. With all thumbs up, the word is typed with a space as soon as no thumb touches the keyboard, like ordinary glide, so your thumbs have to overlap to share a word.</string>
+    <string name="typing_two_thumb_word_end_info">With space, the word stays open while you tap and swipe, and the keyboard reads it again after each one. Tap space or punctuation to type it. With all thumbs up, the word is typed with a space once no thumb has touched the keyboard for a short pause, set below. A thumb that lands before the pause is over carries on the same word, so your thumbs can take turns. Tapped words end this way too.</string>
     <string name="typing_two_thumb_word_end_space_label">Space</string>
     <string name="typing_two_thumb_word_end_all_up_label">All thumbs up</string>
+    <string name="typing_two_thumb_pause_title">Pause before the word ends</string>
+    <string name="typing_two_thumb_pause_subtitle">How long both thumbs stay up before the word is typed</string>
+    <string name="typing_two_thumb_pause_info">With all thumbs up, a word is typed with its space only once no thumb has touched the keyboard for this long. A thumb that lands sooner adds to the same word, so tapping T, lifting, and tapping O still gives "To", and your thumbs can take turns on one word without overlapping. Raise this if words end before you have finished them. Lower it if you wait too long for the space. The default is 350 ms.</string>
     <string name="typing_swipe_continues_typed_title">Swipe finishes typed letters</string>
     <string name="typing_swipe_continues_typed_subtitle">Typed letters and the swipe after them make one word</string>
     <string name="typing_swipe_continues_typed_info">Type the start of a word, then swipe the rest without a space. For example, type T O and swipe G E T H E R to get "together". When this setting is off, the typed letters are a word of their own and the swipe types the next word. Two-thumb typing always works this way.</string>
@@ -836,7 +842,18 @@
     <string name="typing_hw_suggestion_hotkeys_leader_desc">The safe choice. Nothing else uses the shortcut key</string>
     <string name="typing_hw_suggestion_hotkeys_alt_desc">One key less, but many apps use Alt with a number for their tabs</string>
     <!-- The two quoted names are the choice labels of this same setting. -->
-    <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.</string>
+    <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.\n\nFor no extra key at all, set a pick mode key below. While pick mode is on, the number keys select suggestions on their own, Shift with a number types the number, and Shift+Alt with a number types the symbol on that key.</string>
+
+    <!-- Issue #701. "Pick mode" is a mode the user turns on with a key of their choice; while it is on, the number keys select suggestions. -->
+    <string name="typing_hw_pick_mode_key_title">Pick mode key</string>
+    <string name="typing_hw_pick_mode_key_subtitle">A key that makes the number keys select suggestions until you press it again</string>
+    <string name="typing_hw_pick_mode_key_capture_body">Or press a key on the attached keyboard. A key with Ctrl, Alt, Shift or Meta works, and so do F1 to F12 and Insert on their own.</string>
+    <!-- %1$s is a key combination, such as Ctrl+K. -->
+    <string name="typing_hw_pick_mode_key_leader_error">%1$s already opens the tools. Choose another key.</string>
+    <string name="typing_hw_pick_mode_key_clear_action">No key</string>
+    <string name="typing_hw_function_keys_title">F-keys press the toolbar</string>
+    <string name="typing_hw_function_keys_subtitle">F1 opens all tools and F2 to F10 press the toolbar buttons</string>
+    <string name="typing_hw_function_keys_info">F1 to F10 work like Ctrl+1 to Ctrl+0: F1 opens all tools, and F2 presses the first button on the toolbar. While this works, the toolbar shows F1, F2 and so on under its buttons when you press the shortcut key.\n\n\"In pick mode\" leaves the F-keys to the app until you turn pick mode on. \"Always\" takes them all the time, which gets in the way of terminals and code editors that use them.</string>
 
     <string name="typing_hw_auto_show_title">Show the keyboard for shortcuts</string>
     <string name="typing_hw_auto_show_subtitle">A shortcut that opens a tool also shows the keyboard</string>

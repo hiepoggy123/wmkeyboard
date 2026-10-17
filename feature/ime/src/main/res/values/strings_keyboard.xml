@@ -254,6 +254,7 @@
     <!-- Screen reader name for the chip that takes an autocorrect back. The
          word on the chip is read after this, so it says what pressing does. -->
     <string name="ime_undo_correction_desc">Put back the word you typed</string>
+    <string name="ime_capture_undo_desc">Undo the last change</string>
 
     <!-- Shown under a glide's word picker once the finger has slid down away
          from the words: lifting now types nothing. -->
@@ -417,6 +418,7 @@
     <string name="ime_tool_notes">Notes</string>
     <string name="ime_tool_location">Location</string>
     <string name="ime_tool_clock">Clock</string>
+    <string name="ime_tool_gallery">Gallery</string>
     <!-- Learn from text (#174): the panel that lists words the keyboard does not know yet. -->
     <string name="ime_learn_select_all_action">Select all</string>
     <string name="ime_learn_select_none_action">Select none</string>
@@ -499,6 +501,7 @@
     <string name="ime_tool_cursor_home">Line start</string>
     <string name="ime_tool_cursor_end">Line end</string>
     <string name="ime_tool_hide_keyboard">Hide</string>
+    <string name="ime_tool_language">Language</string>
     <string name="ime_tool_page_up">Page up</string>
     <string name="ime_tool_page_down">Page down</string>
     <string name="ime_tool_select_word">Select word</string>
@@ -519,6 +522,27 @@
     <string name="ime_toolbox_drag_scope_mode">Changing the tool order for only the %1$s mode</string>
     <string name="ime_toolbox_drag_scope_global">Changing the global tool order outside modes</string>
     <string name="ime_toolbox_empty">Every tool is on the toolbar.</string>
+    <!-- The toolbox search (#687). Typed with the keyboard's own keys. -->
+    <string name="ime_toolbox_search_desc">Search tools</string>
+    <string name="ime_toolbox_search_hint">Search tools…</string>
+    <string name="ime_toolbox_search_clear_desc">Close the search</string>
+    <!-- %1$s is what the user typed. -->
+    <string name="ime_toolbox_search_no_match">No tool is called \"%1$s\".</string>
+    <!-- Toolbox folders (#709): drop one tool on another to make one. -->
+    <string name="ime_toolbox_folder_default_name">Folder</string>
+    <string name="ime_toolbox_folder_rename_desc">Rename the folder</string>
+    <string name="ime_toolbox_folder_rename_done_desc">Keep the name</string>
+    <string name="ime_toolbox_folder_name_hint">Folder name…</string>
+    <string name="ime_toolbox_folder_pin_desc">Pin the folder to the toolbar</string>
+    <string name="ime_toolbox_folder_unpin_desc">Remove the folder from the toolbar</string>
+    <string name="ime_toolbox_folder_ungroup_desc">Ungroup the folder</string>
+    <string name="ime_toolbox_folder_take_out">Drop here to take the tool out of the folder</string>
+    <string name="ime_toolbox_folder_empty">Every tool in this folder is on the toolbar.</string>
+    <!-- Spoken for a folder cell. %1$s is the folder name. -->
+    <plurals name="ime_toolbox_folder_desc">
+        <item quantity="one">%1$s, folder with %2$d tool</item>
+        <item quantity="other">%1$s, folder with %2$d tools</item>
+    </plurals>
 
     <!-- Tool panels that open over the keys. -->
     <string name="ime_translate_hint">Type the text to translate…</string>

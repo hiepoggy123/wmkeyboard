@@ -763,6 +763,14 @@ enum class PanelMode {
      * text box takes the keys through the `CLOCK_*` capture targets.
      */
     CLOCK,
+
+    /**
+     * The gallery tool (#708): the phone's photos and videos, picked, viewed,
+     * edited and sent. Its state is the controller's, see
+     * `ime.gallery.GalleryUi`; its caption box and the editor's text take the
+     * keys through [CaptureTarget.GALLERY_TEXT].
+     */
+    GALLERY,
 }
 
 /**
@@ -934,6 +942,8 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.LOCATION -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     // The tab row; each tab's own controls are touch, and typing reaches its box.
     PanelMode.CLOCK -> listOf(FocusRegion.CHIPS)
+    // The album and filter chips, the grid, then the send bar.
+    PanelMode.GALLERY -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The dialect and Fix-all chips, then the lint cards. Seed-only (see
@@ -1713,6 +1723,15 @@ data class AiChatUi(
     val attachment: AiChatAttachment? = null,
     /** [com.wasimaster.wmkeyboard.ime.aichat.AiChatController.ModelChoice.key]. */
     val modelKey: String = "",
+    /**
+     * Pictures to send with the next message (#698), by the names
+     * [com.wasimaster.wmkeyboard.ime.aichat.AiChatImages.import] gave them.
+     */
+    val images: List<String> = emptyList(),
+    /** The row offering where a picture can come from is up over the composer. */
+    val pictureSources: Boolean = false,
+    /** Why the last picture asked for did not arrive, as a string resource; null when it did. */
+    val pictureNotice: Int? = null,
 )
 
 /**
@@ -1763,6 +1782,12 @@ sealed interface AiChatAction {
     data class OpenInApp(val list: Boolean = false) : AiChatAction
     /** The answer at [index] of the conversation, reported (Play builds). */
     data class Report(val index: Int) : AiChatAction
+    /** Shows or hides where a picture for the next message can come from (#698). */
+    data object TogglePictureSources : AiChatAction
+    /** The clipboard's newest picture, or else the newest screenshot, for the next message. */
+    data class AddPicture(val fromClipboard: Boolean) : AiChatAction
+    /** Takes a picture back off the next message. */
+    data class RemovePicture(val name: String) : AiChatAction
 
     /**
      * Ask AI from another tool (#352): the AI panel opens on a new chat with
@@ -1981,6 +2006,9 @@ sealed interface KdeAction {
     data class Notice(val text: String) : KdeAction
     data object OpenSettings : KdeAction
     data object OpenDevices : KdeAction
+
+    /** Open the QR scanner for a computer's pairing code (full builds). */
+    data object ScanPairCode : KdeAction
 }
 
 /** Weather panel state, owned by the service (it does the fetching). */
@@ -2813,6 +2841,12 @@ data class KeyboardUiState(
      */
     val hardwareCandidateWindow: Boolean = false,
     /**
+     * Pick mode is on (#701): the physical number row selects suggestions,
+     * Shift with a number types the number. Toggled by the user's pick-mode
+     * key and kept until they press it again, across fields, but never saved.
+     */
+    val hardwarePickMode: Boolean = false,
+    /**
      * The conversion candidate the arrow keys (or a stepping space bar) have
      * moved to, as an index into [suggestions]; -1 while nobody has moved, when
      * the space bar's pick is simply the first one. What Enter and the space bar
@@ -3403,6 +3437,8 @@ data class KeyboardUiState(
      * store to count for itself.
      */
     val snippetCandidateCounts: Map<Long, Int> = emptyMap(),
+    /** The toolbox panel's own layers: its search (#687) and the folder open in it (#709). */
+    val toolboxView: ToolboxUi = ToolboxUi(),
     /**
      * MIME types the focused editor advertises for commitContent
      * (EditorInfo.contentMimeTypes). Empty means the field takes text only —
@@ -3515,6 +3551,11 @@ data class KeyboardUiState(
      * label. The rest of the panel's state is the controller's.
      */
     val clockText: com.wasimaster.wmkeyboard.ime.clock.ClockTextEntry? = null,
+    /**
+     * The gallery panel's text box while it has the keys: the caption, or a
+     * text layer in the editor. The rest of the panel's state is the controller's.
+     */
+    val galleryText: com.wasimaster.wmkeyboard.ime.gallery.GalleryTextEntry? = null,
     val weather: WeatherUi = WeatherUi.NoLocation,
     val dictionary: DictionaryUi = DictionaryUi.Idle,
     /** Word in the dictionary panel's search field. */
@@ -3668,6 +3709,8 @@ data class KeyboardUiState(
      * can leak into it and nothing of it can leak out.
      */
     val captureSuggestions: List<String> = emptyList(),
+    /** The focused keyboard-owned field's undo history, while it has one (#665). */
+    val captureUndo: CaptureUndoMark? = null,
 ) {
     /**
      * Whether incognito is in force right now, from either source: the
@@ -3949,6 +3992,10 @@ data class KeyboardUiState(
     val clockTypingActive: Boolean
         get() = panel == PanelMode.CLOCK && clockText != null
 
+    /** Whether the gallery panel's text box has the keys; panel *and* box, as [clockTypingActive]. */
+    val galleryTypingActive: Boolean
+        get() = panel == PanelMode.GALLERY && galleryText != null
+
     /**
      * Whether keystrokes belong to the clipboard panel's clip editor. Panel
      * *and* an open edit, like [learnEditActive], so an edit left behind by a
@@ -4027,6 +4074,7 @@ data class KeyboardUiState(
             } else {
                 CaptureTarget.CLOCK_LABEL
             }
+        galleryTypingActive -> CaptureTarget.GALLERY_TEXT
         calcTypingActive -> CaptureTarget.CALC
         converterTypingActive -> CaptureTarget.CONVERTER
         wordSpellActive -> CaptureTarget.WORD_SPELL
@@ -4041,6 +4089,8 @@ data class KeyboardUiState(
         dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
         clipboardSearchActive -> CaptureTarget.CLIPBOARD_SEARCH
         snippetSearchActive -> CaptureTarget.SNIPPET_SEARCH
+        panel == PanelMode.TOOLBOX && toolboxView.nameDraft != null -> CaptureTarget.TOOLBOX_FOLDER_NAME
+        panel == PanelMode.TOOLBOX && toolboxView.searchActive -> CaptureTarget.TOOLBOX_SEARCH
         else -> null
     }
 
@@ -4085,6 +4135,9 @@ data class KeyboardUiState(
         CaptureTarget.NOTE_BODY -> notes.editing?.bodyDraft.orEmpty()
         CaptureTarget.NOTE_TAG -> notes.editing?.tagDraft.orEmpty()
         CaptureTarget.CLOCK_SEARCH, CaptureTarget.CLOCK_LABEL -> clockText?.text.orEmpty()
+        CaptureTarget.GALLERY_TEXT -> galleryText?.text.orEmpty()
+        CaptureTarget.TOOLBOX_SEARCH -> toolboxView.query
+        CaptureTarget.TOOLBOX_FOLDER_NAME -> toolboxView.nameDraft.orEmpty()
     }
 
     /**
@@ -4359,3 +4412,19 @@ private const val MAX_KEY_SPELLING = 4
 
 /** The longest key [LayoutSet.digraphAnchors] reads as one letter: Klingon's `tlh`. */
 private const val MAX_DIGRAPH_LETTERS = 3
+
+/**
+ * What the toolbox panel is showing beyond its grid, on [KeyboardUiState] for
+ * the reason [KeyboardUiState.snippetFolderOpen] is: back has to close these
+ * one at a time before it closes the panel, and the capture ladder has to know
+ * when one of them has the keys.
+ */
+data class ToolboxUi(
+    /** The folder opened in the grid (#709), by [com.wasimaster.wmkeyboard.core.settings.ToolboxFolder.id]. */
+    val folderOpen: String? = null,
+    /** Typing edits [query] and the grid lists the tools whose names match it (#687). */
+    val searchActive: Boolean = false,
+    val query: String = "",
+    /** The open folder's name while it is being typed; null when it is not being renamed. */
+    val nameDraft: String? = null,
+)

@@ -162,6 +162,7 @@ import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowWidthSizeClass
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.util.PlayServices
+import com.wasimaster.wmkeyboard.ime.KeyboardControls
 import com.wasimaster.wmkeyboard.ime.ui.LocalIconSet
 import com.wasimaster.wmkeyboard.ime.ui.rememberIconSet
 import kotlinx.coroutines.Dispatchers
@@ -179,6 +180,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
@@ -352,6 +354,9 @@ class MainActivity : FragmentActivity() {
                         pending = pending,
                         onPendingHandled = { pendingNav.value = null },
                     )
+                    // Settings fields rely on the window panning; keep it in
+                    // step with a keyboard that changes height under them.
+                    RepanOnKeyboardResize()
                     // The app lock's own PIN, password or pattern sheet. Once,
                     // up here, like the system prompt it stands in for.
                     AppLockSecretPrompt(appLock)
@@ -416,6 +421,19 @@ class MainActivity : FragmentActivity() {
         // An https /open/ address is one of ours wearing a web page's
         // clothes; unwrap it first and everything below treats it the same.
         val link = WebOpenLink.appLink(intent.data) ?: intent.data?.toString()
+        // A computer's pairing code: KDE Connect on, pairing under way, and
+        // the devices screen open to watch it happen. The code only pairs with
+        // the computer whose certificate it names; see KdeConnectHub.pairByCode.
+        if (link != null && com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode.parse(link) != null) {
+            val repository = com.wasimaster.wmkeyboard.core.settings.SettingsRepository(applicationContext)
+            lifecycleScope.launch {
+                repository.setKdeEnabled(true)
+                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.attach(applicationContext)
+                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.applySettings(repository.settings.first().kdeConnect)
+                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.pairByCode(link)
+            }
+            return PendingNav(route = com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.DEVICES_ROUTE)
+        }
         AddonDeepLink.routeFor(link)?.let { return PendingNav(route = it) }
         SettingsDeepLink.parse(link)?.let { target -> return pendingFor(target) }
         // One of ours, naming a screen this build does not have: most likely
@@ -667,6 +685,14 @@ private fun SettingsNavHost(
     val preview = remember { KeyboardPreviewState() }
     val previewWanted = settings.watch { it.appUi.keyboardPreviewButton }
     LaunchedEffect(previewWanted) { if (!previewWanted) preview.open = false }
+    // The keyboard came up over these screens with no field to type into:
+    // pinned, or summoned by the floating button or the shade. Open the test
+    // field as its button would, so the keys have somewhere to type and the
+    // screen is padded clear of them rather than hiding its bottom rows.
+    val upWithoutField by KeyboardControls.upOverOwnApp.collectAsStateWithLifecycle()
+    LaunchedEffect(upWithoutField, previewWanted) {
+        if (upWithoutField && previewWanted) preview.open = true
+    }
     CloseOrphanedKeyboardPreview(preview)
     val context = LocalContext.current
     LaunchedEffect(layoutWanted) {
@@ -2224,6 +2250,15 @@ private fun SettingsNavGraph(
                 route = aiActionEditRoute(actionId),
             ) {
                 AiActionEditor(repository, settings, actionId) { navController.popBackStack() }
+            }
+        }
+        composable(AI_BUILT_IN_TOOLS_ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.toolai_ai_builtin_screen_title),
+                { navController.popBackStack() },
+                route = AI_BUILT_IN_TOOLS_ROUTE,
+            ) {
+                AiBuiltInToolSettings(repository, settings)
             }
         }
         composable("ai_mcp") {

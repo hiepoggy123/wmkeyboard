@@ -64,9 +64,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Only used by the optional calendar tool to list the day's events;
-         read-only, never written, and only queried while the tool is open. -->
+    <!-- Used by the optional calendar tool to list the day's events while it
+         is open, and by the AI's calendar tool (#698) when the user allows it. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+
+    <!-- Only used by the AI's "add it directly" for calendar events (#698),
+         which is off until the user picks it and grants this. Adds events
+         only; nothing in the app edits or deletes one. -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <!-- Only used by the optional "Add words to the system dictionary" setting.
          Since API 23 the provider grants the active IME access without a
@@ -92,11 +97,17 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
-    <!-- Only used by the optional "User screenshots" clipboard setting. -->
+    <!-- The optional "User screenshots" clipboard setting, and the gallery
+         tool's grid of photos and videos (#708). Photos and videos are two
+         grants from Android 13; from 14 the dialog can grant only the photos
+         the user picks, which READ_MEDIA_VISUAL_USER_SELECTED is. All asked
+         for only after the in-app disclosure, never at install. -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <!-- Only used by the optional fingerprint lock in Privacy, which puts a
          BiometricPrompt in front of the settings screens and destructive
@@ -325,6 +336,8 @@
                 <data android:scheme="wmkeyboard" android:host="addons" />
                 <data android:scheme="wmkeyboard" android:host="repo" />
                 <data android:scheme="wmkeyboard" android:host="addon" />
+                <!-- A computer's pairing code (WMK Desktop): KdeConnectHub.pairByCode. -->
+                <data android:scheme="wmkeyboard" android:host="pair" />
             </intent-filter>
 
             <!--
@@ -918,6 +931,28 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!--
+             The AI chat as a sheet over the app the user was in (#697). Opened
+             by the floating AI button with the screen's text, and by "Ask AI"
+             in the text selection menu with the selected text. Either way the
+             text rides along as the first message's attachment, shown before
+             anything is sent. From the button it starts its own task afresh
+             each time, so closing it lands back in the app it was opened over.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.AskAiActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/ask_ai_label"
+            android:taskAffinity="com.wasimaster.wmkeyboard.askai"
+            android:theme="@style/Theme.WMKeyboard.Sheet">
+            <intent-filter android:label="@string/ask_ai_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Same trampoline pattern for the screenshot setting's
              android.permission.READ_MEDIA_IMAGES (or READ_EXTERNAL_STORAGE). -->
         <activity
@@ -925,6 +960,27 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery tool's photos and videos (#708), same trampoline. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery tool's system pickers (#708): Android's photo picker
+             (the whole tool in a Play build) and the document picker. No
+             noHistory, for the scanner's reason below: the picker's result
+             comes back to this activity. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryPickActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
@@ -1038,26 +1094,6 @@
         </service>
 
         <!--
-             The keyboard's word lists as Android's spell checker (#511). Only
-             runs once the user picks it under the system's spell checker
-             setting. Its metadata file must not be named spellchecker.xml:
-             the full flavour's Harper service owns that name, and a flavour
-             resource replaces main's by name.
-        -->
-        <service
-            android:name="com.wasimaster.wmkeyboard.app.spell.WMSpellCheckerService"
-            android:exported="true"
-            android:label="@string/spell_checker_name"
-            android:permission="android.permission.BIND_TEXT_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.textservice.SpellCheckerService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.view.textservice.scs"
-                android:resource="@xml/spellchecker_words" />
-        </service>
-
-        <!--
              Carves the keyboard's own window out of TalkBack's touch handling
              so the keyboard's gestures (spacebar cursor slide, backspace word
              swipe, glide typing, handwriting) still work while a screen reader
@@ -1080,6 +1116,27 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/passthrough_service" />
+        </service>
+
+        <!--
+             The floating AI button's screen reading (#697). Reads the text of
+             the app on screen once per press of that button, and at no other
+             time, so the AI chat it opens can be about what the user is
+             looking at. Off until the user enables it in Settings ›
+             Accessibility, behind its own disclosure. Same process as the
+             keyboard, which calls it directly. See ScreenContextService.
+        -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.accessibility.ScreenContextService"
+            android:exported="true"
+            android:label="@string/screen_context_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/screen_context_service" />
         </service>
 
         <!-- Notification listener with two jobs, both user-visible. The
@@ -1255,10 +1312,11 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!-- The Harper spell checker, in every edition. A build made without
-             libharper_jni.so (F-Droid) has it switched off at startup by
-             HarperSpellChecker.syncAvailability, so Android's settings never
-             list one that cannot answer. -->
+        <!-- The spell checker, in every edition: the keyboard's word lists for
+             spelling in each language (#511), Harper for English grammar where
+             the build carries it. Keeps the Harper component's name, because
+             Android remembers the chosen checker by component and a rename
+             would switch spell checking off for everyone who picked it. -->
         <service
             android:name="com.wasimaster.wmkeyboard.spell.HarperSpellCheckerService"
             android:exported="true"
@@ -1269,7 +1327,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.view.textservice.scs"
-                android:resource="@xml/spellchecker" />
+                android:resource="@xml/spellchecker_words" />
         </service>
     </application>
 

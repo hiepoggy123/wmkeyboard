@@ -66,8 +66,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -92,6 +94,7 @@ import android.os.Build
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadProgress
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModelSizes
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
+import com.wasimaster.wmkeyboard.core.handwriting.InkPackImports
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.WMKeyboardService
@@ -3227,6 +3230,7 @@ internal fun ToolDetailSettings(
         ToolbarTool.NOTES -> NotesToolSettings(repository, settings, onNavigate)
         ToolbarTool.LOCATION -> LocationToolSettings(repository, settings)
         ToolbarTool.CLOCK -> ClockToolSettings(onNavigate)
+        ToolbarTool.GALLERY -> GalleryToolSettings(repository, settings)
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
@@ -4124,11 +4128,31 @@ private fun HandwritingModelManager(settings: LiveSettings) {
     val progress = remember { mutableStateMapOf<String, HandwritingDownloadProgress>() }
     val sizes = remember { mutableStateMapOf<String, Long>() }
     val reduceMotion = LocalReduceMotion.current
-    LaunchedEffect(languages) {
+    // Bumped by an offline import, so the rows re-read what ML Kit now has.
+    var imports by remember { mutableIntStateOf(0) }
+    LaunchedEffect(languages, imports) {
         for (language in languages) {
             statuses[language.tag] =
                 if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
             sizes[language.tag] = HandwritingModelSizes.installedBytes(context, language.tag)
+        }
+    }
+    // Each model's pack files, to fetch on another device (#666). Empty on
+    // Play until the recogniser's module, which carries the list, is here.
+    val importLinks by produceState(emptyList<OfflineLink>(), languages) {
+        value = withContext(Dispatchers.IO) {
+            languages.flatMap { language ->
+                val urls = InkPackImports.packUrls(context, language.tag)
+                urls.mapIndexed { index, url ->
+                    OfflineLink(
+                        context.getString(
+                            R.string.offline_import_handwriting_link_label,
+                            language.displayName, index + 1, urls.size,
+                        ),
+                        url,
+                    )
+                }
+            }.distinctBy { it.url }
         }
     }
     if (languages.isEmpty()) {
@@ -4231,6 +4255,13 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                     },
                 )
             }
+        }
+        item {
+            OfflineImportRow(
+                subtitle = stringResource(R.string.offline_import_handwriting_subtitle),
+                links = importLinks,
+                onImported = { imports++ },
+            )
         }
     }
     if (missing.isNotEmpty()) {

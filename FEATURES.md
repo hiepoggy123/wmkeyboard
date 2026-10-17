@@ -1596,7 +1596,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Toolbar and the tool set
 
-- **Toolbar & toolbox mechanics** `uncommon` — 83 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
+- **Toolbar & toolbox mechanics** `uncommon` — 84 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
   - Pinned bar vs toolbox — A tool is on the bar or in the toolbox grid, never both
     - Default pinned row — Emoji, Clipboard, Settings (DefaultToolbarTools)
     - Tablet-aware default pin set — 5 pinned on small tablets, 7 on large, applied only if user never rearranged
@@ -1617,6 +1617,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Page size 4–40 — ToolboxPageSizeRange, default 12, with page dots
     - Empty toolbox is still one page — toolboxPageCount floors at 1; out-of-range pages return empty, not a crash
     - Drag reorders within the held page — Pages don't flip under the finger
+  - Toolbox folders `RARE` (#709) — Drop a tool on the middle of another and the two become a named folder in one cell; ToolboxSettings.folders, key toolbox_folders, in backups
+    - Middle files, edges reorder — ToolboxMergeZone is the middle of a cell; its outer parts stay the slots either side
+    - Opens in place — Header with back, rename through the capture field (TOOLBOX_FOLDER_NAME), pin to toolbar, ungroup; drag onto the header takes a tool out
+    - Folder sits where its first tool ranks — toolboxOrder stays a ranking of tools, so mode-owned orders keep working; one set of folders for every mode
+    - Dissolves at one tool — normalizedFolders drops folders under TOOLBOX_FOLDER_MIN_TOOLS
+    - Pinnable — A pinned folder draws after the bar's tools and opens the toolbox at itself; drag a folder onto the bar to pin it
+  - Toolbox search `RARE` (#687) — Magnifier beside the toolbar back button while the toolbox is open (ToolboxSettings.searchButton, key toolbox_search_button), opens full-bleed with its own back button; TOOLBOX_SEARCH capture field with the keys under a shorter panel; matches names across folders, starts-with first; Enter opens the first
   - Tools on their own row `uncommon` — ToolbarPlacement: STRIP (default, shares the suggestion strip), ON_DEMAND_ROW (the chevron opens a tools row above it, FUTO-style), ALWAYS_ROW (that row stays open, LeanType-style)
     - Strip stops flipping — With a row of their own the strip is only ever candidates, so the surface swap, the emoji handoff and the settle beat all rest
     - Chevron changes job — Opens and closes the row on ON_DEMAND_ROW, and disappears on ALWAYS_ROW where it would do nothing
@@ -1646,7 +1653,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Tool background radius and shape — toolCircleRadiusDp default 20, toolShape shares the key shapes; 0 removes it
     - Tool button width 38dp default — toolWidthDp stretches the circle into a pill
     - Tool icon size 22dp default (14–30) — toolbarBehavior.iconSizeDp, glyph only, button stays 38dp; toolbar + toolbox grid
-  - Per-tool settings screen `RARE` — Every one of the 83 tools has its own screen under Settings → Tools
+  - Per-tool settings screen `RARE` — Every one of the 84 tools has its own screen under Settings → Tools
     - Eight groups plus an Other catch-all — Panels, Scanners, Online, Create & convert, Modes, Cursor, Quick actions, Utilities
     - Tune icon marks tools with real options — toolHasOptions; toggle-only tools show just the switch
     - One switch controls bar, toolbox and leader key — setToolEnabled hides the tool everywhere at once
@@ -1655,7 +1662,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Per-tool colour override — toolColorOverrides map, reset-all button when any override exists
     - Two-colour gradient icons — toolIconGradients off by default, with its own end-colour override map
     - Icon-pack glyph substitution — IconSlots.forTool resolves an installed icon pack's glyph
-  - Direct-boot tool filter `RARE` — 48 of 83 tools work before the first unlock after reboot
+  - Direct-boot tool filter `RARE` — 49 of 84 tools work before the first unlock after reboot
     - Rule is what the tool reads — Arithmetic, sensors and keyboard-own state stay; disk, credentials, providers, activities go
     - All 14 cursor tools stay usable — They only touch the input connection
     - Not a user toggle — isDirectBootSafeTool is automatic and only applies pre-first-unlock
@@ -2125,7 +2132,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Voice typing | needs microphone permission; audio may reach the OS recognizer service unless the on-device language model is installed |
 | Clipboard link previews and QR link details and dictionary auto-lookup | network, and force-disabled by power saving's background-network toggle |
 | 35 tools of 83 are unavailable before the first unlock after reboot | direct-boot filter; the other 48 (arithmetic, sensors, keyboard-own state, all 14 cursor tools) stay usable |
-| Lite edition tool count | 78 of 83 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
+| Lite edition tool count | 79 of 84 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
 
 ## Clipboard, snippets, text expansion
 

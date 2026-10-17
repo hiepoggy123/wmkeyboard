@@ -112,6 +112,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.WEATHER -> ImeR.string.ime_tool_weather
     ToolbarTool.LOCATION -> ImeR.string.ime_tool_location
     ToolbarTool.CLOCK -> ImeR.string.ime_tool_clock
+    ToolbarTool.GALLERY -> ImeR.string.ime_tool_gallery
     ToolbarTool.CALENDAR -> ImeR.string.ime_tool_calendar
     ToolbarTool.INCOGNITO -> ImeR.string.ime_tool_incognito
     ToolbarTool.POWER_SAVING -> ImeR.string.ime_tool_power_saving
@@ -174,6 +175,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> ImeR.string.ime_tool_cut
     ToolbarTool.PASTE -> ImeR.string.ime_tool_paste
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_title
+    ToolbarTool.LANGUAGE -> R.string.fonts_tool_language_title
 }
 /** The one-line description under a tool's name, as a string resource. */
 @StringRes
@@ -198,6 +200,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.WEATHER -> R.string.fonts_tool_weather_desc
     ToolbarTool.LOCATION -> R.string.fonts_tool_location_desc
     ToolbarTool.CLOCK -> R.string.fonts_tool_clock_desc
+    ToolbarTool.GALLERY -> R.string.fonts_tool_gallery_desc
     ToolbarTool.CALENDAR -> R.string.fonts_tool_calendar_desc
     ToolbarTool.INCOGNITO -> R.string.fonts_tool_incognito_desc
     ToolbarTool.POWER_SAVING -> R.string.fonts_tool_power_saving_desc
@@ -260,6 +263,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> R.string.fonts_tool_cut_desc
     ToolbarTool.PASTE -> R.string.fonts_tool_paste_desc
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_desc
+    ToolbarTool.LANGUAGE -> R.string.fonts_tool_language_desc
 }
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector =
     IconDefaults.forTool(tool)
@@ -545,7 +549,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
         R.string.tools_group_panels_title to listOf(
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.NOTES,
             ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
-            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
+            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.GALLERY, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
             ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
             ToolbarTool.KDE_CONNECT,
         ),
@@ -580,7 +584,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
             ToolbarTool.UNDO, ToolbarTool.REDO,
             ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
             ToolbarTool.AUTOCORRECT, ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH,
-            ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
+            ToolbarTool.LANGUAGE, ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
             ToolbarTool.THEMES, ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS, ToolbarTool.STATISTICS,
         ),
     )

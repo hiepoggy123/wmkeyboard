@@ -10,6 +10,10 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("wmkeyboard.compose-metrics")
+    // Offline handwriting model imports (#666): rewrites three calls inside
+    // ML Kit's digital-ink downloader. Inert on Play, where the library is in
+    // :feature:handwriting, which applies it too.
+    id("wmkeyboard.ink-offline-imports")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.detekt)
     alias(libs.plugins.licensee)
@@ -1293,6 +1297,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // GalleryCoreTest builds ExifInterface tag lists; :core:content keeps the
+    // library to itself (implementation), so the tests here need their own.
+    testImplementation(libs.androidx.exifinterface)
     // The plugin tests drive the Lua sandbox through luaj types directly.
     testImplementation(libs.luaj.jse)
     androidTestImplementation(libs.androidx.junit)
@@ -1303,6 +1310,11 @@ dependencies {
     // it adds a manifest entry, so it must never reach a release build.
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// The transliteration tests call the Rust text engines through JNI, so the
+// library has to exist for this machine before the suite starts. The task is
+// :core:language's, where the facades live; see the comment on it there.
+tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
 // assert against millisecond budgets measured on a quiet machine, so on a

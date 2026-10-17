@@ -427,6 +427,7 @@ private fun SearchStrings.typingChipsRows(): List<SettingsSearchEntry> {
         row(R.string.typing_smart_gifs_title, R.string.typing_smart_gifs_subtitle),
         row(R.string.typing_smart_numbers_title, R.string.typing_smart_numbers_subtitle),
         row(R.string.typing_smart_contacts_title, R.string.typing_smart_contacts_subtitle),
+        row(R.string.typing_smart_keep_text_title, R.string.typing_smart_keep_text_subtitle),
         row(
             R.string.typing_smart_number_grouping_title,
             R.string.typing_smart_number_grouping_subtitle,
@@ -468,6 +469,7 @@ private fun SearchStrings.typingGesturesRows(): List<SettingsSearchEntry> {
         row(R.string.typing_space_glide_multiword_title, R.string.typing_space_glide_multiword_subtitle),
         row(R.string.typing_two_thumb_title, R.string.typing_two_thumb_subtitle),
         row(R.string.typing_two_thumb_word_end_title, R.string.typing_two_thumb_word_end_subtitle),
+        row(R.string.typing_two_thumb_pause_title, R.string.typing_two_thumb_pause_subtitle),
         row(R.string.typing_swipe_continues_typed_title, R.string.typing_swipe_continues_typed_subtitle),
         row(R.string.typing_shift_glide_capitals_title, R.string.typing_shift_glide_capitals_subtitle),
         row(R.string.typing_shift_glide_mode_title, R.string.typing_shift_glide_mode_subtitle),
@@ -566,6 +568,8 @@ private fun SearchStrings.typingHardwareRows(): List<SettingsSearchEntry> {
         row(R.string.typing_hw_picker_timeout_title, R.string.typing_hw_picker_timeout_subtitle),
         row(R.string.typing_hw_suggestion_hotkeys_title, R.string.typing_hw_suggestion_hotkeys_subtitle),
         row(R.string.typing_hw_suggestion_hints_title, R.string.typing_hw_suggestion_hints_subtitle),
+        row(R.string.typing_hw_pick_mode_key_title, R.string.typing_hw_pick_mode_key_subtitle),
+        row(R.string.typing_hw_function_keys_title, R.string.typing_hw_function_keys_subtitle),
         row(R.string.typing_hw_mac_title, R.string.typing_hw_mac_subtitle),
         row(R.string.typing_hw_auto_show_title, R.string.typing_hw_auto_show_subtitle),
     )
@@ -669,6 +673,8 @@ private fun SearchStrings.keypressShortcutsRows(): List<SettingsSearchEntry> {
     return listOf(
         row(R.string.keypress_long_press_hints_title, R.string.keypress_long_press_hints_subtitle),
         row(R.string.keypress_all_accents_title, R.string.keypress_all_accents_subtitle),
+        row(R.string.keypress_no_accents_title, R.string.keypress_no_accents_subtitle),
+        row(R.string.keypress_top_row_holds_title, R.string.keypress_top_row_holds_subtitle),
         row(R.string.keypress_native_letters_title, R.string.keypress_native_letters_subtitle),
         row(R.string.keypress_shifted_popup_title, R.string.keypress_shifted_popup_subtitle),
         row(R.string.keypress_symbols_numpad_title, R.string.keypress_symbols_numpad_subtitle),
@@ -777,6 +783,7 @@ private fun SearchStrings.appearanceToolbarRows(): List<SettingsSearchEntry> {
         row(R.string.appearance_toolbar_show_strip_title, R.string.appearance_toolbar_show_strip_subtitle),
         row(R.string.appearance_toolbar_swipe_down_title, R.string.appearance_toolbar_swipe_down_subtitle),
         row(R.string.appearance_toolbar_drag_title, R.string.appearance_toolbar_drag_subtitle),
+        row(R.string.appearance_toolbar_hold_delay_title, R.string.appearance_toolbar_hold_delay_subtitle),
         row(R.string.appearance_toolbar_hardware_only_title, R.string.appearance_toolbar_hardware_only_subtitle),
         row(R.string.appearance_toolbar_hardware_auto_hide_title, R.string.appearance_toolbar_hardware_auto_hide_subtitle),
         row(R.string.appearance_toolbar_rtl_title, R.string.appearance_toolbar_rtl_subtitle),
@@ -812,6 +819,7 @@ private fun SearchStrings.appearanceToolboxRows(): List<SettingsSearchEntry> {
         row(R.string.appearance_toolbox_page_size_title, R.string.appearance_toolbox_page_size_subtitle),
         row(R.string.appearance_reset_toolbox_order_title, R.string.appearance_reset_toolbox_order_subtitle),
         row(R.string.appearance_toolbox_label_size_title, R.string.appearance_toolbox_label_size_subtitle),
+        row(R.string.appearance_toolbox_search_button_title, R.string.appearance_toolbox_search_button_subtitle),
         row(R.string.appearance_toolbox_reset_title, R.string.appearance_toolbox_reset_subtitle),
     )
 }
@@ -904,6 +912,7 @@ private fun SearchStrings.layoutOnehandedRows(): List<SettingsSearchEntry> {
         row(R.string.layout_floating_width_title, R.string.layout_floating_width_subtitle),
         row(R.string.layout_persistent_title, R.string.layout_persistent_subtitle, weight = EntryWeight.PRIMARY),
         row(R.string.layout_summon_button_title, R.string.layout_summon_button_subtitle, weight = EntryWeight.PRIMARY),
+        row(R.string.layout_ai_button_title, R.string.layout_ai_button_subtitle, weight = EntryWeight.PRIMARY),
     )
 }
 
@@ -1392,6 +1401,7 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_lifetime_title, R.string.kdeconnect_lifetime_keyboard_detail),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_auto_connect_title, R.string.kdeconnect_auto_connect_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_clipboard_receive_title, R.string.kdeconnect_clipboard_receive_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_clear_secrets_title, R.string.kdeconnect_clear_secrets_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_clipboard_send_title, R.string.kdeconnect_clipboard_send_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_remote_typing_title, R.string.kdeconnect_remote_typing_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_pipeline_title, R.string.kdeconnect_pipeline_subtitle),
@@ -1404,6 +1414,7 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_receive_files_title, R.string.kdeconnect_receive_files_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_share_sheet_title, R.string.kdeconnect_share_sheet_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_battery_title, R.string.kdeconnect_battery_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_codes_title, R.string.kdeconnect_codes_subtitle),
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_media_title, R.string.kdeconnect_media_subtitle),
     // Subtitle left off: the drawn one says whether the grant is in place.
     toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_media_access_title),
@@ -1536,6 +1547,35 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
 )
 
 /** Rows on the tool pages, from Translate through the AI tool. */
+/** The gallery tool's page (#708); the browsing rows only where the build has the grid. */
+private fun SearchStrings.galleryRows(): List<SettingsSearchEntry> {
+    val grid = ChannelFeatures.GALLERY_BROWSER
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0, gridOnly: Boolean = false) =
+        toolEntry(ToolbarTool.GALLERY, title, subtitle).takeIf { grid || !gridOnly }
+    return listOfNotNull(
+        row(R.string.gallery_access_title, R.string.gallery_access_group, gridOnly = true),
+        row(R.string.gallery_tap_title, R.string.gallery_tap_subtitle, gridOnly = true),
+        row(R.string.gallery_columns_title, R.string.gallery_columns_subtitle, gridOnly = true),
+        row(R.string.gallery_camera_tile_title, R.string.gallery_camera_tile_subtitle, gridOnly = true),
+        row(R.string.gallery_show_videos_title, R.string.gallery_show_videos_subtitle, gridOnly = true),
+        row(R.string.gallery_scrubber_title, R.string.gallery_scrubber_subtitle, gridOnly = true),
+        row(R.string.gallery_start_expanded_title, R.string.gallery_start_expanded_subtitle, gridOnly = true),
+        row(R.string.gallery_remember_album_title, R.string.gallery_remember_album_subtitle, gridOnly = true),
+        row(R.string.gallery_haptics_title, R.string.gallery_haptics_subtitle, gridOnly = true),
+        row(R.string.gallery_quality_title, R.string.gallery_quality_subtitle),
+        row(R.string.gallery_max_selection_title, R.string.gallery_max_selection_subtitle),
+        row(R.string.gallery_caption_title, R.string.gallery_caption_subtitle, gridOnly = true),
+        row(R.string.gallery_fallback_title, R.string.gallery_fallback_subtitle),
+        row(R.string.gallery_close_after_send_title, R.string.gallery_close_after_send_subtitle, gridOnly = true),
+        row(R.string.gallery_save_edited_title, R.string.gallery_save_edited_subtitle, gridOnly = true),
+        row(R.string.gallery_strip_location_title, R.string.gallery_strip_location_subtitle),
+        row(R.string.gallery_strip_all_title, R.string.gallery_strip_all_subtitle),
+        row(R.string.gallery_random_names_title, R.string.gallery_random_names_subtitle),
+        row(R.string.gallery_history_title, R.string.gallery_history_subtitle, gridOnly = true),
+        row(R.string.gallery_history_clear_title, R.string.gallery_history_clear_subtitle, gridOnly = true),
+    )
+}
+
 private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.STICKER, R.string.tooldetail_sticker_packs_title, R.string.tooldetail_sticker_packs_subtitle),
     toolEntry(ToolbarTool.STICKER, R.string.tooldetail_sticker_suggest_title, R.string.tooldetail_sticker_suggest_subtitle),
@@ -1690,6 +1730,24 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_first_title, R.string.toolai_ai_diff_first_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_search_title, R.string.toolai_ai_tool_search_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_fetch_title, R.string.toolai_ai_tool_fetch_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_builtin_title, R.string.toolai_ai_builtin_subtitle),
+    // The keyboard's own tools (#698), on their own screen, one row each.
+    *builtInToolText.values.map { text ->
+        entry(
+            text.title,
+            text.subtitle,
+            R.string.toolai_ai_builtin_screen_title,
+            AI_BUILT_IN_TOOLS_ROUTE,
+            screenParent = R.string.home_tools_title,
+        )
+    }.toTypedArray(),
+    entry(
+        R.string.toolai_ai_builtin_calendar_mode_title,
+        R.string.toolai_ai_builtin_calendar_mode_subtitle,
+        R.string.toolai_ai_builtin_screen_title,
+        AI_BUILT_IN_TOOLS_ROUTE,
+        screenParent = R.string.home_tools_title,
+    ),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_mcp_title, R.string.toolai_ai_mcp_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_rounds_title, R.string.toolai_ai_tool_rounds_subtitle),
     // The MCP server list's own row. Indexed on that screen: the tool page
@@ -1957,6 +2015,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         permission(R.string.privacy_permissions_camera_title, R.string.privacy_permissions_camera_subtitle),
         permission(R.string.privacy_permissions_contacts_title, R.string.privacy_permissions_contacts_subtitle),
         permission(R.string.privacy_permissions_calendar_title, R.string.privacy_permissions_calendar_subtitle),
+        permission(R.string.privacy_permissions_calendar_write_title, R.string.privacy_permissions_calendar_write_subtitle),
         permission(R.string.privacy_permissions_images_title, R.string.privacy_permissions_images_subtitle)
             .takeIf { ChannelFeatures.SCREENSHOT_CLIPS },
         permission(
@@ -1969,6 +2028,10 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
             R.string.privacy_permissions_accessibility_title,
             R.string.privacy_permissions_accessibility_subtitle,
         ).takeIf { ChannelFeatures.GESTURE_PASSTHROUGH },
+        permission(
+            R.string.privacy_permissions_screen_content_title,
+            R.string.privacy_permissions_screen_content_subtitle,
+        ).takeIf { ChannelFeatures.SCREEN_CONTEXT },
         // Only the channel that installs its own updates asks for this one.
         if (UpdateChannel.GITHUB) {
             permission(
@@ -2044,6 +2107,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         about(R.string.about_licence_title),
         about(R.string.about_source_title),
         about(R.string.about_launcher_name_title, R.string.about_launcher_name_subtitle),
+        about(R.string.about_launcher_shown_title, R.string.about_launcher_shown_subtitle),
         about(R.string.about_app_language_title, R.string.about_app_language_subtitle),
         // Open-source licences has its own screen, indexed once in sectionRows.
         about(R.string.about_user_guide_title),
@@ -2501,7 +2565,7 @@ internal fun settingsSearchIndex(strings: SearchStrings): List<SettingsSearchEnt
         layoutSizeRows() +
         layoutOnehandedRows() + languageRows() + emojiRows() +
         emojiPanelRows() +
-        voiceRows() + clipboardRows() + expanderRows() + toolPageRowsA() + toolPageRowsB() + vocabRows() + notesRows() + storageRows() + otherRows()
+        voiceRows() + clipboardRows() + expanderRows() + toolPageRowsA() + toolPageRowsB() + galleryRows() + vocabRows() + notesRows() + storageRows() + otherRows()
     all.filterNot { it.route in unsupported }.distinctBy { it.key }
 }
 

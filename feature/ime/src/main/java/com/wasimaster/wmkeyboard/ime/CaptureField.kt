@@ -380,6 +380,18 @@ enum class CaptureTarget(
 
     /** A label in the Clock panel: an alarm's, a timer's, a countdown's, a city's own name. */
     CLOCK_LABEL(takesWords = true),
+
+    /**
+     * The gallery panel's text (#708): the caption that goes with what is
+     * sent, or a text box being written on a photo in the editor.
+     */
+    GALLERY_TEXT(takesWords = true),
+
+    /** The toolbox's search (#687): matches tool names as it is typed, Enter opens the first. */
+    TOOLBOX_SEARCH(takesWords = true),
+
+    /** A toolbox folder's name (#709): one line, Enter keeps it. */
+    TOOLBOX_FOLDER_NAME(takesWords = true),
     ;
 
     /**
@@ -404,7 +416,7 @@ enum class CaptureTarget(
     val isSearch: Boolean
         get() = this == EMOJI_SEARCH || this == MEDIA_SEARCH || this == DICTIONARY_SEARCH ||
             this == CLIPBOARD_SEARCH || this == FIND_QUERY || this == SNIPPET_SEARCH ||
-            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH
+            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH || this == TOOLBOX_SEARCH
 }
 
 /**
@@ -426,7 +438,14 @@ enum class CaptureTarget(
 data class CaptureCaret(val key: String, val at: Int, val text: String, val anchor: Int = at)
 
 /** What the selection bar over a keyboard-owned field can do with its text (#352). */
-enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL }
+enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL, UNDO }
+
+/**
+ * A keyboard-owned field that has edits to undo (#665): the field's key and the
+ * text it held when the history last saw it. The undo button shows only while
+ * both still describe the field that has the keys.
+ */
+data class CaptureUndoMark(val key: String, val text: String)
 
 /** What the microphone on a keyboard-owned field's strip was asked to do (#353). */
 enum class CaptureVoiceAction {

@@ -33,7 +33,7 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 | Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (a flick moves one; a continued swipe steps every 44&nbsp;dp after a 200&nbsp;ms pause, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
 | Slot = Cursor, swipe sideways | Spacebar | Moves the text cursor one character per 16&nbsp;dp of drag | Either slot set to Cursor |
 | Same, dragging vertically | Spacebar | Also steps the cursor a line at a time | 2-D cursor touchpad (Off) |
-| Swipe up at least 24&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift | Swipe up for the touchpad (Off) |
+| Swipe up at least 80&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift. The cursor holds still for the long-press delay after it opens, and up and down count once the finger pauses or turns, so the opening swipe never jumps a line | Swipe up for the touchpad (Off) |
 | Same, while the drag moves the cursor | Spacebar | Shows the text at the cursor, enlarged, in a bubble over the text | Cursor magnifier (On) |
 | Slot = Numpad, cross the initial slop | Spacebar | Opens the numeric keypad (one-shot, so the rest of the drag does nothing) | Either slot set to Numpad |
 | Straight downward drag, steeper than it is wide | Spacebar | Dismisses the keyboard | Swipe down to hide the keyboard (Off) |
@@ -167,6 +167,11 @@ A grab-bag of drags that live on their own feature pages, linked below each row.
 | Scroll the results down, then up | [GIF and sticker panels](/emoji/gifs/#hiding-the-search-while-you-scroll) | Folds the search box and the chip rows away, then brings them back | Hide the search when you scroll (Off) |
 | Swipe sideways across the panel, more across than up or down, past 56&nbsp;dp or as a flick | [Clock](/tools/clock/), [Clipboard](/tools/clipboard/#pinned-and-unpinned-tabs), [Location](/tools/location/), [KDE Connect](/tools/kde-connect/#the-tabs), Vocabulary, Wikipedia and Themes panels | Moves to the next tab (leftward) or the previous one (rightward); the ends don't wrap. A list, chip row, card or touchpad that takes the drag itself keeps it | None |
 | Same, across the results | [GIF and sticker panels](/emoji/gifs/) | Moves along the emoji / GIF / sticker switch | None |
+| Hold a photo, then slide across the grid | [Gallery](/tools/gallery/#picking) | Picks every photo the finger passes (or unpicks, when it began on a picked one), scrolling near the edges. A hold without a slide shows the photo big until you lift | None |
+| Pinch the photo grid | [Gallery](/tools/gallery/#the-grid) | Fewer or more columns, two to six | Columns (4) |
+| Hold a pick in the send bar and drag it sideways | [Gallery](/tools/gallery/#the-send-bar) | Moves it in the send order | None |
+| Drag down in the photo viewer | [Gallery](/tools/gallery/#the-viewer) | Closes the viewer; sideways turns the page, a pinch or double tap zooms | None |
+| Drag, pinch or twist a text or sticker on a photo | [Gallery editor](/tools/gallery/#the-editor) | Moves, resizes or turns it; dropped on the bin, deletes it | None |
 | Hold and drag a tool | [Toolbar / toolbox](/tools/overview/) | Pins, unpins, or reorders it | None |
 | Swipe down on the toolbar strip | Toolbar | Dismisses the keyboard | Swipe down to hide, toolbar (Off) |
 | Drag the seek bar | [Media controls](/tools/media/) | Scrubs playback to that point | None |
@@ -206,6 +211,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Caps lock double press | Key press → Timing | 350 ms (150–600 ms) |
 | Press and hold hints | Key press → Press and hold shortcuts | On |
 | All accents on press and hold | Key press → Press and hold shortcuts | Off |
+| No accents on press and hold | Key press → Press and hold shortcuts | Off |
 | Your language's letters first | Key press → Press and hold shortcuts | On |
 | Shifted letter on press and hold | Key press → Press and hold shortcuts | Off |
 | Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | On |

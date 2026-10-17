@@ -20,6 +20,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.TextSn
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BarChart
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatterySaver
@@ -190,6 +191,7 @@ object IconDefaults {
         ToolbarTool.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
         ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
+        ToolbarTool.GALLERY -> Icons.Outlined.PhotoLibrary
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.KDE_CONNECT -> Icons.Outlined.Phonelink
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
@@ -207,6 +209,7 @@ object IconDefaults {
         ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
         ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
         ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
+        ToolbarTool.LANGUAGE -> Icons.Outlined.Language
         ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
         ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
         ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
@@ -315,6 +318,7 @@ object IconDefaults {
         put(IconSlots.CHROME_POWER_SAVING, Icons.Outlined.BatterySaver)
         put(IconSlots.CHROME_SHOW_KEYS, Icons.Outlined.Keyboard)
         put(IconSlots.CHROME_HIDE_KEYS, Icons.Outlined.KeyboardHide)
+        put(IconSlots.CHROME_TOOLBOX_SEARCH, Icons.Outlined.Search)
 
         put(IconSlots.EMOJI_TAB_SEARCH, Icons.Outlined.Search)
         put(IconSlots.EMOJI_TAB_RECENT, Icons.Outlined.Schedule)

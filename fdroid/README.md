@@ -94,17 +94,19 @@ tree before the source scan. Some belong to variants this build never
 produces: the Tesseract and Whistle libraries under
 `core/intelligence/src/full/` and `core/voice/src/full/`, the Cactus archive
 Whistle links (`native/whistle-jni/prebuilt`, which has no source to build
-from), and the LLM module's ABI placeholders. The other two directories,
-`src/main/jniLibs` of `:core:intelligence` and `:core:voice`, hold what lite
-itself ships since 0.6.0: Harper's grammar engine, whisper.cpp for Offline
-Whisper, and the selective ExecuTorch build behind Offline Asr4All, Parakeet
-and Moonshine.
+from), and the LLM module's ABI placeholders. The other directories,
+`src/main/jniLibs` of `:core:intelligence`, `:core:voice` and
+`:core:language`, hold what lite itself ships since 0.6.0: Harper's grammar
+engine, whisper.cpp for Offline Whisper, the selective ExecuTorch build behind
+Offline Asr4All, Parakeet and Moonshine, and, from the release after 0.6.0,
+the text engines (Avro, Khipro, Bijoy, Hindi, Urdu and the Indic languages),
+which moved from Kotlin into the Rust crate `native/wm-engine`.
 
 Up to 0.5.14 lite carried none of them, so deleting was the whole story. Now
 `build` puts them back: `../native/build-lite-libs.sh` runs after the scan and
-before Gradle, and compiles all three from source into the directories the
-scan emptied (`native/harper-jni` with Rust and `cargo ndk`,
-`native/whispercpp-jni` and `native/executorch-jni` with CMake). whisper.cpp,
+before Gradle, and compiles all of them from source into the directories the
+scan emptied (`native/wm-engine-jni` and `native/harper-jni` with Rust and
+`cargo ndk`, `native/whispercpp-jni` and `native/executorch-jni` with CMake). whisper.cpp,
 ExecuTorch and the PyTorch sources ExecuTorch's code generator and optimized
 kernels need are fetched at pinned commits, the Rust toolchain at a pinned
 version through rustup, the crates through `Cargo.lock`. `ndk` names the NDK
@@ -119,6 +121,12 @@ out of what it compiles (`-ffile-prefix-map` for C and C++,
 `--remap-path-prefix` for Rust; the committed 0.5.x libraries still carried
 `/Users/...` paths in Harper's panic messages), and every tool is pinned. Do
 not let a script pick up a version from the machine.
+
+**`sdkmanager 'ndk;28.2.13676358'`** in `prebuild` (from 0.6.0, a packager's
+change on the merge request): the NDK AGP 9 asks for by default, installed
+beside the r29 the native scripts use. Gradle's own steps (stripping the
+libraries it packages) then run with the NDK they expect. The release
+workflow builds from this file, so its reference APK gets the same.
 
 **`timeout`**: five hours. fdroidserver stops a build after two by default,
 and ExecuTorch is three full builds, one per ABI, before Gradle starts.

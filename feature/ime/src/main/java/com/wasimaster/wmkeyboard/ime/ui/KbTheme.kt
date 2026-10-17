@@ -10,7 +10,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -1403,8 +1402,9 @@ fun KeyboardThemeProvider(
     // picked for it, or its dedicated Noto face, so its glyphs stay correct even
     // when the key font is a Latin-only display face. Latin (and Cyrillic/Greek,
     // which ride the Latin faces) use the user's key font. Bengali is no
-    // different from the rest — its faces simply also carry Latin glyphs, which
-    // is what keeps Avro's romanized keys and mixed strips in one face.
+    // different from the rest. Its faces also carry Latin glyphs, but the Latin
+    // on such a board (Avro's romanized keys, an English suggestion) still comes
+    // from the English font, chained in front below.
     val scriptId = settings.script.id
     // A theme may carry its own key font, by id. It sits below both the
     // per-script face and the user's own English pick: script correctness still
@@ -1460,9 +1460,12 @@ fun KeyboardThemeProvider(
     // looks for a glyph in another font, so every Latin character on it — an
     // English suggestion, a copied word in the clipboard chip — lost the user's
     // English font (#591). Where there is both a Latin pick (the user's, else
-    // the theme's) and a script face, the two are chained per glyph instead,
-    // Latin first. Built off the main thread: a Google face is a provider
-    // round trip. Until it lands, and below Android 10, the script face alone.
+    // the theme's, else the system's own Latin font) and a script face, the two
+    // are chained per glyph instead, Latin first. System default counts too: a
+    // ROM or font app may have replaced the system's Latin font, and an Avro
+    // board drew its keys in the Bengali face's Latin instead (#670). Built off
+    // the main thread: a Google face is a provider round trip. Until it lands,
+    // and below Android 10 (12 for the system font), the script face alone.
     val latinFirstIds = remember(
         scriptId,
         layoutFontId,
@@ -1478,7 +1481,7 @@ fun KeyboardThemeProvider(
         val latinId = settings.keyFontId.takeIf {
             it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
         } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
-            ?: return@remember null
+            ?: KeyboardFonts.DEFAULT_ID
         val scriptFontId = KeyboardFonts.scriptFontId(
             context,
             scriptId,
@@ -1846,10 +1849,10 @@ fun autoKbTheme(settings: KeyboardSettings): KbTheme {
  * failed to stop.
  */
 @Composable
-fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): Float {
-    if (animation == ThemeAnimation.NONE || reduceMotion) return 0f
+fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): () -> Float {
+    if (animation == ThemeAnimation.NONE || reduceMotion) return NoThemePhase
     val transition = rememberInfiniteTransition(label = "themeAnim")
-    val phase by transition.animateFloat(
+    val phase = transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
@@ -1861,8 +1864,13 @@ fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: B
         ),
         label = "phase",
     )
-    return phase
+    // Handed out as a reader rather than the value, so the frame-by-frame
+    // change lands in the draw that asks for it. Read here, it recomposed
+    // [BoardBackground] on every frame for as long as the keyboard was up.
+    return remember(phase) { { phase.value } }
 }
+
+private val NoThemePhase: () -> Float = { 0f }
 
 /**
  * The most of the screen the board is ever assumed to take, used to size the
@@ -1965,18 +1973,23 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
     val opacityFloor = frost?.takeIf { it.windowBlur && !blurLive && kind == null }?.fallbackOpacity
     val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
     val gradient = kb.boardGradient?.let { if (opacityFloor == null) it else it.withAlphaFloor(opacityFloor) }
+    val animation = kb.animation
     if (gradient != null) {
         Box(
-            modifier = boardModifier.background(gradient.brush(kb.animation, phase)),
+            modifier = boardModifier.drawBehind { drawRect(gradient.brush(animation, phase())) },
         )
     } else {
-        val tinted = if (kb.animation == ThemeAnimation.HUE_CYCLE) {
-            hueShift(kb.board, phase * 360f)
-        } else {
-            kb.board
-        }
-        val board = if (opacityFloor == null) tinted else tinted.copy(alpha = max(tinted.alpha, opacityFloor))
-        Box(modifier = boardModifier.background(board))
+        val base = kb.board
+        Box(
+            modifier = boardModifier.drawBehind {
+                val tinted = if (animation == ThemeAnimation.HUE_CYCLE) {
+                    hueShift(base, phase() * 360f)
+                } else {
+                    base
+                }
+                drawRect(if (opacityFloor == null) tinted else tinted.copy(alpha = max(tinted.alpha, opacityFloor)))
+            },
+        )
     }
 }
 

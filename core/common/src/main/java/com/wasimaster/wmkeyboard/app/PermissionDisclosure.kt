@@ -116,6 +116,17 @@ object PermissionDisclosures {
         bodyRes = R.string.common_permission_calendar_body,
     )
 
+    /**
+     * The AI's "add it directly" for calendar events (#698). Read is asked for
+     * alongside, since choosing which calendar to add to means listing them.
+     */
+    val CALENDAR_WRITE = PermissionDisclosure(
+        permission = Manifest.permission.WRITE_CALENDAR,
+        titleRes = R.string.common_permission_calendar_write_title,
+        bodyRes = R.string.common_permission_calendar_write_body,
+        alsoRequests = listOf(Manifest.permission.READ_CALENDAR),
+    )
+
     val CONTACT_NAMES = PermissionDisclosure(
         permission = Manifest.permission.READ_CONTACTS,
         titleRes = R.string.common_permission_contact_names_title,
@@ -148,6 +159,30 @@ object PermissionDisclosures {
         },
         titleRes = R.string.common_permission_images_title,
         bodyRes = R.string.common_permission_images_body,
+    )
+
+    /**
+     * The gallery tool's photos and videos (#708). From Android 13 they are
+     * two permissions, asked for together; from 14 the system dialog also
+     * offers "Select photos", which the keyboard honours as a partial grant.
+     * Asking again with only part granted is how the user picks more.
+     */
+    val GALLERY = PermissionDisclosure(
+        permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        },
+        titleRes = R.string.common_permission_gallery_title,
+        bodyRes = R.string.common_permission_gallery_body,
+        alsoRequests = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> listOf(
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            )
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> listOf(Manifest.permission.READ_MEDIA_VIDEO)
+            else -> emptyList()
+        },
     )
 
     /**
