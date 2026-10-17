@@ -520,6 +520,14 @@ class TelexAutocorrectEngine private constructor() {
                 results.add(display)
                 if (results.size >= maxResults) return results.toList()
             }
+            if (!prev2.isNullOrBlank()) {
+                val userSkipCandidates = userLexicon.skip1Followers(prev2, maxResults)
+                for (w in userSkipCandidates) {
+                    val display = userLexicon.displayOf(w) ?: w
+                    results.add(display)
+                    if (results.size >= maxResults) return results.toList()
+                }
+            }
         }
 
         // 1. Trigrams from binary NgramPack
@@ -562,6 +570,14 @@ class TelexAutocorrectEngine private constructor() {
             }
         }
 
+        // 5. Fallback to top unigrams if needed
+        if (results.size < maxResults) {
+            for (w in topUnigrams(maxResults)) {
+                results.add(w)
+                if (results.size >= maxResults) break
+            }
+        }
+
         return results.toList()
     }
 
@@ -572,11 +588,13 @@ class TelexAutocorrectEngine private constructor() {
      */
     fun findCompletions(
         prefix: String,
+        previousWord: String? = null,
         userLexicon: UserLexicon? = null,
         maxResults: Int = 5
     ): List<String> {
         if (!isReady || prefix.isBlank()) return emptyList()
         val clean = prefix.trim().lowercase()
+        val prev = previousWord?.trim()?.lowercase()
         val results = LinkedHashSet<String>()
 
         // 1. User personalized completions
@@ -590,15 +608,21 @@ class TelexAutocorrectEngine private constructor() {
             }
         }
 
-        // 2. Static unigrams completions
-        val dictCompletions = languageModel.unigrams.entries
+        // 2. Static completions boosted by Bigram context when previousWord is present
+        val candidates = languageModel.unigrams.entries
             .filter { (it.key.startsWith(clean) || matchesVietnamesePrefix(it.key, clean)) && it.key != clean }
-            .sortedByDescending { it.value }
-            .take(maxResults)
-            .map { it.key }
 
-        for (w in dictCompletions) {
-            results.add(w)
+        val sorted = if (!prev.isNullOrEmpty()) {
+            candidates.sortedByDescending { entry ->
+                val biScore = languageModel.getBigramScore(prev, entry.key)
+                entry.value + biScore * 8
+            }
+        } else {
+            candidates.sortedByDescending { it.value }
+        }
+
+        for (w in sorted.take(maxResults)) {
+            results.add(w.key)
             if (results.size >= maxResults) break
         }
 

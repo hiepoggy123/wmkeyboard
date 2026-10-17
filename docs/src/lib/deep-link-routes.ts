@@ -63,6 +63,7 @@ export const ROUTES: RouteSpec[] = [
 	{ pattern: 'customdictionaries', label: 'Custom dictionaries', group: 'Typing' },
 	{ pattern: 'blacklist', label: 'Suggestion blacklist', group: 'Typing' },
 	{ pattern: 'learnedcorrections', label: 'Learned corrections', group: 'Typing' },
+	{ pattern: 'learnedphrases', label: 'Learned phrases', group: 'Typing' },
 
 	{ pattern: 'keypress', label: 'Key press', group: 'Key press' },
 	{ pattern: 'keypress/haptics', label: 'Haptics and sound', group: 'Key press' },

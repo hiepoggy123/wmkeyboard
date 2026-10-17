@@ -8476,6 +8476,28 @@
         <item quantity="other">Đã sửa %d lần</item>
     </plurals>
     <string name="typing_learned_corrections_title">Các sửa lỗi đã học</string>
+    <string name="typing_learned_phrases_title">Cụm từ đã học</string>
+    <string name="typing_learned_phrases_subtitle">Cặp từ, cụm 3 từ và cụm cách từ (skip-gram) được học từ thói quen gõ của bạn</string>
+    <string name="typing_learned_phrases_empty">Chưa có cụm từ nào được học. Các cặp từ và cụm từ sẽ xuất hiện ở đây khi bạn gõ.</string>
+    <string name="typing_learned_phrases_no_matches">Không có cụm từ đã học nào khớp với \"%1$s\"</string>
+    <string name="typing_learned_phrases_clear_title">Xóa tất cả cụm từ đã học</string>
+    <string name="typing_learned_phrases_clear_subtitle">Xóa toàn bộ bigram, trigram và skip-gram đã học khi gõ</string>
+    <string name="typing_learned_phrases_clear_confirm">Mọi cặp từ, cụm 3 từ và cụm cách từ đã học sẽ bị xóa. Các từ đơn lẻ đã học không bị ảnh hưởng.</string>
+    <string name="typing_learned_phrases_tab_all">Tất cả</string>
+    <string name="typing_learned_phrases_tab_bigrams">Cặp từ (Bigram)</string>
+    <string name="typing_learned_phrases_tab_trigrams">Cụm 3 từ (Trigram)</string>
+    <string name="typing_learned_phrases_tab_skipgrams">Cụm cách từ (Skip-gram)</string>
+    <plurals name="typing_learned_phrases_count">
+        <item quantity="one">%d cụm từ</item>
+        <item quantity="other">%d cụm từ</item>
+    </plurals>
+    <plurals name="typing_learned_phrases_typed_times">
+        <item quantity="one">Đã gõ %d lần</item>
+        <item quantity="other">Đã gõ %d lần</item>
+    </plurals>
+    <string name="typing_learned_phrases_skip1_desc">Cách 1 từ</string>
+    <string name="typing_learned_phrases_skip2_desc">Cách 2 từ</string>
+    <string name="typing_learned_phrases_delete_desc">Xóa cụm từ này</string>
     <string name="typing_letter_swipe_action_info">Khi chọn Viết tay, bàn phím sẽ đọc thao tác vuốt trên các phím như là viết tay. Vẽ một chữ cái hoặc một từ. Sau một khoảng dừng ngắn, bàn phím sẽ nhận dạng và nhập nó, đồng thời cung cấp các cách đọc khác trong dải gợi ý. Tính năng này cần một mô hình viết tay (Cài đặt → Viết tay). Nhấn bình thường vẫn nhập phím đó.</string>
     <string name="typing_letter_swipe_action_subtitle">Vẽ chữ cái trên các phím thay vì vuốt để nhập</string>
     <string name="typing_letter_swipe_action_title">Viết tay bằng cách vuốt</string>

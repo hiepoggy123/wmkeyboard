@@ -570,6 +570,7 @@ internal object SettingsRouteIcons {
         "customdictionaries" to { SymbolIcons.Dictionary },
         "blacklist" to { Icons.Outlined.VisibilityOff },
         "learnedcorrections" to { Icons.Outlined.Spellcheck },
+        "learnedphrases" to { Icons.Outlined.AutoStories },
         "phoneformats" to { Icons.Outlined.Phone },
         "cliprules" to { Icons.AutoMirrored.Outlined.Rule },
         "hwshortcuts" to { SymbolIcons.KeyboardExternalInput },

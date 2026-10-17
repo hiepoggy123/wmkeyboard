@@ -730,6 +730,55 @@ class UserLexicon(private val storageFile: File?) {
         return result.sortedByDescending { it.count }
     }
 
+    data class LearnedSkipgram(
+        val previous: String,
+        val next: String,
+        val skipDistance: Int,
+        val count: Int,
+    )
+
+    /**
+     * Snapshot of all learned skip-grams (1-skip and 2-skip bigrams), count-descending.
+     */
+    @Synchronized
+    fun allSkipgrams(): List<LearnedSkipgram> {
+        val result = ArrayList<LearnedSkipgram>()
+        for ((prev, followers) in skip1grams) {
+            val prevDisplay = wordCase[prev] ?: prev
+            for ((nxt, count) in followers.counts) {
+                val nxtDisplay = wordCase[nxt] ?: nxt
+                result.add(LearnedSkipgram(prevDisplay, nxtDisplay, 1, count))
+            }
+        }
+        for ((prev, followers) in skip2grams) {
+            val prevDisplay = wordCase[prev] ?: prev
+            for ((nxt, count) in followers.counts) {
+                val nxtDisplay = wordCase[nxt] ?: nxt
+                result.add(LearnedSkipgram(prevDisplay, nxtDisplay, 2, count))
+            }
+        }
+        return result.sortedByDescending { it.count }
+    }
+
+    /**
+     * Forgets a specific learned skipgram.
+     */
+    @Synchronized
+    fun forgetSkipgram(previous: String, next: String, skipDistance: Int) {
+        val prevKey = WordKey.of(previous)
+        val nxtKey = WordKey.of(next)
+        val store = if (skipDistance == 1) skip1grams else skip2grams
+        val followers = store[prevKey] ?: return
+        if (followers.counts.remove(nxtKey) != null) {
+            followers.sorted = null
+            if (followers.counts.isEmpty()) {
+                store.remove(prevKey)
+            }
+            dirty = true
+            mutations++
+        }
+    }
+
     /**
      * Forgets a specific learned bigram pair.
      */

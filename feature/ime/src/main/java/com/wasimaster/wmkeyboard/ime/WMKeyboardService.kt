@@ -19857,7 +19857,7 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             typed
         }
-        val effectivePool = if (state.composer.isVietnamese && pool.isEmpty()) {
+        val effectivePool = if (state.composer.isVietnamese) {
             val telexEngine = TelexAutocorrectEngine.getInstance()
             if (!telexEngine.isReady) {
                 telexEngine.initialize(assets, filesDir)
@@ -19867,7 +19867,7 @@ open class WMKeyboardService : InputMethodService() {
                 val next = telexEngine.predictNextWords(previous, previous2, userLexicon = currentLexicon, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
                 if (next.isNotEmpty()) next else telexEngine.topUnigrams(octopus.density * OCTOPUS_POOL_DEPTH)
             } else {
-                telexEngine.findCompletions(effectiveTyped, userLexicon = currentLexicon, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
+                telexEngine.findCompletions(effectiveTyped, previousWord = previous, userLexicon = currentLexicon, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
             }
         } else {
             pool
@@ -20562,16 +20562,29 @@ open class WMKeyboardService : InputMethodService() {
                         if (!telexEngine.isReady) {
                             telexEngine.initialize(assets, filesDir)
                         }
+                        val currentLexicon = if (::userLexicon.isInitialized) userLexicon else null
                         if (composed.isEmpty() && typed.isEmpty()) {
-                            engine.suggest(
-                                composing = "",
+                            val telexNext = telexEngine.predictNextWords(
                                 previousWord = previousWord,
                                 previousWord2 = previousWord2,
-                                previousWord3 = previousWord3,
-                                recentWords = recentSnapshot,
-                                allowRerank = true,
-                                limit = askDeep,
+                                userLexicon = currentLexicon,
+                                maxResults = askDeep,
                             )
+                            if (telexNext.isNotEmpty()) {
+                                telexNext
+                            } else {
+                                telexEngine.topUnigrams(askDeep).ifEmpty {
+                                    engine.suggest(
+                                        composing = "",
+                                        previousWord = previousWord,
+                                        previousWord2 = previousWord2,
+                                        previousWord3 = previousWord3,
+                                        recentWords = recentSnapshot,
+                                        allowRerank = true,
+                                        limit = askDeep,
+                                    )
+                                }
+                            }
                         } else {
                             val dictSuggestions = engine.suggest(
                                 composing = composed,
@@ -20582,10 +20595,10 @@ open class WMKeyboardService : InputMethodService() {
                                 allowRerank = true,
                                 limit = askDeep,
                             )
-                            val currentLexicon = if (::userLexicon.isInitialized) userLexicon else null
                             val telexCompletions = if (telexEngine.isReady) {
                                 telexEngine.findCompletions(
                                     prefix = composed,
+                                    previousWord = previousWord,
                                     userLexicon = currentLexicon,
                                     maxResults = maxOf(SUGGEST_LIMIT, askDeep),
                                 )
@@ -20646,8 +20659,6 @@ open class WMKeyboardService : InputMethodService() {
                                         list.add(composed)
                                     }
                                     list
-                                } else if (completions.isNotEmpty()) {
-                                    completions
                                 } else {
                                     val defaultWord = if (isTypedLearned && !isComposedInDict) {
                                         typed
@@ -20656,7 +20667,7 @@ open class WMKeyboardService : InputMethodService() {
                                     } else {
                                         composed
                                     }
-                                    listOf(defaultWord)
+                                    listOf(defaultWord) + completions.filterNot { it.equals(defaultWord, ignoreCase = true) }
                                 }
                                 baseList.distinctBy { it.lowercase() }
                             }
