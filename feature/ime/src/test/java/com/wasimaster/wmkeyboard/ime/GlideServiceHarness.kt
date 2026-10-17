@@ -2,9 +2,11 @@ package com.wasimaster.wmkeyboard.ime
 
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -49,9 +51,13 @@ internal const val GLIDE_KEY_WIDTH = 60f
  * paths need comes from there. See `ServiceBootProbeTest`, which is the canary
  * for that claim.
  */
-internal class GlideKeyboard(private val editor: InputConnection) : WMKeyboardService() {
+internal class GlideKeyboard(
+    private val editor: InputConnection,
+    private val info: EditorInfo = EditorInfo().apply { inputType = InputType.TYPE_CLASS_TEXT },
+) : WMKeyboardService() {
     init { attachBaseContext(RuntimeEnvironment.getApplication()) }
     override fun getCurrentInputConnection(): InputConnection = editor
+    override fun getCurrentInputEditorInfo(): EditorInfo = info
 }
 
 /**

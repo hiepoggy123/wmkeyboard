@@ -1326,6 +1326,15 @@ tasks.withType<Test>().configureEach {
     dependsOn(":core:language:buildHostEngine")
     val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
     systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)
+    if (name.contains("Lite", ignoreCase = true)) {
+        filter {
+            // Lite flavor omits offline Whisper/ML and full-only settings screens
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalogTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStoreTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.dictionaries.OfflineInstallTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.app.SettingsSearchKeywordsTest")
+        }
+    }
 }
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They

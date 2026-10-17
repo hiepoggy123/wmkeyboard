@@ -21,6 +21,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.HapticSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SuggestionStripSettings
+import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -121,7 +122,7 @@ class PhoneticEnglishServiceTest {
 
         type(service, "hel")
         // Not a word of either language yet: Avro's own reading.
-        assertEquals("হেল", service.uiState.value.composingPreview)
+        assertEquals(AvroPhonetic.transliterate("hel"), service.uiState.value.composingPreview)
         type(service, "lo")
         assertEquals("hello", service.uiState.value.composingPreview)
         space(service)

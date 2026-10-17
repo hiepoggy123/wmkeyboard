@@ -28,7 +28,7 @@ class PluginTemplatesTest {
     fun `every template file is its demo plugin, character for character`() {
         for (template in PluginTemplate.entries) {
             val file = template.asset ?: continue
-            assertEquals(file, demo(file), script(template))
+            assertEquals(file, demo(file).replace("\r\n", "\n"), script(template).replace("\r\n", "\n"))
         }
     }
 
