@@ -490,7 +490,6 @@ android {
         // could only ever follow the system language. Generated rather than
         // hand-written so the list cannot drift from the locales that shipped.
         generateLocaleConfig = true
-        localeFilters += setOf("en", "vi", "zh-rCN", "zh-CN")
     }
 
     // Android Lint. Severities live in config/lint/lint.xml — this block only
@@ -952,7 +951,7 @@ androidComponents {
         ) {
             variant.androidResources.localeFilters.set(setOf("en"))
         } else {
-            variant.androidResources.localeFilters.set(setOf("en", "vi", "zh-rCN", "zh-CN"))
+            variant.androidResources.localeFilters.set(setOf("en", "vi", "zh-rCN"))
         }
     }
 }
