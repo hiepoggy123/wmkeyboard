@@ -97,7 +97,11 @@ val buildHostEngine by tasks.registering(Exec::class) {
     }
 }
 
-tasks.withType<Test>().configureEach { dependsOn(buildHostEngine) }
+tasks.withType<Test>().configureEach {
+    dependsOn(buildHostEngine)
+    val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
+    systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)
+}
 
 dependencies {
     api(project(":core:common"))

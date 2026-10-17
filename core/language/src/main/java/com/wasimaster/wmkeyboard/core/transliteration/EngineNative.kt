@@ -46,24 +46,54 @@ internal object EngineNative {
         val host = hostLibrary() ?: return
         try {
             System.load(host.absolutePath)
-        } catch (_: UnsatisfiedLinkError) {}
+        } catch (e: UnsatisfiedLinkError) {
+            System.err.println("EngineNative: failed to load host library at ${host.absolutePath}: $e")
+        }
     }
 
     /** The host build under the repo's `native/wm-engine-jni/target`, release first. */
     private fun hostLibrary(): File? {
         val names = listOf("libwm_engine_jni.dylib", "libwm_engine_jni.so", "wm_engine_jni.dll")
-        var dir: File? = File("").absoluteFile
-        while (dir != null) {
-            if (File(dir, "settings.gradle.kts").isFile) {
-                for (profile in listOf("release", "debug")) {
-                    for (name in names) {
-                        val file = File(dir, "native/wm-engine-jni/target/$profile/$name")
-                        if (file.isFile) return file
-                    }
-                }
-                return null
+        val explicitDir = System.getProperty("wmkeyboard.engine.lib.dir") ?: System.getenv("WM_ENGINE_LIB_DIR")
+        if (!explicitDir.isNullOrEmpty()) {
+            val dir = File(explicitDir)
+            for (name in names) {
+                val file = File(dir, name)
+                if (file.isFile) return file
             }
-            dir = dir.parentFile
+        }
+
+        val candidates = mutableListOf<File>()
+        try {
+            EngineNative::class.java.protectionDomain?.codeSource?.location?.toURI()?.let {
+                val f = File(it)
+                candidates.add(if (f.isDirectory) f else f.parentFile)
+            }
+        } catch (_: Throwable) {}
+
+        candidates.add(File("").absoluteFile)
+        System.getProperty("user.dir")?.let { candidates.add(File(it).absoluteFile) }
+        System.getProperty("java.class.path")?.split(File.pathSeparator)?.forEach { cp ->
+            if (cp.isNotEmpty()) {
+                val f = File(cp).absoluteFile
+                candidates.add(if (f.isDirectory) f else f.parentFile)
+            }
+        }
+
+        for (start in candidates) {
+            var dir: File? = start
+            while (dir != null) {
+                if (File(dir, "settings.gradle.kts").isFile) {
+                    for (profile in listOf("release", "debug")) {
+                        for (name in names) {
+                            val file = File(dir, "native/wm-engine-jni/target/$profile/$name")
+                            if (file.isFile) return file
+                        }
+                    }
+                    break
+                }
+                dir = dir.parentFile
+            }
         }
         return null
     }

@@ -47,7 +47,7 @@ class PhotoEditTest {
         assertEquals(-12f, once.straighten, eps)
         assertRect(CropRect(0.6f, 0f, 0.9f, 1f), once.crop)
         assertRect(edit.crop, once.mirroredOnce().crop)
-        assertEquals(edit.copy(crop = CropRect()), once.mirroredOnce().copy(crop = CropRect()))
+        assertEquals(edit.copy(crop = CropRect.FULL), once.mirroredOnce().copy(crop = CropRect.FULL))
     }
 
     @Test

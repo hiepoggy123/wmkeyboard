@@ -1322,7 +1322,11 @@ dependencies {
 // The transliteration tests call the Rust text engines through JNI, so the
 // library has to exist for this machine before the suite starts. The task is
 // :core:language's, where the facades live; see the comment on it there.
-tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }
+tasks.withType<Test>().configureEach {
+    dependsOn(":core:language:buildHostEngine")
+    val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
+    systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)
+}
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
 // assert against millisecond budgets measured on a quiet machine, so on a
