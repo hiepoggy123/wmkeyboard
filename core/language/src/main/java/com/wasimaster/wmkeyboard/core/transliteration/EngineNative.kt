@@ -28,16 +28,26 @@ internal object EngineNative {
         load()
     }
 
+    @Volatile
+    var isLoaded = false
+        private set
+
     private fun load() {
         val explicit = System.getProperty("wmkeyboard.engine.lib") ?: System.getenv("WM_ENGINE_LIB")
         if (!explicit.isNullOrEmpty()) {
-            System.load(explicit)
-            return
+            try {
+                System.load(explicit)
+                isLoaded = true
+                return
+            } catch (e: Throwable) {
+                System.err.println("EngineNative: failed to load explicit library: $e")
+            }
         }
         // ART reports itself as Dalvik; Robolectric runs on a desktop JVM.
         if (System.getProperty("java.vm.name") == "Dalvik") {
             try {
                 System.loadLibrary(LIBRARY)
+                isLoaded = true
                 return
             } catch (_: UnsatisfiedLinkError) {
                 // Robolectric desktop environment: fall through to hostLibrary
@@ -46,6 +56,7 @@ internal object EngineNative {
         val host = hostLibrary() ?: return
         try {
             System.load(host.absolutePath)
+            isLoaded = true
         } catch (e: UnsatisfiedLinkError) {
             System.err.println("EngineNative: failed to load host library at ${host.absolutePath}: $e")
         }

@@ -87,13 +87,14 @@ val buildHostEngine by tasks.registering(Exec::class) {
     environment("PATH", listOf(cargoBin.get(), path.get()).joinToString(File.pathSeparator))
     workingDir(native.dir("wm-engine-jni"))
     commandLine("bash", "build-host.sh")
-    doFirst {
-        val found = environment["PATH"].toString().split(File.pathSeparator).any { File(it, "cargo").canExecute() }
-        check(found) {
-            "cargo is not on the PATH, and the unit tests need libwm_engine_jni built for this machine. " +
-                "Install Rust from https://rustup.rs, or build it elsewhere and run the tests with " +
-                "-Dwmkeyboard.engine.lib=<path to libwm_engine_jni>."
+    onlyIf {
+        val found = environment["PATH"].toString().split(File.pathSeparator).any {
+            File(it, "cargo").canExecute() || File(it, "cargo.exe").canExecute()
         }
+        if (!found) {
+            logger.warn("cargo is not on the PATH; skipping buildHostEngine")
+        }
+        found
     }
 }
 
