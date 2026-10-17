@@ -20868,6 +20868,7 @@ open class WMKeyboardService : InputMethodService() {
                         ambiguousTop = words.firstOrNull(),
                     )
                     state.composer.isVietnamese -> {
+                        val telexEngine = TelexAutocorrectEngine.getInstance()
                         val composed = state.composer.composeBuffer(typed)
                         val spaceWord = words.firstOrNull() ?: composed
                         val targetWord = if (!state.settings.vietnamese.restoreMarks &&
