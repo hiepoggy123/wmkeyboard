@@ -51,16 +51,19 @@ class RomanizedIndex private constructor(
     /** Code points the romanized side is written in — the coverage gate's input. */
     val alphabet: Set<Int>,
     private val scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
+    private val personal: WordSource = PackedTrie.EMPTY,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
 
     /**
-     * The tries a stroke is decoded against. The curated list leads: it is a
-     * record of how people write these words, where the downloaded list is a
-     * record of which words exist.
+     * The tries a stroke is decoded against. The personal list leads with user tier,
+     * followed by curated list, then downloaded.
      */
     fun walkSources(): List<FuzzyBeamSearch.WalkSource> = buildList {
+        for (walker in personal.walkers()) {
+            add(FuzzyBeamSearch.WalkSource(walker, PERSONAL_BONUS, FuzzyBeamSearch.Tier.USER))
+        }
         for (walker in curated.walkers()) {
             add(FuzzyBeamSearch.WalkSource(walker, CURATED_BONUS, FuzzyBeamSearch.Tier.DICTIONARY))
         }
@@ -168,10 +171,14 @@ class RomanizedIndex private constructor(
             alphabet: Set<Int>,
             resolve: (String) -> List<String>,
             scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
-        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm)
+            personal: WordSource = PackedTrie.EMPTY,
+        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm, personal)
 
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35
+
+        /** Weight personal/user-learned spellings walk at, in Tier.USER. */
+        private val PERSONAL_BONUS = ln(4.0)
 
         /** Weight the curated spellings walk at, over the downloaded list's. */
         private val CURATED_BONUS = ln(3.0)

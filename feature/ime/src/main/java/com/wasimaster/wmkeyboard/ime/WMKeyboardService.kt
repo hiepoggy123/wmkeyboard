@@ -847,6 +847,7 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun saveLearningStores() {
         userLexicon.save()
+        VietnameseGlide.updateUserCompounds(userLexicon)
         pendingLearn.save()
         wordRanks.save()
         keyOffsets.save()
@@ -4170,6 +4171,7 @@ open class WMKeyboardService : InputMethodService() {
                         scriptChoices.reload()
                     }
                     suggestionEngine?.rankOffsets = wordRanks.snapshot()
+                    VietnameseGlide.updateUserCompounds(userLexicon)
                     pushLearnedHabits()
                     refreshTouchModelIfMoved()
                     revision = null
@@ -12262,7 +12264,7 @@ open class WMKeyboardService : InputMethodService() {
         if (vietnameseGlideLoaded || vietnameseGlideJob?.isActive == true) return
         vietnameseGlideJob = serviceScope.launch {
             val index = withContext(Dispatchers.Default) {
-                VietnameseGlide.getIndex(assets)
+                VietnameseGlide.getIndex(assets, userLexicon)
             }
             if (index != null) {
                 vietnameseGlideLoaded = true

@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
 
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -94,5 +95,66 @@ class VietnameseGlideTest {
         assertEquals("mấy", resolved[1].word)
         assertEquals("mây", resolved[2].word)
         assertEquals("mày", resolved[3].word)
+    }
+
+    @Test
+    fun testDynamicUserCompoundSynthesisAndPhonotacticFilter() {
+        VietnameseGlide.resetForTesting()
+
+        val sampleTsv = """
+            chi	chi
+            rua	rửa,rùa,rứa
+            em	em
+        """.trimIndent()
+
+        val unigramMap = mapOf(
+            "chi" to 1500,
+            "rứa" to 800,
+            "rửa" to 1200,
+            "em" to 5000,
+        )
+
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("chi")
+        lexicon.learnWord("rứa")
+        lexicon.learnWord("em")
+        // Learn "chi rứa" 3 times
+        repeat(3) { lexicon.learnBigram("chi", "rứa") }
+        // Learn "chi rứa em" 2 times
+        repeat(2) { lexicon.learnTrigram("chi", "rứa", "em") }
+        // Teencode phrase "ko bt" - should be filtered!
+        repeat(5) { lexicon.learnBigram("ko", "bt") }
+        // English phrase "fix bug" - should be filtered!
+        repeat(5) { lexicon.learnBigram("fix", "bug") }
+
+        val index = VietnameseGlide.loadFromStream(
+            ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
+            unigramMap,
+            emptyMap(),
+            lexicon,
+        )
+
+        // 1. "chirua" must be synthesized dynamically
+        val chiruaForms = VietnameseGlide.lookupUserCompounds("chirua")
+        assertEquals(listOf("chi rứa"), chiruaForms)
+
+        // 2. "chiruaem" must be synthesized dynamically from trigram
+        val chiruaemForms = VietnameseGlide.lookupUserCompounds("chiruaem")
+        assertEquals(listOf("chi rứa em"), chiruaemForms)
+
+        // 3. Teencode "kobt" and English "fixbug" must NOT be synthesized
+        assertTrue(VietnameseGlide.lookupUserCompounds("kobt").isEmpty())
+        assertTrue(VietnameseGlide.lookupUserCompounds("fixbug").isEmpty())
+
+        // 4. Resolving candidate "chirua" must yield "chi rứa"
+        val candidate = GlideBeam.Candidate("chirua", 1.0, 0.0, FuzzyBeamSearch.Tier.USER)
+        val resolved = index.resolve(listOf(candidate))
+        assertTrue(resolved.isNotEmpty())
+        assertEquals("chi rứa", resolved[0].word)
+
+        // 5. Test deletion in UserLexicon: when phrase is forgotten, stem must disappear!
+        lexicon.forgetBigram("chi", "rứa")
+        VietnameseGlide.updateUserCompounds(lexicon)
+        assertTrue(VietnameseGlide.lookupUserCompounds("chirua").isEmpty())
     }
 }
