@@ -43065,15 +43065,20 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun loadNgramPack(langId: String): NgramPack {
         if (!userUnlocked) return NgramPack.EMPTY
-        // The checkbox is the download's. The word pairs an imported
-        // dictionary brought follow that list's own switch instead.
-        val downloaded = if (_uiState.value.settings.suggestionStrip.wordPairsEnabledFor(langId)) {
+        val wordPairsEnabled = _uiState.value.settings.suggestionStrip.wordPairsEnabledFor(langId)
+        val downloaded = if (wordPairsEnabled) {
             MappedNgramPack.open(NgramPackDownloadManager.packFile(filesDir, langId))
         } else {
             null
         }
+        val bundled = if (langId == "vi" && wordPairsEnabled) {
+            val file = TelexAutocorrectEngine.getInstance().ensureBundledNgramPack(assets, filesDir)
+            file?.let { MappedNgramPack.open(it) }
+        } else {
+            null
+        }
         val imported = CustomDictionaries.pairPacks(filesDir, langId).map { MappedNgramPack.open(it) }
-        return NgramPack.of(listOf(downloaded) + imported)
+        return NgramPack.of(listOfNotNull(downloaded, bundled) + imported)
     }
 
     /**

@@ -316,7 +316,7 @@ class TelexAutocorrectEngine private constructor() {
         }
     }
 
-    private fun ensureBundledNgramPack(assets: AssetManager, filesDir: File): File? {
+    fun ensureBundledNgramPack(assets: AssetManager, filesDir: File): File? {
         val dir = File(File(filesDir, "dict"), "bundled")
         if (!dir.isDirectory && !dir.mkdirs()) return null
         val outFile = File(dir, "telex_ngrams.wmng")

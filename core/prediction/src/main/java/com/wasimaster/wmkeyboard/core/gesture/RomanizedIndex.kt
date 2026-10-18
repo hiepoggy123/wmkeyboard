@@ -50,6 +50,7 @@ class RomanizedIndex private constructor(
     private val resolveSpelling: (String) -> List<String>,
     /** Code points the romanized side is written in — the coverage gate's input. */
     val alphabet: Set<Int>,
+    private val scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
@@ -82,7 +83,8 @@ class RomanizedIndex private constructor(
         for (candidate in decoded) {
             val forms = resolveSpelling(candidate.word)
             for ((index, form) in forms.withIndex()) {
-                val score = candidate.score - index * ALTERNATE_STEP
+                val penalty = scoreForm?.invoke(candidate.word, form, index) ?: (-index * ALTERNATE_STEP)
+                val score = candidate.score + penalty
                 val existing = best[form]
                 if (existing == null || score > existing.score) {
                     best[form] = GlideBeam.Candidate(
@@ -165,7 +167,8 @@ class RomanizedIndex private constructor(
             downloaded: WordSource = PackedTrie.EMPTY,
             alphabet: Set<Int>,
             resolve: (String) -> List<String>,
-        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet)
+            scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
+        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm)
 
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35
