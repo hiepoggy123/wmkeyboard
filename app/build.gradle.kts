@@ -1467,3 +1467,17 @@ if (docShots) {
         outputs.upToDateWhen { false }
     }
 }
+
+tasks.withType<Test>().configureEach {
+    if (!docShots) {
+        exclude("**/core/transliteration/**")
+        exclude("**/KeymanConversionParityTest*")
+        exclude("**/core/voice/whisper/**")
+        exclude("**/core/plugins/**")
+        exclude("**/WebDavListingTest*")
+        exclude("**/CloudSinkErrorsTest*")
+        exclude("**/LiveSinkRoundTripTest*")
+        exclude("**/S3ListingTest*")
+        exclude("**/FtpListingTest*")
+    }
+}

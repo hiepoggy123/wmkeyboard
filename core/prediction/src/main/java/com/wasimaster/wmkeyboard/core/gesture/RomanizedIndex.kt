@@ -156,6 +156,17 @@ class RomanizedIndex private constructor(
             return RomanizedIndex(personal, spellings, resolve, alphabet)
         }
 
+        /**
+         * A romanization mapping one spelling to multiple candidate forms,
+         * such as Vietnamese unaccented spellings resolving to accented syllables.
+         */
+        fun multiMap(
+            curated: WordSource,
+            downloaded: WordSource = PackedTrie.EMPTY,
+            alphabet: Set<Int>,
+            resolve: (String) -> List<String>,
+        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet)
+
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35
 

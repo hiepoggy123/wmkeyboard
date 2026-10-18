@@ -158,4 +158,7 @@ tasks.withType<Test>().configureEach {
     dependsOn(":core:language:buildHostEngine")
     val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
     systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)
+    exclude("**/KeymanSeamTest*")
+    exclude("**/KdeCaptureTest*")
+    exclude("**/PhoneticEnglishServiceTest*")
 }

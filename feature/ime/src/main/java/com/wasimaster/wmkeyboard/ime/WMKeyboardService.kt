@@ -249,6 +249,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
+import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseGlide
 import com.wasimaster.wmkeyboard.core.prediction.vietnameseBaseChar
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -2426,7 +2427,7 @@ open class WMKeyboardService : InputMethodService() {
         PhoneticIndexCache.retain(backends.keys)
         engine.extraPhonetic = backends
         romanizedGlides = romanizedGlides.filterKeys {
-            it == PhoneticSchemes.BENGALI.languageId || it == KHIPRO_GLIDE || it == PINYIN_GLIDE
+            it == PhoneticSchemes.BENGALI.languageId || it == KHIPRO_GLIDE || it == PINYIN_GLIDE || it == VIETNAMESE_GLIDE
         } +
             backends.mapValues { (_, backend) ->
                 RomanizedIndex.of(
@@ -12253,6 +12254,23 @@ open class WMKeyboardService : InputMethodService() {
 
     private var pinyinGlideJob: Job? = null
     private var pinyinGlideTable: ConversionDictionary? = null
+
+    private var vietnameseGlideJob: Job? = null
+    private var vietnameseGlideLoaded = false
+
+    private fun ensureVietnameseGlide() {
+        if (vietnameseGlideLoaded || vietnameseGlideJob?.isActive == true) return
+        vietnameseGlideJob = serviceScope.launch {
+            val index = withContext(Dispatchers.Default) {
+                VietnameseGlide.getIndex(assets)
+            }
+            if (index != null) {
+                vietnameseGlideLoaded = true
+                romanizedGlides = romanizedGlides + (VIETNAMESE_GLIDE to index)
+                glideSourcesEpoch.update { it + 1 }
+            }
+        }
+    }
 
     /**
      * A swipe over the Pinyin board (#580): the stroke decodes into a reading,
@@ -23061,7 +23079,8 @@ open class WMKeyboardService : InputMethodService() {
                         ?: PINYIN_GLIDE.takeIf {
                             state.composer === PinyinComposer &&
                                 state.settings.cjk.pinyinDoublePinyin == DoublePinyinScheme.OFF
-                        },
+                        }
+                        ?: VIETNAMESE_GLIDE.takeIf { state.composer.isVietnamese },
                     alphabet = state.layouts.letterAlphabet + state.composer.glideKeys +
                         // The glide grid puts the apostrophe on the `'` key for
                         // these (see KeyboardScreen), so their words count as
@@ -23078,6 +23097,7 @@ open class WMKeyboardService : InputMethodService() {
                     val engine = suggestionEngine
                     if (gate.phonetic == KHIPRO_GLIDE) ensureKhiproGlide()
                     if (gate.phonetic == PINYIN_GLIDE) ensurePinyinGlide()
+                    if (gate.phonetic == VIETNAMESE_GLIDE) ensureVietnameseGlide()
                     engine?.glideRomanization =
                         gate.phonetic?.let { romanizedGlides[it] } ?: RomanizedIndex.EMPTY
                     val allowed = gate.phonetic != null || !gate.converts
@@ -44577,6 +44597,9 @@ private const val PINYIN_GLIDE = "zh_pinyin"
 
 /** Every key a Pinyin reading can pass through. */
 private const val PINYIN_GLIDE_KEYS = "abcdefghijklmnopqrstuvwxyz"
+
+/** [romanizedGlides]' key for Vietnamese, whose spellings are unaccented Latin syllables. */
+private const val VIETNAMESE_GLIDE = "vi_telex"
 
 /** The notification row that follows the Khipro spellings being worked out. */
 private const val KHIPRO_GLIDE_NOTIFY_KEY = "khipro-glide"
