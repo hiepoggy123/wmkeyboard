@@ -54,36 +54,48 @@ object VietnameseGlide {
     @Volatile
     private var cachedUnigrams: Map<String, Int> = emptyMap()
 
+    data class GlideContext(
+        val prev: String? = null,
+        val prev2: String? = null
+    )
+
+    private class UserCompoundsSnapshot(
+        val map: Map<String, List<String>> = emptyMap(),
+        val wordFreq: Map<String, Int> = emptyMap(),
+        val stemMaxFreq: Map<String, Int> = emptyMap(),
+        val trie: Trie = Trie()
+    )
+
     @Volatile
-    var currentPreviousWord: String? = null
-    @Volatile
-    var currentPreviousWord2: String? = null
+    private var currentContext = GlideContext()
+
+    val currentPreviousWord: String?
+        get() = currentContext.prev
+
+    val currentPreviousWord2: String?
+        get() = currentContext.prev2
 
     fun setContext(prev: String?, prev2: String?) {
-        currentPreviousWord = prev
-        currentPreviousWord2 = prev2
+        currentContext = GlideContext(prev, prev2)
     }
 
     // Dynamic compound stems learned from UserLexicon
     @Volatile
     private var lastLearnedMutationCount = -1L
     @Volatile
-    private var userCompoundsTrie: Trie = Trie()
-    private val userCompoundsMap = ConcurrentHashMap<String, List<String>>()
-    private val userWordFreq = ConcurrentHashMap<String, Int>()
-    private val userStemMaxFreq = ConcurrentHashMap<String, Int>()
+    private var userCompoundsSnapshot = UserCompoundsSnapshot()
 
     private val personalWordSource = object : WordSource {
         override fun complete(prefix: String, limit: Int): List<Suggestion> =
-            userCompoundsTrie.complete(prefix, limit)
+            userCompoundsSnapshot.trie.complete(prefix, limit)
         override fun frequencyOf(word: String): Int =
-            userCompoundsTrie.frequencyOf(word)
+            userCompoundsSnapshot.trie.frequencyOf(word)
         override fun contains(word: String): Boolean =
-            userCompoundsTrie.contains(word)
+            userCompoundsSnapshot.trie.contains(word)
         override fun walkers(): List<TrieWalker> =
-            userCompoundsTrie.walkers()
+            userCompoundsSnapshot.trie.walkers()
         override fun ownWalkers(): List<TrieWalker> =
-            userCompoundsTrie.ownWalkers()
+            userCompoundsSnapshot.trie.ownWalkers()
     }
 
     /**
@@ -121,7 +133,7 @@ object VietnameseGlide {
     fun updateUserCompounds(userLexicon: UserLexicon?) {
         if (userLexicon == null) return
         val currentMutations = userLexicon.mutationCount()
-        if (currentMutations == lastLearnedMutationCount && userCompoundsTrie.walkers().isNotEmpty()) {
+        if (currentMutations == lastLearnedMutationCount && userCompoundsSnapshot.trie.walkers().isNotEmpty()) {
             return
         }
         try {
@@ -178,13 +190,12 @@ object VietnameseGlide {
                 freshTrie.insert(stem, maxFreq)
             }
 
-            userCompoundsMap.clear()
-            userCompoundsMap.putAll(finalMap)
-            userWordFreq.clear()
-            userWordFreq.putAll(freshWordFreq)
-            userStemMaxFreq.clear()
-            userStemMaxFreq.putAll(freshStemMaxFreq)
-            userCompoundsTrie = freshTrie
+            userCompoundsSnapshot = UserCompoundsSnapshot(
+                map = finalMap,
+                wordFreq = freshWordFreq,
+                stemMaxFreq = freshStemMaxFreq,
+                trie = freshTrie
+            )
 
             for ((stem, maxFreq) in freshStemMaxFreq) {
                 VietnameseTrajectoryGlide.addUserCompound(stem, maxFreq)
@@ -405,7 +416,7 @@ object VietnameseGlide {
             curated = trie,
             alphabet = alphabet,
             resolve = { unaccented ->
-                val userForms = userCompoundsMap[unaccented]
+                val userForms = userCompoundsSnapshot.map[unaccented]
                 val baseForms = map[unaccented]
                 when {
                     userForms != null && baseForms != null -> (userForms + baseForms).distinct()
@@ -415,8 +426,9 @@ object VietnameseGlide {
                 }
             },
             scoreForm = { unaccented, form, formIndex ->
-                val prev = currentPreviousWord?.lowercase()?.trim()
-                val prev2 = currentPreviousWord2?.lowercase()?.trim()
+                val ctx = currentContext
+                val prev = ctx.prev?.lowercase()?.trim()
+                val prev2 = ctx.prev2?.lowercase()?.trim()
                 val formLower = form.lowercase().trim()
 
                 // Context N-gram bonus from bundled language model
@@ -445,12 +457,13 @@ object VietnameseGlide {
                 // to prevent rare multi-word compounds (e.g. "chiến sự") from hijacking common single syllables (e.g. "chiều")
                 val isCompound = form.contains(' ')
                 val hasSingleSyllable = syllableMap?.get(unaccented)?.any { !it.contains(' ') } == true
-                val compoundDamping = if (isCompound && contextBonus < 0.1 && userStemMaxFreq[unaccented] == null) {
+                val snapshot = userCompoundsSnapshot
+                val userMax = snapshot.stemMaxFreq[unaccented]
+                val compoundDamping = if (isCompound && contextBonus < 0.1 && userMax == null) {
                     if (hasSingleSyllable) -1.8 else -0.8
                 } else 0.0
 
-                val userMax = userStemMaxFreq[unaccented]
-                val userFreq = userWordFreq["$unaccented\t$form"]
+                val userFreq = snapshot.wordFreq["$unaccented\t$form"]
                 if (userMax != null && userFreq != null && userMax > 0 && userFreq > 0) {
                     ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus
                 } else {
@@ -473,7 +486,7 @@ object VietnameseGlide {
     }
 
     fun lookup(unaccented: String): List<String> {
-        val user = userCompoundsMap[unaccented]
+        val user = userCompoundsSnapshot.map[unaccented]
         val base = syllableMap?.get(unaccented)
         return when {
             user != null && base != null -> (user + base).distinct()
@@ -484,7 +497,7 @@ object VietnameseGlide {
     }
 
     fun lookupUserCompounds(unaccented: String): List<String> {
-        return userCompoundsMap[unaccented] ?: emptyList()
+        return userCompoundsSnapshot.map[unaccented] ?: emptyList()
     }
 
     @VisibleForTesting
@@ -493,12 +506,8 @@ object VietnameseGlide {
         syllableMap = null
         cachedUnigrams = emptyMap()
         recognizedSyllables.clear()
-        userCompoundsMap.clear()
-        userWordFreq.clear()
-        userStemMaxFreq.clear()
-        userCompoundsTrie = Trie()
-        currentPreviousWord = null
-        currentPreviousWord2 = null
+        userCompoundsSnapshot = UserCompoundsSnapshot()
+        currentContext = GlideContext()
         VietnameseTrajectoryGlide.resetForTesting()
     }
 }
