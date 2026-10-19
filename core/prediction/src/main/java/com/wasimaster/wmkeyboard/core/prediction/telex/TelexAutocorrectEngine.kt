@@ -224,15 +224,15 @@ class TelexAutocorrectEngine private constructor() {
         }
 
         // Scoring weights
-        private const val EXACT_MATCH_BONUS = 5000.0    // Massive bonus when exact keystrokes match a valid word
-        private const val WEIGHT_PENALTY = 200.0        // Penalty multiplier for fat-finger keystrokes
-        private const val WEIGHT_UNIGRAM = 1.0          // Base Unigram frequency weight
-        private const val WEIGHT_BIGRAM = 2.5           // Context Bigram weight
-        private const val WEIGHT_TRIGRAM = 5.0          // Context Trigram weight (from V7 AI model)
-        private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
-        private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
-        private const val WEIGHT_USER_TRIGRAM = 10.0    // Bonus weight for 3-word habits learned from user
-        private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty (strictly enforces single-key proximity error, edit distance <= 1)
+        private const val EXACT_MATCH_BONUS = 500.0    // Favor exact match when context is neutral, but allow strong context to override
+        private const val WEIGHT_PENALTY = 160.0        // Penalty multiplier for fat-finger keystrokes
+        private const val WEIGHT_UNIGRAM = 0.5          // Base Unigram frequency weight
+        private const val WEIGHT_BIGRAM = 6.0           // Context Bigram weight (strengthened for Sogou-like context sensitivity)
+        private const val WEIGHT_TRIGRAM = 12.0         // Context Trigram weight
+        private const val WEIGHT_USER_UNIGRAM = 2.0     // Bonus weight for words learned from user
+        private const val WEIGHT_USER_BIGRAM = 8.0      // Bonus weight for word pairs learned from user
+        private const val WEIGHT_USER_TRIGRAM = 16.0    // Bonus weight for 3-word habits learned from user
+        private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty
 
         /**
          * Key slips on Telex diacritic modifier keys (QWERTY adjacent keys).
@@ -697,7 +697,13 @@ class TelexAutocorrectEngine private constructor() {
             val lowerWord = unicodeWord.lowercase()
             if (lowerWord.isEmpty()) return
             val isTaught = taught != null && unicodeWord.equals(taught.fixed, ignoreCase = true)
-            if (!isTaught && isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
+            if (!isTaught && isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) {
+                val hasContext = !cleanPrev.isNullOrEmpty() && (
+                    languageModel.getBigramScore(cleanPrev, unicodeWord) > 0 ||
+                    (userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0) > 0
+                )
+                if (!hasContext && cleanInput.equals(unicodeWord, ignoreCase = true)) return
+            }
             val inUserLexicon = userLexicon?.contains(unicodeWord) == true
             if (!isTaught && !isWordInDictionary(unicodeWord) && !inUserLexicon) return
             if (!isTaught && !inUserLexicon && !VietnameseOrthography.isValidVietnameseSyllable(unicodeWord) && !TelexWhitelist.isWhitelisted(unicodeWord)) return
@@ -868,6 +874,36 @@ class TelexAutocorrectEngine private constructor() {
             dfs(trie.root, 0, 0.0, 0)
         }
 
+        // 7. Missing Tones / Unaccented Recovery via VietnameseGlide
+        val unaccentedStem = VietnameseGlide.toUnaccentedStem(cleanInput)
+        if (unaccentedStem.isNotEmpty() && unaccentedStem.length <= 8) {
+            val glideCandidates = VietnameseGlide.lookup(unaccentedStem)
+            for (candWord in glideCandidates) {
+                if (!candWord.contains(' ')) {
+                    val telex = toCanonicalTelex(candWord)
+                    evaluateCandidate(candWord, telex, 0.15)
+                }
+            }
+        }
+
+        // 8. Vietnamese Dialect / Regional Sound Slips (s <-> x, tr <-> ch, d <-> gi <-> r)
+        if (cleanInput.length >= 2) {
+            val dialectVariants = generateDialectVariants(cleanInput)
+            for (variant in dialectVariants) {
+                val word = trie.findWord(variant)
+                if (word != null) {
+                    evaluateCandidate(word, variant, 0.25)
+                }
+                val unacc = VietnameseGlide.toUnaccentedStem(variant)
+                val glideVars = VietnameseGlide.lookup(unacc)
+                for (candWord in glideVars) {
+                    if (!candWord.contains(' ')) {
+                        evaluateCandidate(candWord, toCanonicalTelex(candWord), 0.30)
+                    }
+                }
+            }
+        }
+
         if (rawCandidates.isEmpty()) return emptyList()
 
         rawCandidates.sort()
@@ -897,6 +933,78 @@ class TelexAutocorrectEngine private constructor() {
             return word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
         }
         return word
+    }
+
+    /**
+     * Evaluates the score of a word given context (previousWord, previousWord2, userLexicon).
+     * Used to compare a composed word against a top autocorrection candidate.
+     */
+    fun evaluateScore(
+        word: String,
+        previousWord: String?,
+        previousWord2: String?,
+        userLexicon: UserLexicon?
+    ): Double {
+        val cleanWord = word.trim().lowercase()
+        val cleanPrev = previousWord?.trim()?.lowercase()
+        val cleanPrev2 = previousWord2?.trim()?.lowercase()
+
+        val baseUnigram = languageModel.getUnigramScore(cleanWord)
+        var baseBigram = 0
+        var baseTrigram = 0
+        if (!cleanPrev.isNullOrEmpty()) {
+            baseBigram = languageModel.getBigramScore(cleanPrev, cleanWord)
+            if (!cleanPrev2.isNullOrEmpty()) {
+                baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, cleanWord)
+            }
+        }
+        val userUnigramCount = userLexicon?.frequencyOf(cleanWord) ?: 0
+        val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
+            userLexicon?.bigramCount(cleanPrev, cleanWord) ?: 0
+        } else 0
+        val userTrigramCount = if (!cleanPrev.isNullOrEmpty() && !cleanPrev2.isNullOrEmpty()) {
+            userLexicon?.trigramCount(cleanPrev2, cleanPrev, cleanWord) ?: 0
+        } else 0
+
+        return EXACT_MATCH_BONUS +
+                (baseUnigram * WEIGHT_UNIGRAM) +
+                (baseBigram * WEIGHT_BIGRAM) +
+                (baseTrigram * WEIGHT_TRIGRAM) +
+                (userUnigramCount * WEIGHT_USER_UNIGRAM) +
+                (userBigramCount * WEIGHT_USER_BIGRAM) +
+                (userTrigramCount * WEIGHT_USER_TRIGRAM)
+    }
+
+    /**
+     * Generates common Vietnamese regional / dialect sound slip variants
+     * (e.g. s <-> x, tr <-> ch, d <-> gi <-> r) for fuzzy autocorrection.
+     */
+    private fun generateDialectVariants(input: String): List<String> {
+        val lower = input.lowercase()
+        val results = mutableListOf<String>()
+
+        when {
+            lower.startsWith("tr") -> results.add("ch" + lower.substring(2))
+            lower.startsWith("ch") -> results.add("tr" + lower.substring(2))
+            lower.startsWith("s") -> results.add("x" + lower.substring(1))
+            lower.startsWith("x") -> results.add("s" + lower.substring(1))
+            lower.startsWith("gi") -> {
+                results.add("d" + lower.substring(2))
+                results.add("r" + lower.substring(2))
+            }
+            lower.startsWith("d") && !lower.startsWith("dd") -> {
+                results.add("gi" + lower.substring(1))
+                results.add("r" + lower.substring(1))
+            }
+            lower.startsWith("r") -> {
+                results.add("d" + lower.substring(1))
+                results.add("gi" + lower.substring(1))
+            }
+            lower.startsWith("ngh") -> results.add("ng" + lower.substring(3))
+            lower.startsWith("ng") && !lower.startsWith("ngh") -> results.add("ngh" + lower.substring(2))
+        }
+
+        return results
     }
 
     private fun readAsset(assets: AssetManager, path: String): String {

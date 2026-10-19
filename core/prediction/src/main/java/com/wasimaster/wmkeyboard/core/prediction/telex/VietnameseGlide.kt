@@ -54,6 +54,16 @@ object VietnameseGlide {
     @Volatile
     private var cachedUnigrams: Map<String, Int> = emptyMap()
 
+    @Volatile
+    var currentPreviousWord: String? = null
+    @Volatile
+    var currentPreviousWord2: String? = null
+
+    fun setContext(prev: String?, prev2: String?) {
+        currentPreviousWord = prev
+        currentPreviousWord2 = prev2
+    }
+
     // Dynamic compound stems learned from UserLexicon
     @Volatile
     private var userCompoundsTrie: Trie = Trie()
@@ -382,17 +392,37 @@ object VietnameseGlide {
                 }
             },
             scoreForm = { unaccented, form, formIndex ->
+                val prev = currentPreviousWord?.lowercase()?.trim()
+                val prev2 = currentPreviousWord2?.lowercase()?.trim()
+                val formLower = form.lowercase().trim()
+
+                // Context N-gram bonus from bundled language model
+                var contextBonus = 0.0
+                if (!prev.isNullOrEmpty()) {
+                    val lm = TelexAutocorrectEngine.getInstance().languageModel
+                    val biScore = lm.getBigramScore(prev, formLower)
+                    if (biScore > 0) {
+                        contextBonus += (ln(1.0 + biScore) * 1.5).coerceAtMost(6.0)
+                    }
+                    if (!prev2.isNullOrEmpty()) {
+                        val triScore = lm.getTrigramScore(prev2, prev, formLower)
+                        if (triScore > 0) {
+                            contextBonus += (ln(1.0 + triScore) * 2.2).coerceAtMost(8.0)
+                        }
+                    }
+                }
+
                 val userMax = userStemMaxFreq[unaccented]
                 val userFreq = userWordFreq["$unaccented\t$form"]
                 if (userMax != null && userFreq != null && userMax > 0 && userFreq > 0) {
-                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001)
+                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus
                 } else {
                     val max = stemMaxFreq[unaccented] ?: 0
-                    val freq = wordFreq["$unaccented\t$form"] ?: unigrams[form.lowercase()] ?: 0
+                    val freq = wordFreq["$unaccented\t$form"] ?: unigrams[formLower] ?: 0
                     if (max > 0 && freq > 0) {
-                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001)
+                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus
                     } else {
-                        -formIndex * 0.35
+                        -formIndex * 0.35 + contextBonus
                     }
                 }
             },
@@ -427,5 +457,7 @@ object VietnameseGlide {
         userWordFreq.clear()
         userStemMaxFreq.clear()
         userCompoundsTrie = Trie()
+        currentPreviousWord = null
+        currentPreviousWord2 = null
     }
 }

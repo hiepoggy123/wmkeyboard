@@ -20316,7 +20316,30 @@ open class WMKeyboardService : InputMethodService() {
                     } else if (isTypedLearned && !isComposedInDict) {
                         typed
                     } else if (isComposedValid) {
-                        composed
+                        // Sogou-style Contextual Autocorrect:
+                        // Even if 'composed' is a valid dictionary/learned word (e.g. "tao", "xấu"),
+                        // check if a nearby fat-finger/slip candidate has overwhelming context evidence (e.g. "học tập", "cá sấu").
+                        val candidates = if (!prev.isNullOrEmpty() && telexEngine.isReady) {
+                            telexEngine.correct(
+                                rawInput = canonical.ifEmpty { typed },
+                                previousWord = prev,
+                                previousWord2 = prev2,
+                                userLexicon = currentLexicon,
+                                correctionMemory = correctionMemory,
+                                maxResults = 1
+                            )
+                        } else emptyList()
+                        val top = candidates.firstOrNull()
+                        if (top != null && !top.word.equals(composed, ignoreCase = true)) {
+                            val composedScore = telexEngine.evaluateScore(composed, prev, prev2, currentLexicon)
+                            if (top.score > composedScore + 50.0) {
+                                top.word
+                            } else {
+                                composed
+                            }
+                        } else {
+                            composed
+                        }
                     } else {
                         val candidates = if (telexEngine.isReady) {
                             telexEngine.correct(
@@ -20636,7 +20659,7 @@ open class WMKeyboardService : InputMethodService() {
                             } else {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
                                 val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                                telexCandidates = if (telexEngine.isReady && (canonical.length >= 2 || typed.length >= 2)) {
+                                val rawTelexCandidates = if (telexEngine.isReady && (canonical.length >= 2 || typed.length >= 2)) {
                                     telexEngine.correct(
                                         rawInput = canonical.ifEmpty { typed },
                                         previousWord = previousWord,
@@ -20644,8 +20667,9 @@ open class WMKeyboardService : InputMethodService() {
                                         userLexicon = currentLexicon,
                                         correctionMemory = correctionMemory,
                                         maxResults = 5,
-                                    ).map { it.word }
+                                    )
                                 } else emptyList()
+                                telexCandidates = rawTelexCandidates.map { it.word }
 
                                 val taught = correctionMemory.fixFor(canonical.ifEmpty { typed })
                                     ?: correctionMemory.fixFor(composed)
@@ -20666,8 +20690,20 @@ open class WMKeyboardService : InputMethodService() {
                                     list.addAll((completions + telexCandidates).filterNot { it.equals(taughtWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
                                     list
                                 } else if (isComposedValid) {
-                                    val list = mutableListOf(composed)
-                                    list.addAll((completions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
+                                    val topCand = rawTelexCandidates.firstOrNull()
+                                    val shouldPromoteCandidate = if (topCand != null && !previousWord.isNullOrEmpty() && !topCand.word.equals(composed, ignoreCase = true)) {
+                                        val composedScore = telexEngine.evaluateScore(composed, previousWord, prev2, currentLexicon)
+                                        topCand.score > composedScore + 50.0
+                                    } else false
+
+                                    val list = mutableListOf<String>()
+                                    if (shouldPromoteCandidate && topCand != null) {
+                                        list.add(topCand.word)
+                                        list.add(composed)
+                                    } else {
+                                        list.add(composed)
+                                    }
+                                    list.addAll((completions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) || (shouldPromoteCandidate && it.equals(topCand?.word, ignoreCase = true)) })
                                     list
                                 } else if (telexCandidates.isNotEmpty()) {
                                     val list = mutableListOf<String>()
@@ -22524,6 +22560,9 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             0
         }
+        if (_uiState.value.composer.isVietnamese) {
+            VietnameseGlide.setContext(previousWord, previousWord2)
+        }
         fun decode(tiers: Set<FuzzyBeamSearch.Tier>?, guessing: Int = lookAhead) = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
@@ -22676,6 +22715,9 @@ open class WMKeyboardService : InputMethodService() {
         rejected: String,
         slots: Int,
     ): List<String> = withContext(Dispatchers.Default) {
+        if (_uiState.value.composer.isVietnamese) {
+            VietnameseGlide.setContext(previousWord, previousWord2)
+        }
         engine.glide(
             path = stroke.points,
             keys = keyMapFor(stroke.keys, stroke.keyWidthPx),
