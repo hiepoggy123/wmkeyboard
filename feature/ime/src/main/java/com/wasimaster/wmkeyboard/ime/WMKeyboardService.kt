@@ -32,7 +32,9 @@ import android.os.SystemClock
 import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.SuggestionSpan
+import android.text.style.UnderlineSpan
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
@@ -12859,7 +12861,7 @@ open class WMKeyboardService : InputMethodService() {
                     val ahead = before.subSequence(0, before.length - word.length)
                     setContextFrom(ahead)
                     rebuildRecentWords(ahead)
-                    _uiState.update { it.copy(composingPreview = word) }
+                    updateComposingText(ic)
                     refreshSuggestions()
                     return
                 }
@@ -12883,6 +12885,26 @@ open class WMKeyboardService : InputMethodService() {
                 val ahead = before?.let { it.subSequence(0, it.length - head.length) }
                 setContextFrom(ahead)
                 rebuildRecentWords(ahead)
+                // For Vietnamese: touching anywhere inside or before a word automatically
+                // jumps the caret to the end of that word and re-arms it for Telex/VNI editing (LabanKey style).
+                if (isVietnameseTransliterator(state) && tail.isNotEmpty()) {
+                    val fullWord = head + tail
+                    val buffer = state.composer.resumeBuffer(fullWord)
+                    val wordEnd = newSelStart + tail.length
+                    if (buffer != null && caretStillAt(ic, newSelStart) &&
+                        ic.setSelection(wordEnd, wordEnd) &&
+                        ic.setComposingRegion(wordEnd - fullWord.length, wordEnd)
+                    ) {
+                        composing = StringBuilder(buffer)
+                        composingCaseTrusted = false
+                        resumedWord = fullWord
+                        resumedWordStart = wordEnd - fullWord.length
+                        armComposingRevision(fullWord, wordEnd)
+                        updateComposingText(ic)
+                        refreshSuggestions()
+                        return
+                    }
+                }
                 caretWord = CaretWord(head, tail, newSelStart - head.length)
                 armFieldRevision(head, tail, newSelStart)
                 refreshSuggestions()
@@ -14620,6 +14642,37 @@ open class WMKeyboardService : InputMethodService() {
         ).firstOrNull()
     }
 
+    /**
+     * Formats the currently composing text with clear, highly readable colors.
+     * Uses vibrant Sky Blue (#38BDF8) on dark backgrounds and deep Ocean Blue (#0066CC)
+     * on light backgrounds, with an underline span to provide high contrast and clear visual feedback.
+     */
+    private fun formatComposingText(preview: String): CharSequence {
+        if (preview.isEmpty()) return preview
+        val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val isDark = systemDark || activeDarkSlot(_uiState.value.settings)
+        val color = if (isDark) {
+            android.graphics.Color.parseColor("#38BDF8")
+        } else {
+            android.graphics.Color.parseColor("#0066CC")
+        }
+        val spannable = SpannableString(preview)
+        spannable.setSpan(
+            ForegroundColorSpan(color),
+            0,
+            preview.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            UnderlineSpan(),
+            0,
+            preview.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return spannable
+    }
+
     private fun updateComposingText(ic: InputConnection) {
         val preview = composedPreview(_uiState.value, composing.toString())
         // A fragment typed into a word the user came back to rewrites itself
@@ -14628,7 +14681,8 @@ open class WMKeyboardService : InputMethodService() {
             r.expectReplaceBefore(revisionFragment.length, preview)
             revisionFragment = preview
         }
-        ic.setComposingText(preview, 1)
+        val styled = formatComposingText(preview)
+        ic.setComposingText(styled, 1)
         _uiState.update { it.copy(composingPreview = preview) }
         publishComposingRoman()
         publishKanaVariantReady()
