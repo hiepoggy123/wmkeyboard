@@ -52,6 +52,7 @@ class RomanizedIndex private constructor(
     val alphabet: Set<Int>,
     private val scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
     private val personal: WordSource = PackedTrie.EMPTY,
+    val trajectoryDecoder: ((path: List<GesturePoint>, keys: GlideKeyMap, keyWidth: Float, limit: Int) -> List<GlideBeam.Candidate>)? = null,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
@@ -172,7 +173,8 @@ class RomanizedIndex private constructor(
             resolve: (String) -> List<String>,
             scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
             personal: WordSource = PackedTrie.EMPTY,
-        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm, personal)
+            trajectoryDecoder: ((path: List<GesturePoint>, keys: GlideKeyMap, keyWidth: Float, limit: Int) -> List<GlideBeam.Candidate>)? = null,
+        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm, personal, trajectoryDecoder)
 
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35

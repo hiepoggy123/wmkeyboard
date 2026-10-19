@@ -179,6 +179,10 @@ object VietnameseGlide {
             userStemMaxFreq.clear()
             userStemMaxFreq.putAll(freshStemMaxFreq)
             userCompoundsTrie = freshTrie
+
+            for ((stem, maxFreq) in freshStemMaxFreq) {
+                VietnameseTrajectoryGlide.addUserCompound(stem, maxFreq)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -373,6 +377,8 @@ object VietnameseGlide {
 
         syllableMap = map
 
+        VietnameseTrajectoryGlide.indexStems(stemMaxFreq)
+
         if (userLexicon != null) {
             updateUserCompounds(userLexicon)
         }
@@ -441,6 +447,9 @@ object VietnameseGlide {
                 }
             },
             personal = personalWordSource,
+            trajectoryDecoder = { path, keys, keyWidth, limit ->
+                VietnameseTrajectoryGlide.decode(path, keys, keyWidth, limit)
+            },
         )
         cachedIndex = index
         return index
@@ -473,5 +482,6 @@ object VietnameseGlide {
         userCompoundsTrie = Trie()
         currentPreviousWord = null
         currentPreviousWord2 = null
+        VietnameseTrajectoryGlide.resetForTesting()
     }
 }

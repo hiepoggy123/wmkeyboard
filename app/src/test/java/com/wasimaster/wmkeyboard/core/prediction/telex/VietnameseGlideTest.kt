@@ -157,4 +157,73 @@ class VietnameseGlideTest {
         VietnameseGlide.updateUserCompounds(lexicon)
         assertTrue(VietnameseGlide.lookupUserCompounds("chirua").isEmpty())
     }
+
+    @Test
+    fun testLabanKeyStyleTrajectoryGlide() {
+        VietnameseGlide.resetForTesting()
+
+        val sampleTsv = """
+            nguoi	người,ngươi,nguội
+            viet	viết,việt
+            vietnam	Việt Nam
+            chieu	chiều,chiếu,chiêu
+            homnay	hôm nay
+        """.trimIndent()
+
+        val unigramMap = mapOf(
+            "người" to 2500,
+            "ngươi" to 100,
+            "việt" to 3000,
+            "viết" to 2000,
+            "Việt Nam" to 2200,
+            "chiều" to 1800,
+            "hôm nay" to 2100,
+        )
+
+        val index = VietnameseGlide.loadFromStream(
+            ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
+            unigramMap,
+        )
+        assertNotNull(index)
+        assertNotNull(index.trajectoryDecoder)
+
+        // Build standard QWERTY key centers
+        val keyCenters = com.wasimaster.wmkeyboard.core.gesture.eval.SwipeCorpus.keyCenters()
+        val keyWidth = com.wasimaster.wmkeyboard.core.gesture.eval.SwipeCorpus.KEY_WIDTH
+        val keys = com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap.of(keyCenters, keyWidth)
+
+        // Simulate gesture for "nguoi" (n -> g -> u -> o -> i)
+        val charSeq = "nguoi"
+        val points = ArrayList<com.wasimaster.wmkeyboard.core.gesture.GesturePoint>()
+        var time = 1000L
+        for (i in 0 until charSeq.length - 1) {
+            val c1 = charSeq[i]
+            val c2 = charSeq[i + 1]
+            val idx1 = keys.keyIndex(c1)
+            val idx2 = keys.keyIndex(c2)
+            val kx1 = keys.keyX[idx1] * keyWidth
+            val ky1 = keys.keyY[idx1] * keyWidth
+            val kx2 = keys.keyX[idx2] * keyWidth
+            val ky2 = keys.keyY[idx2] * keyWidth
+            for (step in 0..8) {
+                val t = step / 8.0f
+                val px = kx1 + (kx2 - kx1) * t
+                val py = ky1 + (ky2 - ky1) * t
+                points.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(px, py, time))
+                time += 25L
+            }
+        }
+        val lastIdx = keys.keyIndex(charSeq.last())
+        points.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(keys.keyX[lastIdx] * keyWidth, keys.keyY[lastIdx] * keyWidth, time))
+
+        // Call trajectoryDecoder directly
+        val candidates = index.trajectoryDecoder!!.invoke(points, keys, keyWidth, 4)
+        assertTrue(candidates.isNotEmpty())
+        assertEquals("nguoi", candidates[0].word)
+
+        // Resolve candidate to Vietnamese accented forms
+        val resolved = index.resolve(candidates)
+        assertTrue(resolved.isNotEmpty())
+        assertEquals("người", resolved[0].word)
+    }
 }

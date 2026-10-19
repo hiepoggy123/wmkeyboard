@@ -1258,8 +1258,37 @@ class SuggestionEngine(
             // that pipeline needs its own design, not this one bolted on.
             lookAhead = if (romanization.isEmpty) lookAhead else 0,
         )
+        val withTrajectory = romanization.trajectoryDecoder?.let { decodeTrajectory ->
+            val extra = decodeTrajectory(path, keys, keyWidth, limit)
+            if (extra.isNotEmpty()) {
+                mergeGlideCandidates(decoded, extra)
+            } else {
+                decoded
+            }
+        } ?: decoded
         return finishGlide(
-            decoded, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+            withTrajectory, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+        )
+    }
+
+    private fun mergeGlideCandidates(
+        base: List<GlideBeam.Candidate>,
+        extra: List<GlideBeam.Candidate>,
+    ): List<GlideBeam.Candidate> {
+        if (extra.isEmpty()) return base
+        if (base.isEmpty()) return extra
+        val map = LinkedHashMap<String, GlideBeam.Candidate>()
+        for (c in extra) {
+            map[c.word] = c
+        }
+        for (c in base) {
+            val existing = map[c.word]
+            if (existing == null || c.score > existing.score) {
+                map[c.word] = c
+            }
+        }
+        return map.values.sortedWith(
+            compareByDescending<GlideBeam.Candidate> { it.score }.thenBy { it.word }
         )
     }
 
