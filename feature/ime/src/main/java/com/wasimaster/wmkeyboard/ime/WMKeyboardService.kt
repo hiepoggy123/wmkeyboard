@@ -11977,6 +11977,17 @@ open class WMKeyboardService : InputMethodService() {
                 // Judged here and now, so the settle pass must not judge it
                 // again on the way out and count the rejection twice.
                 correctionWatch.drop(revert.original, revert.committed)
+                learningBuffer.drop(revert.committed)
+                val cleanCommitted = revert.committed.trim { !WordContext.isWordChar(it) }.lowercase().ifEmpty { null }
+                if (!cleanCommitted.isNullOrEmpty() && ::userLexicon.isInitialized) {
+                    previousWord?.let { p ->
+                        userLexicon.unlearnBigram(p, cleanCommitted)
+                        val prev2 = recentWords.getOrNull(recentWords.size - 2)
+                        if (!prev2.isNullOrEmpty()) {
+                            userLexicon.unlearnTrigram(prev2, p, cleanCommitted)
+                        }
+                    }
+                }
                 // The chip was about this correction, and this correction is
                 // no longer in the field.
                 clearUndoChip()
@@ -20332,7 +20343,7 @@ open class WMKeyboardService : InputMethodService() {
                         val top = candidates.firstOrNull()
                         if (top != null && !top.word.equals(composed, ignoreCase = true)) {
                             val composedScore = telexEngine.evaluateScore(composed, prev, prev2, currentLexicon)
-                            if (top.score > composedScore + 50.0) {
+                            if (top.score > composedScore) {
                                 top.word
                             } else {
                                 composed
@@ -20693,7 +20704,7 @@ open class WMKeyboardService : InputMethodService() {
                                     val topCand = rawTelexCandidates.firstOrNull()
                                     val shouldPromoteCandidate = if (topCand != null && !previousWord.isNullOrEmpty() && !topCand.word.equals(composed, ignoreCase = true)) {
                                         val composedScore = telexEngine.evaluateScore(composed, previousWord, prev2, currentLexicon)
-                                        topCand.score > composedScore + 50.0
+                                        topCand.score > composedScore
                                     } else false
 
                                     val list = mutableListOf<String>()
@@ -22560,16 +22571,26 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             0
         }
+        val effectivePrev = if (lastGestureWord != null && previousWord != lastGestureWord) {
+            lastGestureWord
+        } else {
+            previousWord
+        }
+        val effectivePrev2 = if (lastGestureWord != null && previousWord != lastGestureWord) {
+            previousWord
+        } else {
+            previousWord2
+        }
         if (_uiState.value.composer.isVietnamese) {
-            VietnameseGlide.setContext(previousWord, previousWord2)
+            VietnameseGlide.setContext(effectivePrev, effectivePrev2)
         }
         fun decode(tiers: Set<FuzzyBeamSearch.Tier>?, guessing: Int = lookAhead) = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
             keyWidth = keyWidthPx,
             limit = glideCandidateLimit(),
-            previousWord = previousWord,
-            previousWord2 = previousWord2,
+            previousWord = effectivePrev,
+            previousWord2 = effectivePrev2,
             previousWord3 = previousWord3,
             recentWords = recentWords.toList(),
             shapes = shapeSourceFor(keys, keyWidthPx),
@@ -22715,8 +22736,18 @@ open class WMKeyboardService : InputMethodService() {
         rejected: String,
         slots: Int,
     ): List<String> = withContext(Dispatchers.Default) {
+        val effectivePrev = if (lastGestureWord != null && previousWord != lastGestureWord) {
+            lastGestureWord
+        } else {
+            previousWord
+        }
+        val effectivePrev2 = if (lastGestureWord != null && previousWord != lastGestureWord) {
+            previousWord
+        } else {
+            previousWord2
+        }
         if (_uiState.value.composer.isVietnamese) {
-            VietnameseGlide.setContext(previousWord, previousWord2)
+            VietnameseGlide.setContext(effectivePrev, effectivePrev2)
         }
         engine.glide(
             path = stroke.points,
@@ -22725,8 +22756,8 @@ open class WMKeyboardService : InputMethodService() {
             // One over the strip, since the rejected word is in the list
             // it comes back with and leaves a slot when it goes.
             limit = slots + 1,
-            previousWord = previousWord,
-            previousWord2 = previousWord2,
+            previousWord = effectivePrev,
+            previousWord2 = effectivePrev2,
             previousWord3 = previousWord3,
             recentWords = recentWords.toList(),
             deep = true,

@@ -88,6 +88,9 @@ class SnapshotFile(val file: File) {
             val part = File(file.parentFile, file.name + ".part")
             part.writeText(text)
             if (!part.renameTo(file)) {
+                if (file.exists() && file.delete() && part.renameTo(file)) {
+                    return
+                }
                 part.delete()
                 error("could not replace ${file.name}")
             }

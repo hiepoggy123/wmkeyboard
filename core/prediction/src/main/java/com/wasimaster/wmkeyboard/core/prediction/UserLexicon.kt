@@ -84,6 +84,17 @@ class UserLexicon(private val storageFile: File?) {
             }
         }
 
+        fun unbump(next: String, delta: Int = 1) {
+            val curr = counts[next] ?: return
+            val updated = curr - delta
+            if (updated <= 0) {
+                counts.remove(next)
+            } else {
+                counts[next] = updated
+            }
+            sorted = null
+        }
+
         /** Moves [old]'s count onto [new], adding to any count [new] already has. */
         fun rename(old: String, new: String) {
             val moved = counts.remove(old) ?: return
@@ -535,6 +546,21 @@ class UserLexicon(private val storageFile: File?) {
     }
 
     @Synchronized
+    fun unlearnBigram(previous: String, next: String) {
+        val prev = WordKey.of(previous)
+        val nxt = WordKey.of(next)
+        if (prev.isEmpty() || nxt.isEmpty()) return
+        bigrams[prev]?.let { followers ->
+            followers.unbump(nxt)
+            if (followers.counts.isEmpty()) {
+                bigrams.remove(prev)
+            }
+            dirty = true
+            mutations++
+        }
+    }
+
+    @Synchronized
     fun nextWords(previous: String, limit: Int): List<String> =
         bigrams[WordKey.of(previous)]?.ordered()?.take(limit).orEmpty()
 
@@ -551,6 +577,23 @@ class UserLexicon(private val storageFile: File?) {
         }
         trigrams.getOrPut(trigramKey(a, b)) { Followers() }.bump(c)
         dirty = true
+    }
+
+    @Synchronized
+    fun unlearnTrigram(prev2: String, prev1: String, next: String) {
+        val a = WordKey.of(prev2)
+        val b = WordKey.of(prev1)
+        val c = WordKey.of(next)
+        if (a.isEmpty() || b.isEmpty() || c.isEmpty()) return
+        val key = trigramKey(a, b)
+        trigrams[key]?.let { followers ->
+            followers.unbump(c)
+            if (followers.counts.isEmpty()) {
+                trigrams.remove(key)
+            }
+            dirty = true
+            mutations++
+        }
     }
 
     /** Followers of the two-word context (prev2, prev1), best first. More

@@ -224,14 +224,14 @@ class TelexAutocorrectEngine private constructor() {
         }
 
         // Scoring weights
-        private const val EXACT_MATCH_BONUS = 500.0    // Favor exact match when context is neutral, but allow strong context to override
+        private const val EXACT_MATCH_BONUS = 220.0    // Favor exact match when context is neutral, but allow strong context to override
         private const val WEIGHT_PENALTY = 160.0        // Penalty multiplier for fat-finger keystrokes
         private const val WEIGHT_UNIGRAM = 0.5          // Base Unigram frequency weight
-        private const val WEIGHT_BIGRAM = 6.0           // Context Bigram weight (strengthened for Sogou-like context sensitivity)
-        private const val WEIGHT_TRIGRAM = 12.0         // Context Trigram weight
+        private const val WEIGHT_BIGRAM = 8.0           // Context Bigram weight (strengthened for Sogou-like context sensitivity)
+        private const val WEIGHT_TRIGRAM = 16.0         // Context Trigram weight
         private const val WEIGHT_USER_UNIGRAM = 2.0     // Bonus weight for words learned from user
-        private const val WEIGHT_USER_BIGRAM = 8.0      // Bonus weight for word pairs learned from user
-        private const val WEIGHT_USER_TRIGRAM = 16.0    // Bonus weight for 3-word habits learned from user
+        private const val WEIGHT_USER_BIGRAM = 10.0     // Bonus weight for word pairs learned from user
+        private const val WEIGHT_USER_TRIGRAM = 20.0    // Bonus weight for 3-word habits learned from user
         private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty
 
         /**
@@ -297,13 +297,12 @@ class TelexAutocorrectEngine private constructor() {
                 }
             }
 
-            // Always load JSON bigrams into memory as fallback
-            try {
-                val bigramsJson = readAsset(assets, "telex/bigrams.json")
-                languageModel.loadBigrams(bigramsJson)
-            } catch (_: Exception) {}
-
+            // Fallback to JSON bigrams/trigrams only when binary pack is not loaded
             if (!packLoaded) {
+                try {
+                    val bigramsJson = readAsset(assets, "telex/bigrams.json")
+                    languageModel.loadBigrams(bigramsJson)
+                } catch (_: Exception) {}
                 try {
                     val trigramsJson = readAsset(assets, "telex/trigrams.json")
                     languageModel.loadTrigrams(trigramsJson)

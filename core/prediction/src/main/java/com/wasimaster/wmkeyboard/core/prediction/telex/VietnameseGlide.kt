@@ -66,6 +66,8 @@ object VietnameseGlide {
 
     // Dynamic compound stems learned from UserLexicon
     @Volatile
+    private var lastLearnedMutationCount = -1L
+    @Volatile
     private var userCompoundsTrie: Trie = Trie()
     private val userCompoundsMap = ConcurrentHashMap<String, List<String>>()
     private val userWordFreq = ConcurrentHashMap<String, Int>()
@@ -118,6 +120,10 @@ object VietnameseGlide {
      */
     fun updateUserCompounds(userLexicon: UserLexicon?) {
         if (userLexicon == null) return
+        val currentMutations = userLexicon.mutationCount()
+        if (currentMutations == lastLearnedMutationCount && userCompoundsTrie.walkers().isNotEmpty()) {
+            return
+        }
         try {
             val bigrams = userLexicon.allBigrams()
             val trigrams = userLexicon.allTrigrams()
@@ -183,6 +189,7 @@ object VietnameseGlide {
             for ((stem, maxFreq) in freshStemMaxFreq) {
                 VietnameseTrajectoryGlide.addUserCompound(stem, maxFreq)
             }
+            lastLearnedMutationCount = currentMutations
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -211,9 +218,14 @@ object VietnameseGlide {
                 } catch (_: Exception) {
                     emptyMap()
                 }
-                val bigrams = try {
-                    assets.open(BIGRAMS_ASSET_PATH).use { parseBigrams(it) }
-                } catch (_: Exception) {
+                val ngramPackLoaded = !TelexAutocorrectEngine.getInstance().languageModel.ngramPack.isEmpty
+                val bigrams = if (!ngramPackLoaded) {
+                    try {
+                        assets.open(BIGRAMS_ASSET_PATH).use { parseBigrams(it) }
+                    } catch (_: Exception) {
+                        emptyMap()
+                    }
+                } else {
                     emptyMap()
                 }
                 assets.open(ASSET_PATH).use { stream ->
@@ -294,8 +306,12 @@ object VietnameseGlide {
                 val parts = word.lowercase().split(' ')
                 val freqs = parts.mapNotNull { unigrams[it] }
                 val avgUnigram = if (freqs.isNotEmpty()) freqs.average().toInt() else 100
-                if (parts.size == 2 && bigrams.isNotEmpty()) {
-                    val bgFreq = bigrams[parts[0]]?.get(parts[1])
+                if (parts.size == 2) {
+                    val bgFreq = if (bigrams.isNotEmpty()) {
+                        bigrams[parts[0]]?.get(parts[1])
+                    } else {
+                        TelexAutocorrectEngine.getInstance().languageModel.getBigramScore(parts[0], parts[1]).takeIf { it > 0 }
+                    }
                     if (bgFreq != null && bgFreq > 0) {
                         // Bigram frequency is on the 0-255 scale.
                         // Bound compound frequency proportionally so it competes realistically with single words (0-255).
@@ -425,11 +441,12 @@ object VietnameseGlide {
                     (ln(1.0 + baseUnigram) * 0.45).coerceIn(0.0, 2.5)
                 } else 0.0
 
-                // Compound damping: unprompted multi-word compound without context evidence gets a modest damping (-0.8)
+                // Compound damping: unprompted multi-word compound without context evidence gets damping
                 // to prevent rare multi-word compounds (e.g. "chiến sự") from hijacking common single syllables (e.g. "chiều")
                 val isCompound = form.contains(' ')
+                val hasSingleSyllable = syllableMap?.get(unaccented)?.any { !it.contains(' ') } == true
                 val compoundDamping = if (isCompound && contextBonus < 0.1 && userStemMaxFreq[unaccented] == null) {
-                    -0.8
+                    if (hasSingleSyllable) -1.8 else -0.8
                 } else 0.0
 
                 val userMax = userStemMaxFreq[unaccented]
