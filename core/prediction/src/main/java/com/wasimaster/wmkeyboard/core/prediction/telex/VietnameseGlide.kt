@@ -140,8 +140,8 @@ object VietnameseGlide {
                 if (stem.length < 3 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
                 if (!stem.all { it in 'a'..'z' }) return
 
-                // Score scales proportionally with count, competing fairly with single-word stems
-                val freq = (1000 + count * 2000).coerceAtMost(60000)
+                // Score scales on the 140..255 scale, matching Tier.USER weighting and competing fairly with single syllables
+                val freq = (140 + count * 25).coerceIn(140, 255)
                 val list = freshMap.getOrPut(stem) { mutableListOf() }
                 list.add(phrase to freq)
             }
@@ -283,22 +283,23 @@ object VietnameseGlide {
         val stemMaxFreq = HashMap<String, Int>(25000)
 
         fun getWordFrequency(word: String, explicitFreq: Int?): Int {
-            if (explicitFreq != null && explicitFreq > 0) return explicitFreq
+            if (explicitFreq != null && explicitFreq > 0) return explicitFreq.coerceIn(1, 255)
             val unigram = unigrams[word.lowercase()]
             if (unigram != null && unigram > 0) return unigram
             if (word.contains(' ')) {
                 val parts = word.lowercase().split(' ')
+                val freqs = parts.mapNotNull { unigrams[it] }
+                val avgUnigram = if (freqs.isNotEmpty()) freqs.average().toInt() else 100
                 if (parts.size == 2 && bigrams.isNotEmpty()) {
                     val bgFreq = bigrams[parts[0]]?.get(parts[1])
                     if (bgFreq != null && bgFreq > 0) {
-                        return (bgFreq * 200).coerceAtLeast(100)
+                        // Bigram frequency is on the 0-255 scale.
+                        // Bound compound frequency proportionally so it competes realistically with single words (0-255).
+                        val minPart = freqs.minOrNull() ?: 100
+                        return ((bgFreq * 0.4) + (minPart * 0.5)).toInt().coerceIn(30, 220)
                     }
                 }
-                val freqs = parts.mapNotNull { unigrams[it] }
-                if (freqs.isNotEmpty()) {
-                    return freqs.average().toInt().coerceAtLeast(100)
-                }
-                return 150
+                return (avgUnigram * 0.7).toInt().coerceIn(30, 160)
             }
             return 50
         }
@@ -412,17 +413,30 @@ object VietnameseGlide {
                     }
                 }
 
+                // Absolute unigram frequency bonus (incorporating native language model popularity into candidate score)
+                val baseUnigram = unigrams[formLower] ?: wordFreq["$unaccented\t$form"] ?: 0
+                val unigramBonus = if (baseUnigram > 0) {
+                    (ln(1.0 + baseUnigram) * 0.45).coerceIn(0.0, 2.5)
+                } else 0.0
+
+                // Compound damping: unprompted multi-word compound without context evidence gets a modest damping (-0.8)
+                // to prevent rare multi-word compounds (e.g. "chiến sự") from hijacking common single syllables (e.g. "chiều")
+                val isCompound = form.contains(' ')
+                val compoundDamping = if (isCompound && contextBonus < 0.1 && userStemMaxFreq[unaccented] == null) {
+                    -0.8
+                } else 0.0
+
                 val userMax = userStemMaxFreq[unaccented]
                 val userFreq = userWordFreq["$unaccented\t$form"]
                 if (userMax != null && userFreq != null && userMax > 0 && userFreq > 0) {
-                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus
+                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus
                 } else {
                     val max = stemMaxFreq[unaccented] ?: 0
-                    val freq = wordFreq["$unaccented\t$form"] ?: unigrams[formLower] ?: 0
+                    val freq = wordFreq["$unaccented\t$form"] ?: baseUnigram
                     if (max > 0 && freq > 0) {
-                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus
+                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + compoundDamping
                     } else {
-                        -formIndex * 0.35 + contextBonus
+                        -formIndex * 0.35 + contextBonus + compoundDamping
                     }
                 }
             },
