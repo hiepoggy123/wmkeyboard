@@ -99,6 +99,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Group
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Highlight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Home
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
@@ -144,6 +145,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Save
@@ -316,6 +318,7 @@ object BuiltinIcons {
         "HelpOutline" to { Icons.AutoMirrored.Outlined.HelpOutline },
         "Highlight" to { Icons.Outlined.Highlight },
         "HighlightAlt" to { Icons.Outlined.HighlightAlt },
+        "History" to { Icons.Outlined.History },
         "Home" to { Icons.Outlined.Home },
         "HomeIotDevice" to { Icons.Outlined.HomeIotDevice },
         "Image" to { Icons.Outlined.Image },
@@ -371,6 +374,7 @@ object BuiltinIcons {
         "QrCodeScanner" to { Icons.Outlined.QrCodeScanner },
         "QueryStats" to { Icons.Outlined.QueryStats },
         "Quickreply" to { Icons.Outlined.Quickreply },
+        "Repeat" to { Icons.Outlined.Repeat },
         "Redo" to { Icons.AutoMirrored.Outlined.Redo },
         "Refresh" to { Icons.Outlined.Refresh },
         "Remove" to { Icons.Outlined.Remove },
