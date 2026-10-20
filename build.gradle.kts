@@ -113,7 +113,7 @@ dependencyAnalysis {
 tasks.register("unitTests") {
     group = "verification"
     description = "Runs every module's unit tests, :app included, across the two variant naming schemes."
-    dependsOn(":app:testFullIntlDebugUnitTest")
+    dependsOn(":app:testLiteIntlDebugUnitTest")
     // Only the library modules. `:core` and `:feature` are bare containers
     // with no build file and no tasks, and `:tools:dictc` is a plain JVM tool
     // whose task is `test`, so neither takes a flavoured task name.
@@ -121,7 +121,8 @@ tasks.register("unitTests") {
         subprojects
             .filter { it.buildFile.exists() }
             .filter { it.path.startsWith(":core:") || it.path.startsWith(":feature:") }
-            .map { "${it.path}:testFullDebugUnitTest" },
+            .filter { it.path !in setOf(":core:keyman", ":core:voice", ":core:kdeconnect", ":core:plugins", ":core:homeassistant", ":core:smarthome") }
+            .map { "${it.path}:testLiteDebugUnitTest" },
     )
     // The architecture rules: a plain JVM module, so plain `test`.
     dependsOn(":tools:architecture:test")

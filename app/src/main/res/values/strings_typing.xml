@@ -1041,6 +1041,29 @@
         <item quantity="other">%d fixes and every slip the keyboard noticed</item>
     </plurals>
     <string name="typing_learned_corrections_clear_confirm">Every fix you taught and every slip the keyboard noticed is forgotten. Learned words and undone corrections are not affected.</string>
+    <!-- Learned phrases (N-grams and skip-grams) -->
+    <string name="typing_learned_phrases_title">Learned phrases</string>
+    <string name="typing_learned_phrases_subtitle">Word pairs, trigrams and skip-grams learned from your typing habits</string>
+    <string name="typing_learned_phrases_empty">No learned phrases yet. Word pairs and phrases appear here as you type.</string>
+    <string name="typing_learned_phrases_no_matches">No learned phrases match \"%1$s\"</string>
+    <string name="typing_learned_phrases_clear_title">Forget all learned phrases</string>
+    <string name="typing_learned_phrases_clear_subtitle">Forget all bigrams, trigrams and skip-grams learned from typing</string>
+    <string name="typing_learned_phrases_clear_confirm">Every word pair, trigram and skip-gram learned from typing will be forgotten. Learned individual words are not affected.</string>
+    <string name="typing_learned_phrases_tab_all">All</string>
+    <string name="typing_learned_phrases_tab_bigrams">Pairs (Bigrams)</string>
+    <string name="typing_learned_phrases_tab_trigrams">Phrases (Trigrams)</string>
+    <string name="typing_learned_phrases_tab_skipgrams">Skip-grams</string>
+    <plurals name="typing_learned_phrases_count">
+        <item quantity="one">%d phrase</item>
+        <item quantity="other">%d phrases</item>
+    </plurals>
+    <plurals name="typing_learned_phrases_typed_times">
+        <item quantity="one">Typed %d time</item>
+        <item quantity="other">Typed %d times</item>
+    </plurals>
+    <string name="typing_learned_phrases_skip1_desc">1 word skipped</string>
+    <string name="typing_learned_phrases_skip2_desc">2 words skipped</string>
+    <string name="typing_learned_phrases_delete_desc">Forget this phrase</string>
     <string name="typing_habits_title">Slips the keyboard has noticed</string>
     <string name="typing_habits_info">How your fixes were made, letter by letter. Autocorrect treats these slips as likely for you, so the same slip in a word you never fixed is still understood.</string>
     <string name="typing_habit_substitution">%1$s typed instead of %2$s</string>

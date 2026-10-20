@@ -1076,6 +1076,7 @@ private fun SettingsNavGraph(
                     onOpenBlacklist = { navController.navigate("blacklist") },
                     onOpenAutopilot = { navController.navigate("typing/autopilot") },
                     onOpenOctopus = { navController.navigate("typing/octopus") },
+                    onOpenLearnedPhrases = { navController.navigate("learnedphrases") },
                 )
             }
         }
@@ -1292,6 +1293,16 @@ private fun SettingsNavGraph(
                 subtitle = stringResource(R.string.typing_learned_corrections_subtitle),
             ) {
                 LearnedCorrectionsSettings(repository, settings)
+            }
+        }
+        composable("learnedphrases") {
+            SettingsScreen(
+                stringResource(R.string.typing_learned_phrases_title),
+                { navController.popBackStack() },
+                route = "learnedphrases",
+                subtitle = stringResource(R.string.typing_learned_phrases_subtitle),
+            ) {
+                LearnedPhrasesSettings(repository, settings)
             }
         }
         composable(MusicApps.ROUTE) {

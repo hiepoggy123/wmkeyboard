@@ -2501,6 +2501,11 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
             R.string.typing_group_corrections_title, "learnedcorrections", R.string.search_kw_learnedcorrections,
             parent = R.string.home_typing_title,
         ),
+        under(
+            R.string.typing_learned_phrases_title, R.string.typing_learned_phrases_subtitle,
+            R.string.typing_group_corrections_title, "learnedphrases", R.string.search_kw_learnedphrases,
+            parent = R.string.home_typing_title,
+        ),
         // A child of the media control tool's page rather than of a home
         // screen, so its breadcrumb is built by hand off the tool's own name.
         entry(

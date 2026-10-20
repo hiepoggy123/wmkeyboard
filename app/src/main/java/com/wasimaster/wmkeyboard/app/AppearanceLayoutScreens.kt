@@ -452,6 +452,15 @@ internal fun AppearanceToolbarSettings(
         // the row and the top bar are both gated on it before these are read.
         if (toolbarOn) item {
             ToggleSetting(
+                R.string.appearance_toolbar_colored_icons_title,
+                stringResource(R.string.appearance_toolbar_colored_icons_subtitle),
+                settings.watch { it.toolbarBehavior.coloredIcons },
+                info = stringResource(R.string.appearance_toolbar_colored_icons_info),
+                default = SettingsDefaults.toolbarBehavior.coloredIcons,
+            ) { scope.launch { repository.setToolbarColoredIcons(it) } }
+        }
+        if (toolbarOn) item {
+            ToggleSetting(
                 R.string.appearance_toolbar_rtl_title,
                 stringResource(R.string.appearance_toolbar_rtl_subtitle),
                 settings.watch { it.toolbarBehavior.reverseForRtl },
