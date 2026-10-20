@@ -56,8 +56,14 @@ class ArchitectureTest {
         val main = trackedFiles { path -> path.endsWith(".kt") && MAIN_SOURCE.containsMatchIn(path) }
             .joinToString("\n") { code(File(root, it).readText()) }
         for ((module, lites) in stubs.groupBy { it.substringBefore("/src/lite/java/") }) {
-            val fulls = trackedFiles { it.startsWith("$module/src/full/java/") && it.endsWith(".kt") }
-            lites.map { it.replace("/src/lite/java/", "/src/full/java/") }
+            val fulls = trackedFiles {
+                (it.startsWith("$module/src/full/java/") || it.startsWith("$module/src/googlehomestub/java/")) &&
+                    it.endsWith(".kt")
+            }
+            lites.map {
+                if ("googlehome" in it) it.replace("/src/lite/java/", "/src/googlehomestub/java/")
+                else it.replace("/src/lite/java/", "/src/full/java/")
+            }
                 .filterNot { File(root, it).isFile }
                 .forEach { problems += "$it: missing, though the lite stub at the same path stands in for it" }
             val liteApi = lites.flatMap(::api).toSet()
