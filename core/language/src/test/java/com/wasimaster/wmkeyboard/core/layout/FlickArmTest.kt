@@ -52,7 +52,8 @@ class FlickArmTest {
             flickActions = mapOf(FlickDirection.LEFT to left),
         )
         assertTrue(key.hasFlicks())
-        assertNull(key.flickArm(FlickDirection.UP))
+        // Since #789 action keys take text arms too; see SpecialKeyFlickTest
+        assertEquals(FlickArm.Text("x"), key.flickArm(FlickDirection.UP))
         assertTrue(key.flickKey(FlickDirection.LEFT)!!.flickArmRepeats())
     }
 

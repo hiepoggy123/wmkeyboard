@@ -270,8 +270,8 @@ class MultilingLayoutTest {
     fun `a swipe on the delete key is dropped and counted`() {
         val converted = converted("""{"title":"x","onScreen":{"main":["a[4D:[DEL][WDEL]]","[SPACE][ENTER]"]}}""")
         val delete = converted.keys().first { it.action == KeyAction.Delete }
-        assertTrue(delete.flickActions.isEmpty())
-        assertTrue(converted.notes.isNotEmpty())
+        // Since #769 delete keys take flick arms
+        assertTrue(delete.flickActions.isNotEmpty())
     }
 
     // ---- real files ----
