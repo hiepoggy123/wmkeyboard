@@ -13163,7 +13163,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun ensureVietnameseGlide() {
         val engine = suggestionEngine ?: return
-        val activeDict = engine.activeDictionary
+        val activeDict = engine.dictionary
         if (vietnameseGlideWords === activeDict && romanizedGlides.containsKey(VIETNAMESE_GLIDE) &&
             vietnameseGlideJob?.isActive != true) return
         vietnameseGlideJob = serviceScope.launch {
