@@ -30,6 +30,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -382,9 +383,11 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
     "rows/symbol" to Color(0xFF26A69A),
+    "ai" to Color(0xFF7E57C2),
     "ai_actions" to Color(0xFF7E57C2),
     "ai_history" to Color(0xFF7E57C2),
     "ai_chat" to Color(0xFF7E57C2),
+    "settings_assistant" to Color(0xFF7E57C2),
     "ai_mcp" to Color(0xFF7E57C2),
     "ai_tools" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
@@ -404,6 +407,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     // The Notes tool's own yellow, see ToolColors.
     // The Clock tool's own indigo, see ToolColors.
     "clock" to Color(0xFF5C6BC0),
+    "homeassistant/entities" to Color(0xFF18BCF2),
     "notes" to Color(0xFFFBC02D),
     "notes/tags" to Color(0xFFFBC02D),
     "notes/trash" to Color(0xFFFBC02D),
@@ -427,12 +431,15 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "selection_macros/ai" to Color(0xFF5E6BC0),
     "selection_macros/zones" to Color(0xFF5E6BC0),
     "advanced" to Color(0xFF8D6E63),
+    // A child of Advanced, so it keeps the parent's brown.
+    FloatingButtonRoute to Color(0xFF8D6E63),
     "backup" to Color(0xFF78909C),
     "backup/auto" to Color(0xFF78909C),
     "backup/sync" to Color(0xFF78909C),
     "backup/contents" to Color(0xFF78909C),
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),
+    "supporters" to Color(0xFFFFB300),
     // Behind the version row's seven taps, so it keeps About's grey.
     "egg_game" to Color(0xFF90A4AE),
     "debug_log" to Color(0xFF607D8B),
@@ -453,11 +460,18 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     // per-category grid under it takes the default: its destination is
     // "emojiorder/{category}", and the screen names itself by the literal.
     "emojicategories" to Color(0xFFFFB300),
+    // The kaomoji library and its two lists, children of the emoji panel.
+    "kaomoji" to Color(0xFFFFB300),
+    "kaomoji/faces" to Color(0xFFFFB300),
+    "kaomoji/tags" to Color(0xFFFFB300),
     // A child of the media control tool, so it keeps that tool's purple.
     "musicapps" to Color(0xFFAB47BC),
     // A child of the app launcher tool, so it keeps that tool's violet.
     "launchercombos" to Color(0xFF7E57C2),
     "kdeconnect/devices" to Color(0xFF1D99F3),
+    // Children of the Send files tool, so they keep that tool's teal.
+    "send/instances" to Color(0xFF26A69A),
+    "send/history" to Color(0xFF26A69A),
 )
 
 /** The accent for a route with no colour of its own. */
@@ -2494,7 +2508,8 @@ internal fun WmScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .nestedScroll(scrollLock)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(scrollState)
+                    .holdScrolledPlace(scrollState),
                 verticalArrangement = Arrangement.Top,
             ) {
                 // The same air under the bar whatever comes first. A group
@@ -2519,6 +2534,24 @@ internal fun WmScreen(
             }
         }
     }
+}
+
+/**
+ * Keeps a scrolled page at least as tall as the part of it already scrolled
+ * past plus the screen (#665).
+ *
+ * A row closing at the foot of a page scrolled to its end made the page
+ * shorter than where the reader stood, the scroll offset was clamped, and
+ * every card above was dragged down a row's height in a few frames, which
+ * read as the whole list flashing. Held this way the rows above stay where
+ * they are and the room the row left stays as empty space below, which goes
+ * as soon as the reader scrolls up past it. Read in layout only, so a scroll
+ * costs this node a relayout and recomposes nothing.
+ */
+private fun Modifier.holdScrolledPlace(scroll: ScrollState): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val floor = scroll.value + scroll.viewportSize
+    layout(placeable.width, maxOf(placeable.height, floor)) { placeable.place(0, 0) }
 }
 
 /** Height a scrolling body leaves free under a floating action button. */

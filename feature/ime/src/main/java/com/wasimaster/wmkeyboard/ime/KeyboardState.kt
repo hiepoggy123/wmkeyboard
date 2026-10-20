@@ -314,6 +314,11 @@ data class LayoutSet(
      */
     val symbolsFillRow: List<Key>? = null,
     /**
+     * Arrow keys rows this layout authored, by the layer they sit under
+     * (issue #769). Absent entries draw the four arrows in the setting's order.
+     */
+    val arrowRows: Map<LayoutMode, List<Key>> = emptyMap(),
+    /**
      * The column count these grids were laid out against, when the tablet
      * expansion widened them; null on a phone and on any layout that declined it.
      *
@@ -765,12 +770,35 @@ enum class PanelMode {
     CLOCK,
 
     /**
+     * The Home Assistant tool: the house's entities as tiles, live from the
+     * server, and a typed Assist bar. Its state is the controller's, see
+     * `ime.homeassistant.HaUi`; its search, Assist and code boxes take the keys
+     * through the `HA_*` capture targets.
+     */
+    HOME_ASSISTANT,
+
+    /**
      * The gallery tool (#708): the phone's photos and videos, picked, viewed,
      * edited and sent. Its state is the controller's, see
      * `ime.gallery.GalleryUi`; its caption box and the editor's text take the
      * keys through [CaptureTarget.GALLERY_TEXT].
      */
     GALLERY,
+
+    /**
+     * The Text repeat tool: a piece of text written out many times. Its text
+     * and custom separator take the keys through [CaptureTarget.REPEAT_TEXT]
+     * and [CaptureTarget.REPEAT_SEPARATOR]; see [TextRepeatUi].
+     */
+    TEXT_REPEAT,
+
+    /**
+     * The Send files tool (#729): files out as an encrypted link or to a device
+     * nearby, and links in. Its state is the controller's, see `ime.send.SendUi`;
+     * its password, link and address boxes take the keys through the `SEND_*`
+     * capture targets.
+     */
+    SEND_FILES,
 }
 
 /**
@@ -942,10 +970,16 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.LOCATION -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     // The tab row; each tab's own controls are touch, and typing reaches its box.
     PanelMode.CLOCK -> listOf(FocusRegion.CHIPS)
+    // The room tabs, the tiles, then the open tile's controls.
+    PanelMode.HOME_ASSISTANT -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     // The album and filter chips, the grid, then the send bar.
+    PanelMode.SEND_FILES -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     PanelMode.GALLERY -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
+    // The mode tabs, the text pills, Insert/Copy/Undo, then the option chips.
+    PanelMode.TEXT_REPEAT ->
+        listOf(FocusRegion.CHIPS, FocusRegion.SEARCH, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The dialect and Fix-all chips, then the lint cards. Seed-only (see
     // [panelFocusSeedOnly]): the panel accompanies live field editing, so the
     // arrows keep moving the caret until the ring is asked for.
@@ -2032,6 +2066,12 @@ sealed interface DictionaryUi {
     /** Every source that answered knows no entry for this word. */
     data class NotFound(val word: String) : DictionaryUi
 
+    /**
+     * The vocabulary packs do not have it, and no online source could be
+     * reached to ask (#665): not a verdict on the word.
+     */
+    data class NotOnDevice(val word: String) : DictionaryUi
+
     /** The user turned every source off. */
     data object NoSources : DictionaryUi
     data class Ready(
@@ -2042,6 +2082,14 @@ sealed interface DictionaryUi {
          * vocabulary pack's translations (#651); null for a word no pack has.
          */
         val meaning: com.wasimaster.wmkeyboard.core.vocab.VocabMeaning? = null,
+        /**
+         * The first entry's word in the languages the user picked (#764), in
+         * their order: language code to its glosses. Empty with translations
+         * off or none found.
+         */
+        val translations: List<Pair<String, com.wasimaster.wmkeyboard.core.vocab.VocabTranslation>> = emptyList(),
+        /** Wiktionary is still being asked for [translations], the entry's own source having none. */
+        val translationsLoading: Boolean = false,
     ) : DictionaryUi
 }
 
@@ -2372,6 +2420,12 @@ sealed interface WordMenuAction {
     /** Forget [word] everywhere the keyboard can, and hide it where it cannot. */
     data class Delete(val word: String) : WordMenuAction
 
+    /**
+     * Forget what the keyboard learned about [word], and leave it a word: the
+     * lists still offer it, at their own rank, with their own capitals (#679).
+     */
+    data class Forget(val word: String) : WordMenuAction
+
     /** Open the word card for [word]. */
     data class Open(val word: String) : WordMenuAction
 
@@ -2452,6 +2506,12 @@ data class WordMenuFacts(
     val typedAddable: String? = null,
     /** Whether the held word is somewhere the keyboard can forget it from. */
     val deletable: Boolean = false,
+    /**
+     * Whether the keyboard has learned something about the held word that a
+     * word list also holds, so forgetting the learning leaves a word behind
+     * and is not the same as deleting it.
+     */
+    val resettable: Boolean = false,
     /** Whether the held word is on the never-suggest list. */
     val blacklisted: Boolean = false,
     /**
@@ -2468,6 +2528,11 @@ data class WordMenuFacts(
      * letters, typed where the sources can answer (they are English).
      */
     val synonyms: Boolean = false,
+    /**
+     * The held word's rank adjustment, in the word card's steps, so a hold
+     * that goes on to slide (#790) starts from where the word already sits.
+     */
+    val rankSteps: Int = 0,
 )
 
 /**
@@ -2564,9 +2629,15 @@ data class ClipEdit(
     val draft: String = original,
     /** The clip was rich text, whose formatting a changed draft gives up. */
     val rich: Boolean = false,
+    /**
+     * The editor is editing the clip's tags (#612), as a list separated by
+     * commas, rather than its text. Enter saves, and an empty list is a fair
+     * thing to save: it takes every tag off.
+     */
+    val tags: Boolean = false,
 ) {
-    /** Whether saving would change anything. Blank never saves. */
-    val canSave: Boolean get() = draft.isNotBlank() && draft.trim() != original
+    /** Whether saving would change anything. Blank never saves a text. */
+    val canSave: Boolean get() = if (tags) draft.trim().trimEnd(',').trim() != original else draft.isNotBlank() && draft.trim() != original
 
     companion object {
         /**
@@ -2579,7 +2650,14 @@ data class ClipEdit(
 }
 
 /** Which of [ClipCombineDraft]'s three boxes the keys type into. */
-enum class ClipCombineField { JOINER, BASE, APPEND }
+/**
+ * Combine's boxes (#612), in the order they are drawn after the joiner:
+ * the prefix, the pattern, what each match becomes, and the result itself
+ * once it is edited by hand. [TEMPLATE] and [RESULT] type through
+ * [CaptureTarget.CLIP_BASE], the prefix's target, rather than targets of
+ * their own: every capture `when` would otherwise need two more branches.
+ */
+enum class ClipCombineField { JOINER, BASE, APPEND, TEMPLATE, RESULT }
 
 /**
  * Several clips being joined into one in the clipboard panel (#612): the clips
@@ -2595,6 +2673,12 @@ data class ClipCombineDraft(
     val base: String = "",
     /** A pattern: each clip gives only its first match, when not empty. */
     val append: String = "",
+    /** What each match becomes, `$1` for its groups; empty keeps the match whole. */
+    val template: String = "",
+    /** The result as edited by hand, or null while it follows the rule (#612). */
+    val result: String? = null,
+    /** Combine deletes the clips it joined (#612). */
+    val deleteOriginals: Boolean = false,
     val focused: ClipCombineField = ClipCombineField.JOINER,
 ) {
     /** The box [focused] names. */
@@ -2603,15 +2687,23 @@ data class ClipCombineDraft(
             ClipCombineField.JOINER -> joiner
             ClipCombineField.BASE -> base
             ClipCombineField.APPEND -> append
+            ClipCombineField.TEMPLATE -> template
+            ClipCombineField.RESULT -> result.orEmpty()
         }
 
-    /** This, with [text] in the box [focused] names, cut to [MAX_LENGTH]. */
+    /**
+     * This, with [text] in the box [focused] names, cut to [MAX_LENGTH]. A
+     * change to the rule lets go of a result edited by hand: it was an edit of
+     * what the rule made before.
+     */
     fun withFocusedText(text: String): ClipCombineDraft {
-        val cut = text.take(MAX_LENGTH)
+        val cut = text.take(if (focused == ClipCombineField.RESULT) ClipEdit.MAX_LENGTH else MAX_LENGTH)
         return when (focused) {
-            ClipCombineField.JOINER -> copy(joiner = cut)
-            ClipCombineField.BASE -> copy(base = cut)
-            ClipCombineField.APPEND -> copy(append = cut)
+            ClipCombineField.JOINER -> copy(joiner = cut, result = null)
+            ClipCombineField.BASE -> copy(base = cut, result = null)
+            ClipCombineField.APPEND -> copy(append = cut, result = null)
+            ClipCombineField.TEMPLATE -> copy(template = cut, result = null)
+            ClipCombineField.RESULT -> copy(result = cut)
         }
     }
 
@@ -2822,6 +2914,12 @@ data class StickerOffer(
     val expanded: Boolean = false,
     val inEmojiPanel: Boolean = false,
 )
+
+/**
+ * One all-thumbs-up pause (#747): how long it waits, and a number of its own so
+ * the band restarts for a new pause even when it is just as long.
+ */
+data class AllUpCountdown(val durationMs: Long, val id: Int)
 
 /**
  * Immutable UI state rendered by the Compose keyboard. The service owns a
@@ -3101,6 +3199,11 @@ data class KeyboardUiState(
      */
     val glideCloseCall: Boolean = false,
     /**
+     * The two-thumb all-thumbs-up pause running now, for the band on the strip
+     * that shrinks until the word is typed (#747); null while none is.
+     */
+    val allUpCountdown: AllUpCountdown? = null,
+    /**
      * Whether the active language and layout can be glided: a word list to
      * decode against, a layout that types letters rather than converting them,
      * and keys covering enough of the language to decode honestly.
@@ -3257,6 +3360,8 @@ data class KeyboardUiState(
     val stickerOffer: StickerOffer? = null,
     /** Input a chip loaded into the tool it is about to open; consumed once. */
     val toolPrefill: ToolPrefill? = null,
+    /** The Text repeat panel's text, boxes and undo; see [TextRepeatUi]. */
+    val textRepeat: TextRepeatUi = TextRepeatUi(),
     /** The word-of-the-day chip, offered once on the first field of the day. */
     val vocabDaily: VocabDailyChip? = null,
     /**
@@ -3312,6 +3417,16 @@ data class KeyboardUiState(
      */
     val recentClipsOpen: Boolean = false,
     /**
+     * [clipboardSuggestion] is a copy the keyboard itself just made and kept
+     * private (#679). A private copy gets no system "Copied" bubble, so the
+     * chip is the one sign it worked, and it holds the strip, over any words
+     * and any smart chip, until the next key typed or the next field. Before,
+     * the caret settling after the copy put the strip's words back up and the
+     * chip shrank beside them, or went altogether behind a smart chip, which
+     * read as the copy having done nothing.
+     */
+    val clipChipHeld: Boolean = false,
+    /**
      * The [ClipItem.id] of the copy whose parts no longer hold the strip
      * (#612, `fragmentsOnStrip`): typing or the row's ✕ put them away. Kept
      * as an id rather than a flag so a field change does not bring them back,
@@ -3326,6 +3441,11 @@ data class KeyboardUiState(
      * in-process bus — it is never written anywhere.
      */
     val otpSuggestion: NotificationOtp? = null,
+    /**
+     * A Send share link that just reached the clipboard (#729), offered on the
+     * strip until it is opened, dismissed or stale. Null when there is none.
+     */
+    val sendLinkOffer: com.wasimaster.wmkeyboard.ime.send.SendLinkOffer? = null,
     /**
      * Whether the focused field reads as a box a verification code goes into
      * — by its input class or by the words the app gave it. Gates both code
@@ -3517,6 +3637,8 @@ data class KeyboardUiState(
      * highlights it; the toolbar's mode tool lights up while set.
      */
     val activeModeId: String? = null,
+    /** The Modes tool's None row is picked: no mode, whatever the bindings say. */
+    val noModePicked: Boolean = false,
     /**
      * Symbol set picked from the row's chip this session, overriding the
      * (possibly mode-supplied) persisted choice; cleared on field switch.
@@ -3552,10 +3674,34 @@ data class KeyboardUiState(
      */
     val clockText: com.wasimaster.wmkeyboard.ime.clock.ClockTextEntry? = null,
     /**
+     * The Home Assistant panel's text box while it has the keys: a search, an
+     * Assist sentence, a lock code, a text entity's value. The rest of the
+     * panel's state is the controller's.
+     */
+    val haText: com.wasimaster.wmkeyboard.ime.homeassistant.HaTextEntry? = null,
+    /**
      * The gallery panel's text box while it has the keys: the caption, or a
      * text layer in the editor. The rest of the panel's state is the controller's.
      */
     val galleryText: com.wasimaster.wmkeyboard.ime.gallery.GalleryTextEntry? = null,
+    /**
+     * The Calendar composer's text box while it has the keys: an event's
+     * title, place, notes, or a guest being added. The rest of the panel's
+     * state is the controller's.
+     */
+    val calendarText: com.wasimaster.wmkeyboard.ime.calendar.CalendarTextEntry? = null,
+    /**
+     * The emoji panel's kaomoji tab's text box while it has the keys: its
+     * search, a face being added or changed, a tag's name. The rest of the
+     * tab's state is the controller's.
+     */
+    val kaomojiText: com.wasimaster.wmkeyboard.ime.kaomoji.KaomojiTextEntry? = null,
+
+    /**
+     * The Send files panel's text box while it has the keys: a password, a
+     * link to receive, an instance address. The rest is the controller's.
+     */
+    val sendText: com.wasimaster.wmkeyboard.ime.send.SendTextEntry? = null,
     val weather: WeatherUi = WeatherUi.NoLocation,
     val dictionary: DictionaryUi = DictionaryUi.Idle,
     /** Word in the dictionary panel's search field. */
@@ -3614,9 +3760,11 @@ data class KeyboardUiState(
      * order they will go out. A cell shows its place in this line.
      */
     val mediaQueue: List<String> = emptyList(),
-    /** Selected provider chip on the GIF/sticker panel (tabs mode). */
-    val mediaSource: com.wasimaster.wmkeyboard.core.tools.GifSource =
-        com.wasimaster.wmkeyboard.core.tools.GifSource.KLIPY,
+    /**
+     * Selected provider chip on the GIF/sticker panel: the provider row's key
+     * (`ProviderEntry.key`). Blank, or a row since removed, is the first chip.
+     */
+    val mediaProvider: String = "",
     val gif: MediaUi = MediaUi.Loading,
     val sticker: MediaUi = MediaUi.Loading,
     /** The user's own sticker packs, mirrored for the sticker panel. */
@@ -3709,6 +3857,12 @@ data class KeyboardUiState(
      * can leak into it and nothing of it can leak out.
      */
     val captureSuggestions: List<String> = emptyList(),
+    /**
+     * The recent-word bar's words (#787), oldest first: the last words
+     * written before the caret, not counting the one being typed. Empty
+     * while the bar is off or has nothing to show.
+     */
+    val recentBar: List<String> = emptyList(),
     /** The focused keyboard-owned field's undo history, while it has one (#665). */
     val captureUndo: CaptureUndoMark? = null,
 ) {
@@ -3718,6 +3872,13 @@ data class KeyboardUiState(
      * gate and indicator reads this rather than the setting alone.
      */
     val incognitoOn: Boolean get() = settings.incognito || fieldIncognito
+
+    /**
+     * Whether the spacebar's typing speed (#752) is kept out of this field: a
+     * password field or incognito (#796). Its words are not timed and no
+     * speed shows.
+     */
+    val liveWpmPrivate: Boolean get() = incognitoOn || secureField
 
     /**
      * Whether an on-screen Enter right now would type a newline instead of
@@ -3859,6 +4020,19 @@ data class KeyboardUiState(
             )
 
     /**
+     * Whether a word the caret comes back to is taken up again as the word
+     * being typed: backspace into "excepted", type on, and the whole word is
+     * the one being finished. Wherever words are composed at all, the URL bar
+     * included: there [allowsTypingIntelligence] said no, so a word backspaced
+     * into and typed on in a browser's address bar started over from the new
+     * letters, and the strip offered words for "io" instead of "exceptio"
+     * (#662, #679). Taking the word up changes nothing in the field, and the
+     * corrections that do stay on [allowsTypingIntelligence].
+     */
+    val resumesWords: Boolean
+        get() = allowsTypingIntelligence || (fieldKind == FieldKind.URI && composesForSuggestions)
+
+    /**
      * Whether the focused field takes any image at all through commitContent.
      * False for an ordinary text box: nothing an image tool sends can land
      * there, so the GIF and sticker panels say so rather than letting a tap
@@ -3992,9 +4166,28 @@ data class KeyboardUiState(
     val clockTypingActive: Boolean
         get() = panel == PanelMode.CLOCK && clockText != null
 
+    /** Whether the Home Assistant panel's text box has the keys; panel *and* box, as [clockTypingActive]. */
+    val haTypingActive: Boolean
+        get() = panel == PanelMode.HOME_ASSISTANT && haText != null
+
+    /** Whether the Calendar composer's text box has the keys; panel *and* box, as [clockTypingActive]. */
+    val calendarTypingActive: Boolean
+        get() = panel == PanelMode.CALENDAR && calendarText != null
+
     /** Whether the gallery panel's text box has the keys; panel *and* box, as [clockTypingActive]. */
     val galleryTypingActive: Boolean
         get() = panel == PanelMode.GALLERY && galleryText != null
+
+    /** Whether the kaomoji tab's text box has the keys; panel *and* box, as [clockTypingActive]. */
+    val kaomojiTypingActive: Boolean
+        get() = panel == PanelMode.EMOJI && kaomojiText != null
+
+    /** Whether keystrokes belong to one of the Text repeat panel's boxes. */
+    val textRepeatTypingActive: Boolean
+        get() = panel == PanelMode.TEXT_REPEAT && textRepeat.focused != null
+    /** Whether the Send files panel's text box has the keys; panel *and* box, as [galleryTypingActive]. */
+    val sendTypingActive: Boolean
+        get() = panel == PanelMode.SEND_FILES && sendText != null
 
     /**
      * Whether keystrokes belong to the clipboard panel's clip editor. Panel
@@ -4075,14 +4268,37 @@ data class KeyboardUiState(
                 CaptureTarget.CLOCK_LABEL
             }
         galleryTypingActive -> CaptureTarget.GALLERY_TEXT
+        calendarTypingActive -> when (calendarText?.field) {
+            com.wasimaster.wmkeyboard.ime.calendar.CalendarTextField.LOCATION -> CaptureTarget.CALENDAR_LOCATION
+            com.wasimaster.wmkeyboard.ime.calendar.CalendarTextField.NOTES -> CaptureTarget.CALENDAR_NOTES
+            com.wasimaster.wmkeyboard.ime.calendar.CalendarTextField.GUEST -> CaptureTarget.CALENDAR_GUEST
+            else -> CaptureTarget.CALENDAR_TITLE
+        }
+        haTypingActive -> when (haText?.field) {
+            com.wasimaster.wmkeyboard.ime.homeassistant.HaTextField.SEARCH -> CaptureTarget.HA_SEARCH
+            com.wasimaster.wmkeyboard.ime.homeassistant.HaTextField.ASSIST -> CaptureTarget.HA_ASSIST
+            else -> CaptureTarget.HA_TEXT
+        }
+        textRepeatTypingActive ->
+            if (textRepeat.focused == TextRepeatField.SEPARATOR) {
+                CaptureTarget.REPEAT_SEPARATOR
+            } else {
+                CaptureTarget.REPEAT_TEXT
+            }
+        sendTypingActive -> (sendText?.field ?: com.wasimaster.wmkeyboard.ime.send.SendTextField.LINK).captureTarget
         calcTypingActive -> CaptureTarget.CALC
         converterTypingActive -> CaptureTarget.CONVERTER
         wordSpellActive -> CaptureTarget.WORD_SPELL
         clipEditActive -> CaptureTarget.CLIP_EDIT
         clipCombineActive -> when (clipCombine?.focused) {
-            ClipCombineField.BASE -> CaptureTarget.CLIP_BASE
+            ClipCombineField.BASE, ClipCombineField.TEMPLATE, ClipCombineField.RESULT -> CaptureTarget.CLIP_BASE
             ClipCombineField.APPEND -> CaptureTarget.CLIP_APPEND
             else -> CaptureTarget.CLIP_JOINER
+        }
+        kaomojiTypingActive -> when (kaomojiText?.field) {
+            com.wasimaster.wmkeyboard.ime.kaomoji.KaomojiTextField.FACE -> CaptureTarget.KAOMOJI_FACE
+            com.wasimaster.wmkeyboard.ime.kaomoji.KaomojiTextField.TAG -> CaptureTarget.KAOMOJI_TAG
+            else -> CaptureTarget.KAOMOJI_SEARCH
         }
         emojiSearchActive -> CaptureTarget.EMOJI_SEARCH
         mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
@@ -4102,6 +4318,8 @@ data class KeyboardUiState(
     fun captureKey(): String? = when (val target = captureTarget()) {
         null -> null
         CaptureTarget.PLUGIN -> "PLUGIN:${pluginFocusedInput}"
+        // Three of Combine's boxes share the target; each keeps its own caret.
+        CaptureTarget.CLIP_BASE -> "CLIP_BASE:${clipCombine?.focused}"
         else -> target.name
     }
 
@@ -4127,7 +4345,7 @@ data class KeyboardUiState(
         CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
         CaptureTarget.CLIP_EDIT -> clipEdit?.draft.orEmpty()
         CaptureTarget.CLIP_JOINER -> clipCombine?.joiner.orEmpty()
-        CaptureTarget.CLIP_BASE -> clipCombine?.base.orEmpty()
+        CaptureTarget.CLIP_BASE -> clipCombine?.focusedText.orEmpty()
         CaptureTarget.CLIP_APPEND -> clipCombine?.append.orEmpty()
         CaptureTarget.SNIPPET_SEARCH -> snippetQuery
         CaptureTarget.NOTE_SEARCH -> notes.query
@@ -4135,9 +4353,18 @@ data class KeyboardUiState(
         CaptureTarget.NOTE_BODY -> notes.editing?.bodyDraft.orEmpty()
         CaptureTarget.NOTE_TAG -> notes.editing?.tagDraft.orEmpty()
         CaptureTarget.CLOCK_SEARCH, CaptureTarget.CLOCK_LABEL -> clockText?.text.orEmpty()
+        CaptureTarget.HA_SEARCH, CaptureTarget.HA_ASSIST, CaptureTarget.HA_TEXT -> haText?.text.orEmpty()
+        CaptureTarget.REPEAT_TEXT -> textRepeat.text
+        CaptureTarget.REPEAT_SEPARATOR -> textRepeat.customSeparator
         CaptureTarget.GALLERY_TEXT -> galleryText?.text.orEmpty()
+        CaptureTarget.CALENDAR_TITLE, CaptureTarget.CALENDAR_LOCATION,
+        CaptureTarget.CALENDAR_NOTES, CaptureTarget.CALENDAR_GUEST,
+        -> calendarText?.text.orEmpty()
+        CaptureTarget.SEND_PASSWORD, CaptureTarget.SEND_LINK, CaptureTarget.SEND_INSTANCE -> sendText?.text.orEmpty()
         CaptureTarget.TOOLBOX_SEARCH -> toolboxView.query
         CaptureTarget.TOOLBOX_FOLDER_NAME -> toolboxView.nameDraft.orEmpty()
+        CaptureTarget.KAOMOJI_SEARCH, CaptureTarget.KAOMOJI_FACE, CaptureTarget.KAOMOJI_TAG ->
+            kaomojiText?.text.orEmpty()
     }
 
     /**
@@ -4428,3 +4655,11 @@ data class ToolboxUi(
     /** The open folder's name while it is being typed; null when it is not being renamed. */
     val nameDraft: String? = null,
 )
+
+/** Which keyboard-owned buffer a Send files text box is (#729). */
+val com.wasimaster.wmkeyboard.ime.send.SendTextField.captureTarget: CaptureTarget
+    get() = when (this) {
+        com.wasimaster.wmkeyboard.ime.send.SendTextField.PASSWORD -> CaptureTarget.SEND_PASSWORD
+        com.wasimaster.wmkeyboard.ime.send.SendTextField.LINK -> CaptureTarget.SEND_LINK
+        com.wasimaster.wmkeyboard.ime.send.SendTextField.INSTANCE -> CaptureTarget.SEND_INSTANCE
+    }

@@ -67,6 +67,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.settings.BackupCrypto
 import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupIntervals
@@ -82,13 +83,16 @@ import com.wasimaster.wmkeyboard.core.settings.needsNetwork
 import com.wasimaster.wmkeyboard.core.settings.signsIn
 import com.wasimaster.wmkeyboard.core.settings.sectionSet
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
+import com.wasimaster.wmkeyboard.core.settings.sink.BackupLog
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.settings.sink.SinkError
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import java.io.BufferedOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -145,6 +149,7 @@ internal fun sectionLabelRes(section: ConfigBackup.Section): Int = when (section
     ConfigBackup.Section.SWIPE -> R.string.backup_section_swipe_label
     ConfigBackup.Section.NOTES -> R.string.backup_section_notes_label
     ConfigBackup.Section.CLOCK -> R.string.backup_section_clock_label
+    ConfigBackup.Section.KAOMOJI -> R.string.backup_section_kaomoji_label
 }
 internal fun sectionLabel(context: Context, section: ConfigBackup.Section): String =
     context.getString(sectionLabelRes(section))
@@ -171,6 +176,7 @@ internal fun sectionLabelLowercase(context: Context, section: ConfigBackup.Secti
             ConfigBackup.Section.SWIPE -> R.string.backup_section_swipe_label_lowercase
             ConfigBackup.Section.NOTES -> R.string.backup_section_notes_label_lowercase
             ConfigBackup.Section.CLOCK -> R.string.backup_section_clock_label_lowercase
+            ConfigBackup.Section.KAOMOJI -> R.string.backup_section_kaomoji_label_lowercase
         },
     )
 @PluralsRes
@@ -190,6 +196,7 @@ private fun sectionCountPlural(section: ConfigBackup.Section): Int = when (secti
     ConfigBackup.Section.SWIPE -> R.plurals.backup_section_swipe_count
     ConfigBackup.Section.NOTES -> R.plurals.backup_section_notes_count
     ConfigBackup.Section.CLOCK -> R.plurals.backup_section_clock_count
+    ConfigBackup.Section.KAOMOJI -> R.plurals.backup_section_kaomoji_count
 }
 /** "3 themes", "1 snippet": the count line shown per section on import. */
 internal fun sectionSummary(context: Context, section: ConfigBackup.Section, count: Int): String =
@@ -658,10 +665,11 @@ private val SECTION_ROWS = listOf(
     SectionRow(ConfigBackup.Section.SWIPE, R.string.backup_include_swipe_subtitle),
     SectionRow(ConfigBackup.Section.NOTES, R.string.backup_include_notes_subtitle, R.string.backup_include_notes_info),
     SectionRow(ConfigBackup.Section.CLOCK, R.string.backup_include_clock_subtitle, R.string.backup_include_clock_info),
+    SectionRow(ConfigBackup.Section.KAOMOJI, R.string.backup_include_kaomoji_subtitle),
 )
 
 /**
- * The same fifteen switches for the three lists that pick sections: the
+ * The same sixteen switches for the three lists that pick sections: the
  * export, the automatic backup and sync. [sections] picks the list's sections
  * out of the settings, which each row reads for itself. [secrets] adds the
  * API-key switch under Settings where the list has one, shown while
@@ -770,39 +778,75 @@ internal fun BackupSettings(
         ActivityResultContracts.CreateDocument(ConfigBackup.MIME_TYPE),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val exportSections = settings.value.autoBackup.exportSectionSet
+        val requested = settings.value.autoBackup.exportSectionSet
         val includeSecrets = settings.value.autoBackup.includeSecrets
         scope.launch {
-            val ok = runCancellable {
-                val text = repository.exportConfig(
-                    sections = exportSections,
-                    includeSecrets = includeSecrets,
-                    appVersion = BuildConfig.VERSION_CODE,
-                    appVersionName = BuildConfig.VERSION_NAME,
-                )
+            var skipped = emptySet<ConfigBackup.Section>()
+            val written = runCancellable {
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.requireOutputStream(uri).use {
-                        it.write(text.toByteArray())
+                    skipped = AutoBackupRunner.exportSectionsToDrop(repository, requested)
+                    context.contentResolver.requireOutputStream(uri).use { raw ->
+                        BufferedOutputStream(raw).use { out ->
+                            repository.exportConfigTo(
+                                out = out,
+                                sections = requested - skipped,
+                                includeSecrets = includeSecrets,
+                                appVersion = BuildConfig.VERSION_CODE,
+                                appVersionName = BuildConfig.VERSION_NAME,
+                            )
+                        }
                     }
                 }
-            }.isSuccess
+            }
+            // The dialog has one sentence for every failure; the log says which.
+            written.exceptionOrNull()?.let { BackupLog.w("export to file failed", it) }
             message = when {
-                !ok -> context.getString(R.string.backup_export_write_error)
-                ConfigBackup.Section.SETTINGS in exportSections && includeSecrets ->
+                written.isFailure -> context.getString(R.string.backup_export_write_error)
+                skipped.isNotEmpty() -> context.getString(
+                    R.string.backup_auto_done_skipped,
+                    WMFileTypes.displayName(context, uri),
+                    skipped.joinToString { sectionLabelLowercase(context, it) },
+                )
+                ConfigBackup.Section.SETTINGS in requested && includeSecrets ->
                     context.getString(R.string.backup_export_done_with_keys)
                 else -> context.getString(R.string.backup_export_done)
             }
         }
     }
 
+    // Another keyboard's backup goes through the same dialog an opened file
+    // does, which reads it and lists what is inside before anything is written.
+    // A passphrase-protected bundle of our own goes there too: that dialog
+    // already asks for the passphrase and decrypts.
+    var foreignUri by remember { mutableStateOf<Uri?>(null) }
     // Import reads the file first and asks before writing: restoring is not
     // something to discover you have done. Both the full-config bundle and the
-    // older settings-only file are accepted.
+    // older settings-only file are accepted, plain or encrypted.
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
+            // Before the text read, which would decode the ciphertext as UTF-8
+            // and then call it not a backup.
+            val encrypted = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use { input ->
+                        val head = ByteArray(BackupCrypto.MAGIC_SIZE)
+                        var read = 0
+                        while (read < head.size) {
+                            val n = input.read(head, read, head.size - read)
+                            if (n <= 0) break
+                            read += n
+                        }
+                        BackupCrypto.looksEncrypted(head.copyOf(read))
+                    }
+                }.getOrDefault(false)
+            }
+            if (encrypted) {
+                foreignUri = uri
+                return@launch
+            }
             val text = withContext(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.readTextCapped(uri)
@@ -820,9 +864,6 @@ internal fun BackupSettings(
             }
         }
     }
-    // Another keyboard's backup goes through the same dialog an opened file
-    // does, which reads it and lists what is inside before anything is written.
-    var foreignUri by remember { mutableStateOf<Uri?>(null) }
     val foreignLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> foreignUri = uri }

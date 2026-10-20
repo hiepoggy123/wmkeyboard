@@ -789,6 +789,9 @@ class SuggestionEngine(
      */
     private fun suppressed(word: String): Boolean = blacklisted(word) || offensive(word)
 
+    /** Whether the strip would hold [word] back: on the blacklist, or a blocked offensive word. */
+    fun suppresses(word: String): Boolean = suppressed(word)
+
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
     private val activeDictionary: WordSource
         get() = if (englishSources) dictionary else emptyTrie
@@ -1689,6 +1692,12 @@ class SuggestionEngine(
      * contraction it is drawn for. Only the unambiguous table, so `its` and
      * `were` are still read as themselves, and only while the repair is on:
      * without it the stroke would commit `doesnt`.
+     *
+     * A bare spelling the list does hold stands here too when the
+     * contraction outnumbers it (#784). `ill` is a word, but a rare one next
+     * to *I'll*, and the stroke commits *I'll* either way; walked at `ill`'s
+     * own count it lost to whatever commoner word the stroke also passed. The walk
+     * keeps the better of the two counts for a spelling in both.
      */
     private fun glideContractionSources(): List<FuzzyBeamSearch.WalkSource> {
         if (!apostropheFixes || mixLanguageIds().none(Apostrophes::servesLanguage)) return emptyList()
@@ -1696,8 +1705,9 @@ class SuggestionEngine(
         val cached = glideContractions?.takeIf { it.first == stamp }?.second ?: run {
             val repairs = mixLanguageIds().flatMap { Apostrophes.repairs(it).entries }
             val entries = repairs.mapNotNull { (bare, fixed) ->
-                if (inDictionaries(bare)) return@mapNotNull null
-                dictionaryFrequencyOf(fixed.lowercase()).takeIf { it > 0 }?.let { bare to it }
+                val count = dictionaryFrequencyOf(fixed.lowercase()).takeIf { it > 0 } ?: return@mapNotNull null
+                if (inDictionaries(bare) && dictionaryFrequencyOf(bare) >= count) return@mapNotNull null
+                bare to count
             }
             (if (entries.isEmpty()) PackedTrie.EMPTY else PackedTrie.of(entries))
                 .also { glideContractions = stamp to it }
@@ -1794,6 +1804,39 @@ class SuggestionEngine(
         val lower = word.lowercase()
         return inDictionaries(lower) || userLexicon.contains(lower) ||
             contacts.contains(lower) || apps.contains(lower)
+    }
+
+    /**
+     * Whether some word the keyboard knows starts with [prefix], or is it: the
+     * loaded dictionaries and the personal lexicon. The two-thumb keyboard asks
+     * it before taking back the space it typed after a word, so a letter typed
+     * straight after "car" carries the word on only when "car" and that letter
+     * still lead somewhere ("carp…" does, "cardo…" does not) (#747).
+     *
+     * One descent per source and no completion walk, so it is cheap enough for
+     * the main thread on every keystroke. A source without walkers is asked
+     * for one completion instead.
+     */
+    fun isLivePrefix(prefix: String): Boolean {
+        if (prefix.isEmpty()) return false
+        val lower = prefix.lowercase()
+        fun descends(walkers: List<TrieWalker>): Boolean = walkers.any { walker ->
+            var node = walker.root
+            for (ch in lower) {
+                node = walker.child(node, ch)
+                if (node < 0) return@any false
+            }
+            true
+        }
+        fun leads(source: WordSource): Boolean {
+            val walkers = source.walkers()
+            if (walkers.isEmpty()) return source.contains(lower) || source.complete(lower, 1).isNotEmpty()
+            return descends(walkers)
+        }
+        return leads(activeDictionary) || leads(customDictionary) || leads(systemDictionary) ||
+            (englishAsSecondary && !englishSources && leads(dictionary)) ||
+            secondaryDictionaries.any { leads(it.source) } ||
+            descends(userLexicon.walkers())
     }
 
     /**
@@ -2118,6 +2161,12 @@ class SuggestionEngine(
 
         /** Shortest fused spelling [hyphenReading] tries to split. */
         private const val HYPHEN_READING_MIN_LENGTH = 4
+
+        /** The one-letter ending [joinCandidate] puts back on the word before it. */
+        private const val PLURAL_SUFFIX = "s"
+
+        /** What a compound completed a part at a time gives up against one the lists hold whole. */
+        private const val COMPOUND_TAIL_DAMP = 0.5
 
         /** Most parts [knownCompound] vouches for: `mother-in-law`, not a sentence of hyphens. */
         private const val MAX_COMPOUND_PARTS = 4
@@ -2449,6 +2498,13 @@ class SuggestionEngine(
             )
         val merged = HashMap<String, Double>()
 
+        // A compound typed a part at a time ("auto-sp", "seventy-ni"): the
+        // lists hold only the commonest compounds whole, so the part after the
+        // last hyphen is completed as a word of its own and offered behind the
+        // parts already typed (#679). Walked before the whole word, so the
+        // memoised walk [octopusWords] reads afterwards is the whole word's.
+        if (!ambiguous) compoundTailCandidates(lower, limit, touch, merged)
+
         // One fuzzy walk covers completions AND corrections over every trie
         // source. Corrections (edited paths) are admitted only when the typed
         // word is unknown, matching the historical gate; pure completions
@@ -2463,7 +2519,10 @@ class SuggestionEngine(
         // hold the fused misspelling as a word and the real spelling hardly
         // at all (#215, #240).
         if (!ambiguous) {
-            apostropheReading(lower)?.let { merged.merge(it.spelling, it.score, ::maxOf) }
+            apostropheReading(lower)?.let {
+                merged.merge(it.spelling, it.score, ::maxOf)
+                it.typedScore?.let { lifted -> merged.merge(lower, lifted, ::maxOf) }
+            }
             // The same for a compound typed without its hyphen: "чтото" is
             // *что-то*, "wellpaid" is *well-paid*.
             hyphenReading(lower)?.let { (spelling, score) -> merged.merge(spelling, score, ::maxOf) }
@@ -2841,7 +2900,7 @@ class SuggestionEngine(
         val prev = previousWord?.lowercase() ?: return null
         if (WordContext.isSentinel(prev)) return null
         val lower = composing.lowercase()
-        if (lower.length < 2 || prev.isEmpty()) return null
+        if (prev.isEmpty()) return null
         if (!prev.all { it.isLetter() } || !lower.all { it.isLetter() }) return null
         val joined = prev + lower
         if (joined.length > JOIN_MAX_LENGTH || suppressed(joined)) return null
@@ -2849,6 +2908,14 @@ class SuggestionEngine(
             dictionaryFrequencyOf(word),
             weighted(userLexicon.frequencyOf(word), USER_WORD_WEIGHT),
         )
+        // A lone "s" after a word is that word's plural left off before the
+        // space: "capital s" offers "capitals" (#679). No margin over the
+        // parts, since "s" is no word to weigh against; the plural only has to
+        // be one the lists or the user know, and so does the word it is of.
+        if (lower == PLURAL_SUFFIX) {
+            return joined.takeIf { prev.length >= 2 && freqOf(prev) > 0 && freqOf(joined) > 0 }
+        }
+        if (lower.length < 2) return null
         val joinedFreq = freqOf(joined)
         if (joinedFreq < JOIN_MIN_FREQ) return null
         val rarerPart = minOf(freqOf(prev), freqOf(lower))
@@ -4153,6 +4220,47 @@ class SuggestionEngine(
             parts.all { it.isNotEmpty() && (inDictionaries(it) || userLexicon.contains(it)) }
     }
 
+    /**
+     * Completions of the part after [lower]'s last hyphen, each put back
+     * behind the parts in front of it, into [merged]. Only when every part in
+     * front is a word, so a dash inside a code or an address completes nothing,
+     * and corrections of the last part only when it is not a word already.
+     * Damped by [COMPOUND_TAIL_DAMP] so a compound the lists know whole still
+     * leads its made-up neighbours.
+     */
+    private fun compoundTailCandidates(
+        lower: String,
+        limit: Int,
+        touch: List<TouchPoint?>?,
+        merged: HashMap<String, Double>,
+    ) {
+        val cut = lower.lastIndexOf('-')
+        if (cut <= 0 || cut == lower.length - 1) return
+        val head = lower.substring(0, cut + 1)
+        val tail = lower.substring(cut + 1)
+        val parts = head.dropLast(1).split('-')
+        if (parts.size >= MAX_COMPOUND_PARTS) return
+        if (!parts.all { it.isNotEmpty() && (inDictionaries(it) || userLexicon.contains(it)) }) return
+        val tailKnown = inDictionaries(tail) || userLexicon.contains(tail)
+        val tailTouch = touch?.takeIf { it.size == lower.length }?.subList(cut + 1, lower.length)
+        val k = maxOf(limit * 2, WALK_K)
+        val model = touchModelField
+        val scoring = if (model != null && tailTouch != null && tailTouch.any { it != null }) {
+            FuzzyBeamSearch.TouchScoring(model, tailTouch)
+        } else {
+            null
+        }
+        val walked = beam.search(
+            walkSources(), tail, proximity, k / 2, beamWorkspace.get(),
+            touch = scoring, habits = editHabitsField,
+        )
+        for (c in dampMismatchedLanguages(walked)) {
+            if (c.edits > 0 && tailKnown) continue
+            if ('-' in c.word || ' ' in c.word) continue
+            merged.merge(head + WordKey.of(c.word), c.score - COMPOUND_TAIL_DAMP, ::maxOf)
+        }
+    }
+
     private fun apostropheReading(lower: String): ElisionReading? {
         if (!apostropheFixes) return null
         var best: ElisionReading? = null
@@ -4238,6 +4346,13 @@ class SuggestionEngine(
      * completions without the strip preferring a reading the space bar will
      * not make.
      *
+     * The pair stands on the commoner of the two. `id` is rarer than
+     * *identify*, *idiot* and *ideas*, but *I'd* is commoner than all three;
+     * held behind `id`'s own count it fell off a three-slot strip with `id`.
+     * So where the contraction outranks the typed word, the typed word is
+     * lifted to the contraction's standing ([ElisionReading.typedScore]) and
+     * the contraction sits just behind it.
+     *
      * [fixed] is the table's own answer for a repair the user has undone,
      * which drops to exactly this standing.
      */
@@ -4245,13 +4360,13 @@ class SuggestionEngine(
         if (fixed == null) return null
         val typed = dictionaryScore(lower)
         val own = dictionaryScore(fixed.lowercase())
-        val score = if (typed == Double.NEGATIVE_INFINITY) {
-            own
-        } else {
-            minOf(maxOf(own, typed - ln(DECLARED_TRAIL)), typed - DECLARED_BEHIND)
+        if (typed == Double.NEGATIVE_INFINITY) {
+            if (own == Double.NEGATIVE_INFINITY) return null
+            return ElisionReading(fixed, own, shadowed = false)
         }
-        if (score == Double.NEGATIVE_INFINITY) return null
-        return ElisionReading(fixed, score, shadowed = false)
+        val standing = maxOf(typed, own)
+        val score = minOf(maxOf(own, standing - ln(DECLARED_TRAIL)), standing - DECLARED_BEHIND)
+        return ElisionReading(fixed, score, shadowed = false, typedScore = standing.takeIf { it > typed })
     }
 
     /** [dictionaryScore] with an unknown word's negative infinity read as zero. */
@@ -4311,7 +4426,13 @@ class SuggestionEngine(
         return best
     }
 
-    private class ElisionReading(val spelling: String, val score: Double, val shadowed: Boolean)
+    private class ElisionReading(
+        val spelling: String,
+        val score: Double,
+        val shadowed: Boolean,
+        /** The strip score the typed word is lifted to, when this reading holds it up; see [declaredReading]. */
+        val typedScore: Double? = null,
+    )
 
     /**
      * The apostrophe [word] was typed without, or null when it needs none:
@@ -4326,6 +4447,18 @@ class SuggestionEngine(
     fun elide(word: String): String? {
         val reading = apostropheReading(word.lowercase()) ?: return null
         if (!reading.shadowed) return null
+        return matchCase(word, reading.spelling).takeIf { it != word }
+    }
+
+    /**
+     * The apostrophe spelling [word] may have been meant as, when it is a
+     * word of its own and so is left alone: "id" → "I'd", "lune" → "l'une"
+     * (#384). The other half of [elide]: the reading the strip offers right
+     * behind what was typed, and the space bar never commits.
+     */
+    fun apostropheOffer(word: String): String? {
+        val reading = apostropheReading(word.lowercase()) ?: return null
+        if (reading.shadowed) return null
         return matchCase(word, reading.spelling).takeIf { it != word }
     }
 

@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Wklej link i naciśnij Enter, aby przejść do niego, lub wklej więcej elementów schowka oddzielonych spacją lub nową linią, bez wracania do klawiatury. ABC wraca do liter. Jeśli zmieniłeś układ panelu, to ustawienie nie działa: dodaj klawisze w edytorze układu. Wiersz nie jest pokazywany, gdy schowek jest nałożony na klawisze. To ustawienie jest domyślnie wyłączone.</string>
     <string name="clipboard_key_row_subtitle">Rząd klawiszy wzdłuż dolnej części panelu schowka</string>
     <string name="clipboard_key_row_title">Klawisze ABC, spacji i entera</string>
-    <string name="clipboard_line_spacing_info">Przy 100% linie klipu znajdują się tak blisko, jak pozwala na to czcionka. Zwiększ tę wartość, aby je rozsunąć. Domyślna wartość to 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Przy 100% linie klipu znajdują się tak blisko, jak pozwala na to czcionka. Zwiększ tę wartość, aby je rozsunąć. Domyślna wartość to 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Odstęp między liniami tekstu klipu</string>
     <string name="clipboard_line_spacing_title">Odstępy między wierszami</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2399,9 +2399,7 @@
     <string name="import_sticker_editor_border_white_option">Biały</string>
     <string name="import_sticker_editor_border_width_label">Szerokość obramowania</string>
     <string name="import_sticker_editor_brush_size_label">Rozmiar pędzla</string>
-    <string name="import_sticker_editor_caption">Klawiatura zapisuje naklejkę o wymiarach 512 na 512. Przesuń i uszczypnij obraz, aby wybrać część do zachowania, a następnie usuń tło i dodaj obramowanie. Aplikacja przechowuje ten obraz w telefonie, dzięki czemu możesz później ponownie edytować naklejkę.</string>
     <string name="import_sticker_editor_crop_action">Przytnij</string>
-    <string name="import_sticker_editor_crop_hint">Przeciągnij, aby przesunąć obraz. Ściśnij, aby go powiększyć.</string>
     <string name="import_sticker_editor_cutout_action">Usuń tło</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Najpierw pobierz narzędzie do usuwania tła. To pobranie o rozmiarze 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Aplikacja pobiera narzędzie do usuwania tła…</string>
@@ -3517,7 +3515,6 @@
     <string name="layout_editor_alternate_columns_default">Z ustawień</string>
     <string name="layout_editor_alternate_columns_subtitle">Ile alternatyw ten klawisz umieszcza w wierszu</string>
     <string name="layout_editor_alternate_columns_title">Kolumny w wyskakującym okienku</string>
-    <string name="layout_editor_alternate_hint_badge">podpowiedź</string>
     <string name="layout_editor_alternates_field_hint">Oddziel wpisy spacjami, aby żaden z nich nie był spacją. Wpisy składające się z więcej niż jednego znaku, np. .com, są dozwolone. Aplikacja wyświetla pierwszy z nich w rogu klawisza.</string>
     <string name="layout_editor_alternates_field_label">Alternatywy dla naciśnięcia i przytrzymania</string>
     <string name="layout_editor_apply_action">Zastosuj</string>
@@ -3613,7 +3610,6 @@
     <string name="layout_editor_field_row_title">Komponent</string>
     <string name="layout_editor_fill_row_action">Wypełnij wiersz (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Wiersz z liczbami już wyświetla cyfry, więc klawiatura pokazuje ten wiersz zamiast pierwszego wiersza tej warstwy.</string>
-    <string name="layout_editor_fill_row_off_caption">Gdy wiersz z liczbami jest włączony, klawiatura pokazuje ten wiersz zamiast pierwszego wiersza tej warstwy, ponieważ wiersz z liczbami już wyświetla cyfry. Wiersz z liczbami jest obecnie wyłączony.</string>
     <string name="layout_editor_fill_row_title">Wiersz zamiast cyfr</string>
     <string name="layout_editor_fit_row_action">Dopasuj wiersz do siatki (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Brak przesunięcia w tę stronę. Dotknij, aby wybrać akcję.</string>
@@ -3788,8 +3784,6 @@
     <string name="layout_editor_new_secondary_title">Rozpocznij układ dodatkowy</string>
     <string name="layout_editor_not_live_caption">Twoje zmiany nie wpłyną na pisanie, dopóki nie włączysz układu w sekcji Języki.</string>
     <string name="layout_editor_number_row_caption">Klawiatura wyświetla ten wiersz nad tą warstwą. Stuknij klawisz, aby go zmienić. Przytrzymaj klawisz i przeciągnij go, aby go przenieść.</string>
-    <string name="layout_editor_number_row_hidden_caption">Klawiatura wyświetla ten wiersz nad tą warstwą, gdy opcja „Wiersz z liczbami w symbolach” jest włączona w sekcji „Układ i rozmiar”. Obecnie jest wyłączona.</string>
-    <string name="layout_editor_number_row_off_caption">Klawiatura wyświetla ten wiersz nad tą warstwą, gdy opcja „Wiersz z liczbami” jest włączona w sekcji „Układ i rozmiar”. Wiersz z liczbami jest obecnie wyłączony.</string>
     <string name="layout_editor_number_row_title">Wiersz z liczbami</string>
     <string name="layout_editor_panel_inherited_caption">Ten układ korzysta ze współdzielonego panelu %1$s. Zmiana czegokolwiek tutaj tworzy kopię tylko dla tego układu. Współdzielony panel znajduje się w sekcji Układy klawiszy, Układy paneli.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Dziedzicz motyw układu</string>
@@ -3992,11 +3986,8 @@
     <string name="layout_split_spacebar_title">Podziel spację</string>
     <string name="layout_split_subtitle">Podziel klawisze na lewą i prawą połowę</string>
     <string name="layout_split_title">Podzielona klawiatura</string>
-    <string name="layout_summon_button_info">Gdy klawiatura jest zamknięta, mały okrągły przycisk unosi się nad każdą aplikacją. Dotknij go, a klawiatura się otworzy, nawet na ekranie bez pola tekstowego, i pozostanie otwarta, dopóki jej nie zamkniesz. Klawisze wysyłają wtedy znaki do aplikacji jako naciśnięcia klawiszy, tak samo jak w przypadku opcji „Utrzymuj klawiaturę na ekranie”. Przeciągnij przycisk, aby go przesunąć; osadzi się przy bliższej krawędzi. Naciśnij i przytrzymaj go, aby ukryć go do momentu następnego otwarcia klawiatury. Wymaga uprawnienia Androida „Wyświetlanie nad innymi aplikacjami”.</string>
     <string name="layout_summon_button_permission_subtitle">Przycisk nie może się pojawić, dopóki Android na to nie pozwoli</string>
     <string name="layout_summon_button_permission_title">Zezwalaj na wyświetlanie nad innymi aplikacjami</string>
-    <string name="layout_summon_button_subtitle">Przycisk nad innymi aplikacjami, który otwiera klawiaturę, z polem tekstowym lub bez niego</string>
-    <string name="layout_summon_button_title">Przycisk pływającej klawiatury</string>
     <string name="layout_swap_comma_globe_info">Dwa klawisze po obu stronach spacji zamieniają się miejscami. Jeśli jednym z nich jest klawisz emoji, przesuwa się on na zewnętrzną pozycję, a przecinek pozostaje obok spacji. Wyłącz to, aby przywrócić zwykłą kolejność.</string>
     <string name="layout_swap_comma_globe_subtitle">Umieść przecinek obok spacji</string>
     <string name="layout_swap_comma_globe_title">Zamień klawisze przecinka i 🌐</string>
@@ -5816,7 +5807,6 @@
     <string name="search_kw_layout_show_globe">ukryj usuń język globu</string>
     <string name="search_kw_layout_size_position">zmień rozmiar zmniejsz kompaktowy powiększ</string>
     <string name="search_kw_layout_split">kciuk ergonomiczny tablet</string>
-    <string name="search_kw_layout_summon_button">dymek nakładka pokaż przywołaj pole bezpolowe hakerzy</string>
     <string name="search_kw_layout_symbols_numpad_key">klawiatura numeryczna klawiatura dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">wyuczone poprawki, moje poprawki, pary literówek, nauczone poprawki, uczenie autokorekty, pomyłki, nawyki</string>
     <string name="search_kw_licenses">open source, atrybucja, autorzy</string>
@@ -5855,7 +5845,7 @@
     <string name="search_kw_translate_engine">offline prywatny internet tryb samolotowy lokalne urządzenie ml kit google model pobieranie chmura</string>
     <string name="search_kw_translate_models">pobieranie modelu tłumaczenia offline usuwanie pamięć masowa ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ukryj filtr menu wyboru modelu offline krótkie</string>
-    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">sprawdzanie pisowni, autouzupełnianie, tekst predykcyjny, pisanie ślizgowe, pisanie gestami, kontakty, cofanie</string>
     <string name="search_kw_typing_auto_capitalize">autowielkie litery autokapitalizacja</string>
     <string name="search_kw_typing_auto_close_brackets">automatyczne domykanie nawiasów klamrowych i okrągłych dopasowywanie par</string>
@@ -6826,7 +6816,6 @@
     <string name="theme_parts_strip_subtitle">Wypełnienie paska, kolory słów i rozmiar</string>
     <string name="theme_parts_toolbar_subtitle">Wypełnienia narzędzi, ikony, kształt, obramowanie</string>
     <string name="theme_pick_hint">Naciśnij klawisz, narzędzie lub pasek</string>
-    <string name="theme_pick_start_desc">Wybierz część klawiatury do stylizacji</string>
     <string name="theme_pick_start_subtitle">Naciśnij klawisz, narzędzie lub pasek sugestii na podglądzie, aby go wystylizować</string>
     <string name="theme_pick_start_title">Wybierz na klawiaturze</string>
     <string name="theme_pick_strip_sample_words">Witaj,Dzięki,Okej</string>
@@ -7651,12 +7640,6 @@
     <string name="tooldetail_ocr_info">Rozpoznawanie odbywa się na Twoim urządzeniu za pomocą ML Kit. Żadne zdjęcie ani tekst nie opuszczają urządzenia i działa to w trybie offline. Odczytuje tekst w alfabecie łacińskim, na przykład angielski. Rozpoznawanie tekstu w ML Kit nie obsługuje jeszcze języka bengalskiego. Po przechwyceniu naciśnij słowa, aby dokładnie wybrać to, co klawiatura ma wpisać lub skopiować.</string>
     <string name="tooldetail_ocr_online_group">Czytnik tekstu online</string>
     <string name="tooldetail_ocr_online_info">Zdjęcie trafia do modelu, który potrafi odczytywać obrazy, pod wybrany przez Ciebie adres, a model zapisuje tekst, który widzi. Odczytuje dowolny skrypt i nie wymaga danych językowych. Działa każda usługa z API kompatybilnym z OpenAI: OpenAI, OpenRouter, Gemini, Mistral lub model na własnym komputerze z Ollama lub LM Studio. Każde skanowanie wysyła zdjęcie do tej usługi, a usługa może pobierać za to opłaty.</string>
-    <string name="tooldetail_ocr_online_key_hint">Pozostaw puste dla serwera, który nie wymaga klucza</string>
-    <string name="tooldetail_ocr_online_key_label">Klucz API</string>
-    <string name="tooldetail_ocr_online_model_hint">Model, który odczytuje obrazy, na przykład gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_url_hint">Na przykład https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adres</string>
     <string name="tooldetail_ocr_packs_header">Języki Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract odczytuje język tylko wtedy, gdy dane dla tego języka znajdują się na Twoim urządzeniu. Dla każdego języka, w którym piszesz, dostępny jest jeden plik do pobrania o rozmiarze od 0,4 MB do 12 MB. Dane pochodzą z zestawu tessdata_fast projektu Tesseract w serwisie GitHub. Język możesz również pobrać bezpośrednio ze skanera.</string>
     <string name="tooldetail_ocr_packs_none_info">Żaden z włączonych języków nie ma danych Tesseract. Dodaj język na ekranie Języki. Jego dane pojawią się tutaj.</string>
@@ -8785,11 +8768,9 @@
     <string name="typing_trail_opacity_title">Przezroczystość śladu</string>
     <string name="typing_trail_width_subtitle">Grubość śladu pisania</string>
     <string name="typing_trail_width_title">Szerokość śladu</string>
-    <string name="typing_two_thumb_info">Używaj obu kciuków jednocześnie. Każdy kciuk może stukać lub przesuwać w tym samym czasie co drugi, a każde stuknięcie i przesunięcie dodaje się do tego samego słowa. Na przykład, stuknij S lewym kciukiem, przesuń O do M prawym, stuknij E lewym, a następnie przesuń T H I N G prawym, a otrzymasz coś. Stuknięcie, które nastąpi, gdy drugi kciuk jeszcze przesuwa, trafia do słowa w tym punkcie, więc przesunięcie po H E L O i stuknięcie w L daje hello. Backspace usuwa ostatnie stuknięcie lub przesunięcie ze słowa.</string>
     <string name="typing_two_thumb_subtitle">Stukaj i przesuwaj oboma kciukami jednocześnie, aby utworzyć jedno słowo</string>
     <string name="typing_two_thumb_title">Pisanie dwoma kciukami</string>
     <string name="typing_two_thumb_word_end_all_up_label">Wszystkie kciuki w górę</string>
-    <string name="typing_two_thumb_word_end_info">Dzięki spacji słowo pozostaje otwarte podczas stukania i przesuwania, a klawiatura odczytuje je ponownie po każdym znaku. Stuknij spację lub znak interpunkcyjny, aby je wpisać. Gdy oba kciuki są uniesione, słowo jest wpisywane ze spacją, gdy tylko żaden kciuk nie dotyka klawiatury, podobnie jak w zwykłym pisaniu ślizgowym, więc kciuki muszą się nakładać, aby współdzielić słowo.</string>
     <string name="typing_two_thumb_word_end_space_label">Spacja</string>
     <string name="typing_two_thumb_word_end_subtitle">Co wpisuje słowo, które tworzysz</string>
     <string name="typing_two_thumb_word_end_title">Zakończ słowo dwoma kciukami</string>

@@ -1154,7 +1154,7 @@
     <string name="clipboard_key_row_info">একটি লিঙ্ক পেস্ট করুন এবং তাতে যেতে এন্টার চাপুন, অথবা কীবোর্ডে ফিরে না গিয়েই স্পেস বা নতুন লাইন দিয়ে আরও ক্লিপ পেস্ট করুন। ABC চাপলে আবার অক্ষরে ফিরে যাওয়া যায়। আপনি যদি প্যানেলের লেআউট পরিবর্তন করে থাকেন, তবে এই সেটিংটি কাজ করবে না: পরিবর্তে লেআউট এডিটরে কীগুলো যোগ করুন। ক্লিপবোর্ড কীগুলোর উপরে স্ট্যাক করা থাকলে এই সারিটি দেখানো হয় না। এই সেটিংটি ডিফল্টভাবে বন্ধ থাকে।</string>
     <string name="clipboard_key_row_subtitle">ক্লিপবোর্ড প্যানেলের নিচে কিগুলোর একটি সারি</string>
     <string name="clipboard_key_row_title">ABC, স্পেস এবং এন্টার কি</string>
-    <string name="clipboard_line_spacing_info">১০০%-এ একটি ক্লিপের লাইনগুলি ফন্ট অনুযায়ী যতটা সম্ভব কাছাকাছি থাকে। সেগুলিকে ছড়িয়ে দিতে এটি বাড়ান। ডিফল্ট হলো ১৩০%।</string>
+    <string name="clipboard_line_spacing_info" formatted="false">১০০%-এ একটি ক্লিপের লাইনগুলি ফন্ট অনুযায়ী যতটা সম্ভব কাছাকাছি থাকে। সেগুলিকে ছড়িয়ে দিতে এটি বাড়ান। ডিফল্ট হলো ১৩০%।</string>
     <string name="clipboard_line_spacing_subtitle">ক্লিপের টেক্সটের লাইনগুলোর মধ্যবর্তী স্থান</string>
     <string name="clipboard_line_spacing_title">লাইনের ব্যবধান</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2402,9 +2402,7 @@
     <string name="import_sticker_editor_border_white_option">সাদা</string>
     <string name="import_sticker_editor_border_width_label">বর্ডারের প্রস্থ</string>
     <string name="import_sticker_editor_brush_size_label">ব্রাশের আকার</string>
-    <string name="import_sticker_editor_caption">কিবোর্ড একটি ৫১২ বাই ৫১২ স্টিকার সংরক্ষণ করে। রাখার অংশটি নির্বাচন করতে ছবিটিকে সরান এবং জুম করুন, তারপর ব্যাকগ্রাউন্ড সরিয়ে একটি বর্ডার যোগ করুন। অ্যাপটি এই ছবিটি ফোনে রাখে, যাতে আপনি পরে আবার স্টিকারটি এডিট করতে পারেন।</string>
     <string name="import_sticker_editor_crop_action">ক্রপ করুন</string>
-    <string name="import_sticker_editor_crop_hint">ছবি সরাতে ড্র্যাগ করুন। বড় করতে চিমটি কাটুন।</string>
     <string name="import_sticker_editor_cutout_action">ব্যাকগ্রাউন্ড মুছে ফেলুন</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">প্রথমে ব্যাকগ্রাউন্ড রিমুভারটি ডাউনলোড করুন। এটি ৫ এমবি-র একটি ডাউনলোড।</string>
     <string name="import_sticker_editor_cutout_download_progress">অ্যাপটি ব্যাকগ্রাউন্ড রিমুভার সংগ্রহ করছে…</string>
@@ -3534,7 +3532,6 @@
     <string name="layout_editor_alternate_columns_default">সেটিংস থেকে</string>
     <string name="layout_editor_alternate_columns_subtitle">এই কী-টি একটি সারিতে কতগুলো বিকল্প রাখে</string>
     <string name="layout_editor_alternate_columns_title">পপআপে কলাম</string>
-    <string name="layout_editor_alternate_hint_badge">ইঙ্গিত</string>
     <string name="layout_editor_alternates_field_hint">এন্ট্রিগুলোকে স্পেস দিয়ে আলাদা করুন, যাতে একটি অল্টারনেট স্পেস হতে না পারে। .com-এর মতো একাধিক অক্ষরের এন্ট্রি সঠিক। অ্যাপটি কী-এর কোণায় প্রথমটি প্রদর্শন করে।</string>
     <string name="layout_editor_alternates_field_label">প্রেস এবং হোল্ড করার জন্য বিকল্প</string>
     <string name="layout_editor_apply_action">প্রয়োগ করুন</string>
@@ -3630,7 +3627,6 @@
     <string name="layout_editor_field_row_title">কম্পোনেন্ট</string>
     <string name="layout_editor_fill_row_action">সারিটি পূরণ করুন (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">সংখ্যার সারিতে ইতিমধ্যেই অঙ্কগুলি দেখানো হয়, তাই কীবোর্ড এই লেয়ারের প্রথম সারির পরিবর্তে এই সারিটি দেখায়।</string>
-    <string name="layout_editor_fill_row_off_caption">সংখ্যার সারি চালু থাকলে, কীবোর্ড এই লেয়ারের প্রথম সারির পরিবর্তে এই সারিটি দেখায়, কারণ সংখ্যার সারিতে ইতিমধ্যেই অঙ্কগুলি দেখানো হয়। সংখ্যার সারি এখন বন্ধ আছে।</string>
     <string name="layout_editor_fill_row_title">অঙ্কগুলির পরিবর্তে সারি</string>
     <string name="layout_editor_fit_row_action">রো-টিকে গ্রিডের সাথে ফিট করুন (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">এই দিকে কোনো ফ্লিক নেই। একটি অ্যাকশন বেছে নিতে ট্যাপ করুন।</string>
@@ -3805,8 +3801,6 @@
     <string name="layout_editor_new_secondary_title">একটি সেকেন্ডারি লেআউট শুরু করুন</string>
     <string name="layout_editor_not_live_caption">আপনি ল্যাঙ্গুয়েজ (Languages) সেকশনে লেআউটটি চালু না করা পর্যন্ত এখানে করা পরিবর্তনগুলো টাইপিংয়ে কোনো প্রভাব ফেলবে না।</string>
     <string name="layout_editor_number_row_caption">কীবোর্ড এই লেয়ারের উপরে এই সারিটি দেখায়। এটি পরিবর্তন করতে একটি কী-তে ট্যাপ করুন। সরাতে একটি কী চেপে ধরে ড্র্যাগ করুন।</string>
-    <string name="layout_editor_number_row_hidden_caption">লেআউট এবং আকারে \'সিম্বলগুলিতে সংখ্যার সারি\' চালু থাকলে কীবোর্ড এই লেয়ারের উপরে এই সারিটি দেখায়। এটি এখন বন্ধ আছে।</string>
-    <string name="layout_editor_number_row_off_caption">লেআউট এবং আকারে \'সংখ্যার সারি\' চালু থাকলে কীবোর্ড এই লেয়ারের উপরে এই সারিটি দেখায়। সংখ্যার সারি এখন বন্ধ আছে।</string>
     <string name="layout_editor_number_row_title">সংখ্যার সারি</string>
     <string name="layout_editor_panel_inherited_caption">এই লেআউটটি শেয়ার করা %1$s প্যানেল ব্যবহার করে। এখানে কিছু পরিবর্তন করলে তা শুধুমাত্র এই লেআউটের জন্য একটি কপি তৈরি করবে। শেয়ার করা প্যানেলটি কী লেআউট, প্যানেল লেআউটের অধীনে থাকে।</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">লেআউটের থিম উত্তরাধিকারসূত্রে গ্রহণ করুন</string>
@@ -4009,11 +4003,8 @@
     <string name="layout_split_spacebar_title">স্পেসবার ভাগ করুন</string>
     <string name="layout_split_subtitle">কীগুলোকে বাম এবং ডান অর্ধাংশে ভাগ করুন</string>
     <string name="layout_split_title">স্প্লিট কীবোর্ড</string>
-    <string name="layout_summon_button_info">কিবোর্ড বন্ধ থাকা অবস্থায়, একটি ছোট গোল বাটন প্রতিটি অ্যাপের উপরে ভেসে থাকে। এটি ট্যাপ করলে কিবোর্ড খুলে যায়, এমনকি টেক্সট ফিল্ড নেই এমন স্ক্রিনেও, এবং আপনি বন্ধ না করা পর্যন্ত এটি খোলা থাকে। কিগুলো তখন কি প্রেস হিসেবে অ্যাপে পৌঁছায়, ঠিক যেমন \'কিবোর্ড স্ক্রিনে রাখুন\' অপশনে হয়। বাটনটি সরাতে ড্র্যাগ করুন; এটি কাছের দিকে গিয়ে স্থির হয়। কিবোর্ড পরবর্তীবার না খোলা পর্যন্ত এটি লুকাতে প্রেস করে ধরে রাখুন। অ্যান্ড্রয়েডের \'অন্য অ্যাপের উপরে প্রদর্শনের\' অনুমতি প্রয়োজন।</string>
     <string name="layout_summon_button_permission_subtitle">অ্যান্ড্রয়েড অনুমতি না দেওয়া পর্যন্ত বোতামটি প্রদর্শিত হবে না</string>
     <string name="layout_summon_button_permission_title">অন্যান্য অ্যাপের উপরে প্রদর্শনের অনুমতি দিন</string>
-    <string name="layout_summon_button_subtitle">অন্যান্য অ্যাপের উপরে একটি বোতাম যা টেক্সট ফিল্ড থাকুক বা না থাকুক, কিবোর্ড খোলে</string>
-    <string name="layout_summon_button_title">ফ্লোটিং কীবোর্ড বোতাম</string>
     <string name="layout_swap_comma_globe_info">স্পেসবারের দুই পাশের দুটি কি নিজেদের জায়গা পরিবর্তন করে। যদি তাদের একটি ইমোজি কি হয়, তবে সেটি বাইরের দিকে চলে যায় এবং কমাটি স্পেসবারের পাশেই থাকে। স্বাভাবিক ক্রম পেতে এটি বন্ধ করুন।</string>
     <string name="layout_swap_comma_globe_subtitle">স্পেসবারের পাশে কমা রাখুন</string>
     <string name="layout_swap_comma_globe_title">কমা এবং 🌐 কী অদলবদল করুন</string>
@@ -5833,7 +5824,6 @@
     <string name="search_kw_layout_show_globe">গ্লোব ভাষা অপসারণ লুকান</string>
     <string name="search_kw_layout_size_position">রিসাইজ শ্রিন্ক কমপ্যাক্ট গ্রো</string>
     <string name="search_kw_layout_split">থাম্ব এরগোনোমিক ট্যাবলেট</string>
-    <string name="search_kw_layout_summon_button">বাবল ওভারলে শো সামন ফিল্ডলেস হ্যাকারস</string>
     <string name="search_kw_layout_symbols_numpad_key">নামপ্যাড কিপ্যাড ডায়ালপ্যাড ১২৩৪ জি-বোর্ড</string>
     <string name="search_kw_learnedcorrections">শেখা সংশোধন, আমার সংশোধন, টাইপো জোড়া, শেখানো সংশোধন, অটোকারেক্ট লার্নিং, স্লিপস, অভ্যাস</string>
     <string name="search_kw_licenses">ওপেন সোর্স, অ্যাট্রিবিউশন, ক্রেডিট</string>
@@ -5872,7 +5862,7 @@
     <string name="search_kw_translate_engine">অফলাইন ব্যক্তিগত ইন্টারনেট এয়ারপ্লেন লোকাল ডিভাইস এমএল কিট গুগল মডেল ডাউনলোড ক্লাউড</string>
     <string name="search_kw_translate_models">অফলাইন অনুবাদ মডেল ডাউনলোড ডিলিট স্টোরেজ এমএল কিট গুগল</string>
     <string name="search_kw_translate_only_downloaded">অফলাইন মডেল পিকার মেনু ভাষার তালিকা ছোট ফিল্টার লুকান</string>
-    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">বানান পরীক্ষা, অটোসম্পূর্ণ, প্রেডিক্টিভ টেক্সট, গ্লাইড, সোয়াইপ টাইপিং, জেসচার, পরিচিতি, পূর্বাবস্থায় ফেরানো</string>
     <string name="search_kw_typing_auto_capitalize">autocaps autocapitalize autocapitalisation</string>
     <string name="search_kw_typing_auto_close_brackets">অটোক্লোজ পেয়ার প্যারেনথেসিস ব্রেসেস প্যারেনথেসিস ম্যাচিং কমপ্লিট ক্লোজিং</string>
@@ -6844,7 +6834,6 @@
     <string name="theme_parts_strip_subtitle">স্ট্রিপ ফিল, শব্দের রঙ এবং আকার</string>
     <string name="theme_parts_toolbar_subtitle">টুল ফিল, আইকন, শেপ, বর্ডার</string>
     <string name="theme_pick_hint">একটি কি, একটি টুল বা স্ট্রিপে চাপ দিন</string>
-    <string name="theme_pick_start_desc">স্টাইল করার জন্য কীবোর্ডের একটি অংশ বেছে নিন</string>
     <string name="theme_pick_start_subtitle">প্রিভিউতে কোনো কী, টুল বা সাজেশন স্ট্রিপ টিপে সেটিকে স্টাইল করুন</string>
     <string name="theme_pick_start_title">কীবোর্ডে বেছে নিন</string>
     <string name="theme_pick_strip_sample_words">হ্যালো,ধন্যবাদ,ঠিক আছে</string>
@@ -7673,12 +7662,6 @@
     <string name="tooldetail_ocr_info">স্বীকৃতি প্রক্রিয়া আপনার ডিভাইসে ML Kit-এর মাধ্যমে চলে। কোনো ছবি বা টেক্সট আপনার ডিভাইস থেকে বাইরে যায় না এবং এটি অফলাইনে কাজ করে। এটি ল্যাটিন স্ক্রিপ্টের টেক্সট পড়তে পারে, যেমন ইংরেজি। ML Kit-এর টেক্সট রিকগনাইজার এখনও বাংলা সমর্থন করে না। ক্যাপচারের পর, কিবোর্ড ঠিক কী টাইপ বা কপি করবে তা নির্বাচন করতে শব্দগুলোতে চাপ দিন।</string>
     <string name="tooldetail_ocr_online_group">অনলাইন টেক্সট রিডার</string>
     <string name="tooldetail_ocr_online_info">ছবিটি এমন একটি মডেলে যায় যা ছবি পড়তে পারে, আপনার বেছে নেওয়া ঠিকানায়, এবং মডেলটি তার দেখা টেক্সট লিখে দেয়। এটি যেকোনো স্ক্রিপ্ট পড়তে পারে এবং কোনো ভাষা ডেটার প্রয়োজন হয় না। OpenAI-সামঞ্জস্যপূর্ণ API সহ যেকোনো পরিষেবা কাজ করে: OpenAI, OpenRouter, Gemini, Mistral, অথবা Ollama বা LM Studio সহ আপনার নিজের কম্পিউটারের কোনো মডেল। প্রতিটি স্ক্যান সেই পরিষেবাতে ছবি পাঠায়, এবং পরিষেবাটি এর জন্য চার্জ করতে পারে।</string>
-    <string name="tooldetail_ocr_online_key_hint">এমন সার্ভারের জন্য খালি রাখুন যার কোনো কী (key) প্রয়োজন নেই</string>
-    <string name="tooldetail_ocr_online_key_label">এপিআই (API) কী</string>
-    <string name="tooldetail_ocr_online_model_hint">একটি মডেল যা ছবি পড়ে, উদাহরণস্বরূপ gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">মডেল</string>
-    <string name="tooldetail_ocr_online_url_hint">উদাহরণস্বরূপ https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">ঠিকানা</string>
     <string name="tooldetail_ocr_packs_header">টেসের‍্যাক্ট ভাষা</string>
     <string name="tooldetail_ocr_packs_info">টেরাস্যাক্ট (Tesseract) কোনো ভাষা পড়ার আগে সেই ভাষার ডেটা আপনার ডিভাইসে থাকতে হবে। আপনি যেসব ভাষায় টাইপ করেন তার প্রতিটির জন্য ০.৪ মেগাবাইট থেকে ১২ মেগাবাইট পর্যন্ত একটি করে ডাউনলোড প্রয়োজন। এই ডেটা গিটহাবে টেরাস্যাক্ট প্রকল্পের টেসডাটা_ফাস্ট (tessdata_fast) সেট থেকে নেওয়া হয়েছে। আপনি সরাসরি স্ক্যানার থেকেও ভাষা ডাউনলোড করতে পারবেন।</string>
     <string name="tooldetail_ocr_packs_none_info">আপনার চালু করা কোনো ভাষাতেই টেসের‍্যাক্ট (Tesseract) ডেটা নেই। ল্যাঙ্গুয়েজ বা ভাষা স্ক্রিন থেকে একটি ভাষা যোগ করুন। তারপর সেই ডেটা এখানে প্রদর্শিত হবে।</string>
@@ -8522,7 +8505,7 @@
     <string name="typing_letter_swipe_select_key_label">একটি কী-তে স্লাইড করুন</string>
     <string name="typing_letter_swipe_type_words_desc">কিগুলোর উপর দিয়ে সোয়াইপ করলে একটি শব্দ তৈরি হয়</string>
     <string name="typing_letter_swipe_type_words_label">শব্দ টাইপ করুন</string>
-    <string name="typing_mistype_tolerance_info">প্রতিটি ট্যাপ কোথায় পড়েছে তার ভিত্তিতে পড়া হয়, শুধু কোন কি-তে আঘাত করেছে তার ভিত্তিতে নয়, তাই একটি কি-এর প্রান্তের কাছাকাছি ট্যাপকেও পাশের কি হিসেবে পড়া হতে পারে। এটি নির্ধারণ করে যে সেই রিডিং কতটা উদার হবে। ১০০%-এর উপরে, একটি প্রতিবেশী কি-এর বেশ ভেতরে ট্যাপ করাও একটি সম্ভাব্য ভুল হিসেবে গণ্য হয়, যা দ্রুত বা ব্যস্ত টাইপিং এবং বড় আঙুলের জন্য উপযুক্ত। ১০০%-এর নিচে, আপনি যে কি-তে আঘাত করেছেন সেটিকে বেশি গুরুত্ব দেওয়া হয়, যা সতর্ক টাইপিংয়ের জন্য উপযুক্ত। এটি স্ট্রিপে কোন শব্দগুলো অফার করা হবে এবং অটোকারেক্ট কী বেছে নেবে তা পরিবর্তন করে। ডিফল্ট হলো ১০০%।</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">প্রতিটি ট্যাপ কোথায় পড়েছে তার ভিত্তিতে পড়া হয়, শুধু কোন কি-তে আঘাত করেছে তার ভিত্তিতে নয়, তাই একটি কি-এর প্রান্তের কাছাকাছি ট্যাপকেও পাশের কি হিসেবে পড়া হতে পারে। এটি নির্ধারণ করে যে সেই রিডিং কতটা উদার হবে। ১০০%-এর উপরে, একটি প্রতিবেশী কি-এর বেশ ভেতরে ট্যাপ করাও একটি সম্ভাব্য ভুল হিসেবে গণ্য হয়, যা দ্রুত বা ব্যস্ত টাইপিং এবং বড় আঙুলের জন্য উপযুক্ত। ১০০%-এর নিচে, আপনি যে কি-তে আঘাত করেছেন সেটিকে বেশি গুরুত্ব দেওয়া হয়, যা সতর্ক টাইপিংয়ের জন্য উপযুক্ত। এটি স্ট্রিপে কোন শব্দগুলো অফার করা হবে এবং অটোকারেক্ট কী বেছে নেবে তা পরিবর্তন করে। ডিফল্ট হলো ১০০%।</string>
     <string name="typing_mistype_tolerance_subtitle">একটি ট্যাপ পাশের কী-তে কতটা দূরে পড়লে তা ভুল হিসেবে গণ্য হবে</string>
     <string name="typing_mistype_tolerance_title">ভুল টাইপিং সহনশীলতা</string>
     <string name="typing_new_word_sightings_info">শুধুমাত্র সেই শব্দগুলোই গণনা করা হয় যা কোনো অভিধানে নেই। অভিধানে থাকা কোনো শব্দ টাইপ করার সাথে সাথেই তা শিখে নেওয়া হয়। একটি ব্যবহার তখনই গণনা করা হয় যখন আপনি শব্দটি লিখে অন্য শব্দে চলে যান, তাই কোনো টাইপো যা আপনি পরে ঠিক করেন তা গণনা করা হয় না। আপনার নিজের নাম বা স্ল্যাং শিখতে যদি বেশি সময় লাগে তবে এটি কমিয়ে দিন। প্রতিটি নতুন শব্দ সাথে সাথে সেভ করতে এটিকে ১-এ সেট করুন, যা পুরনো ভার্সনগুলোতে করা হতো। এই সেটিংটি ডিফল্টভাবে ৩ থাকে।</string>
@@ -8817,11 +8800,9 @@
     <string name="typing_trail_opacity_title">ট্রেইল অপাসিটি</string>
     <string name="typing_trail_width_subtitle">গ্লাইড ট্রেইলের পুরুত্ব</string>
     <string name="typing_trail_width_title">ট্রেইল প্রস্থ</string>
-    <string name="typing_two_thumb_info">উভয় বুড়ো আঙুল একসাথে ব্যবহার করুন। প্রতিটি আঙুল একই সময়ে ট্যাপ বা সোয়াইপ করতে পারে এবং প্রতিটি ট্যাপ ও সোয়াইপ একই শব্দে যুক্ত হয়। উদাহরণস্বরূপ, বাম আঙুল দিয়ে S ট্যাপ করুন, ডান আঙুল দিয়ে O থেকে M সোয়াইপ করুন, বাম দিয়ে E ট্যাপ করুন, তারপর ডান দিয়ে T H I N G সোয়াইপ করুন, তাহলে আপনি একটি শব্দ পাবেন। অন্য আঙুল সোয়াইপ করার সময় কোনো ট্যাপ করলে তা সেই পয়েন্টে শব্দে যুক্ত হয়, তাই H E L O এর ওপর সোয়াইপ এবং L এর ওপর একটি ট্যাপ করলে hello তৈরি হয়। ব্যাকস্পেস শব্দ থেকে শেষ ট্যাপ বা সোয়াইপ মুছে ফেলে।</string>
     <string name="typing_two_thumb_subtitle">একটি শব্দ তৈরি করতে একসাথে উভয় বুড়ো আঙুল দিয়ে ট্যাপ এবং সোয়াইপ করুন</string>
     <string name="typing_two_thumb_title">দুই হাতের বুড়ো আঙুলে টাইপিং</string>
     <string name="typing_two_thumb_word_end_all_up_label">সব থাম্বস আপ</string>
-    <string name="typing_two_thumb_word_end_info">স্পেস কি ব্যবহার করলে শব্দটি খোলা থাকে যখন আপনি ট্যাপ করেন ও সোয়াইপ করেন এবং প্রতিটি কি চাপার পর কিবোর্ড তা আবার পড়ে। টাইপ করতে স্পেস বা যতিচিহ্নে ট্যাপ করুন। আর যখন কোনো থাম্ব স্পর্শ ছাড়াই টাইপ করতে চান, সাধারণ গ্লাইড টাইপিংয়ের মতো কিবোর্ড থেকে আঙুল সরানো মাত্রই শব্দটি স্পেসসহ টাইপ হয়ে যায়, তাই একটি শব্দ শেয়ার করার জন্য আপনার থাম্বগুলো ওভারল্যাপ করতে হয়।</string>
     <string name="typing_two_thumb_word_end_space_label">স্পেস</string>
     <string name="typing_two_thumb_word_end_subtitle">আপনি যে শব্দটি তৈরি করছেন তা কী দিয়ে টাইপ করবেন</string>
     <string name="typing_two_thumb_word_end_title">দুই-বুড়ো আঙুলের শব্দ শেষ করুন</string>

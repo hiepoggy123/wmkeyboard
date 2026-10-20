@@ -1155,7 +1155,7 @@
     <string name="clipboard_key_row_info">یک لینک را جای‌گذاری کنید و اینتر بزنید تا به آن بروید، یا کلیپ‌های بیشتری را با یک فاصله یا خط جدید بین آن‌ها جای‌گذاری کنید، بدون اینکه به صفحه‌کلید برگردید. ABC به حروف برمی‌گردد. اگر چیدمان پنل را تغییر داده‌اید، این تنظیم کاری انجام نمی‌دهد: در عوض کلیدها را در ویرایشگر چیدمان اضافه کنید. این ردیف زمانی که کلیپ‌بورد روی کلیدها قرار دارد نمایش داده نمی‌شود. این تنظیم به‌طور پیش‌فرض خاموش است.</string>
     <string name="clipboard_key_row_subtitle">ردیفی از کلیدها در امتداد پایین پنل کلیپ‌بورد</string>
     <string name="clipboard_key_row_title">کلیدهای ABC، فاصله و ورود</string>
-    <string name="clipboard_line_spacing_info">در ۱۰۰٪، خطوط یک کلیپ تا حد امکان به هم نزدیک هستند. برای فاصله دادن به آن‌ها، این مقدار را افزایش دهید. مقدار پیش‌فرض ۱۳۰٪ است.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">در ۱۰۰٪، خطوط یک کلیپ تا حد امکان به هم نزدیک هستند. برای فاصله دادن به آن‌ها، این مقدار را افزایش دهید. مقدار پیش‌فرض ۱۳۰٪ است.</string>
     <string name="clipboard_line_spacing_subtitle">فاصله بین خطوط متن کلیپ‌بورد</string>
     <string name="clipboard_line_spacing_title">فاصله خطوط</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">سفید</string>
     <string name="import_sticker_editor_border_width_label">عرض حاشیه</string>
     <string name="import_sticker_editor_brush_size_label">اندازه قلم‌مو</string>
-    <string name="import_sticker_editor_caption">صفحه‌کلید یک استیکر ۵۱۲ در ۵۱۲ ذخیره می‌کند. تصویر را حرکت دهید و کوچک‌نمایی/بزرگ‌نمایی کنید تا بخشی که می‌خواهید حفظ شود را انتخاب کنید، سپس پس‌زمینه را حذف کرده و حاشیه اضافه کنید. برنامه این تصویر را روی گوشی نگه می‌دارد تا بتوانید بعداً دوباره استیکر را ویرایش کنید.</string>
     <string name="import_sticker_editor_crop_action">برش</string>
-    <string name="import_sticker_editor_crop_hint">برای جابجایی تصویر بکشید. برای بزرگ‌تر کردن، دو انگشت خود را روی صفحه باز کنید.</string>
     <string name="import_sticker_editor_cutout_action">حذف پس‌زمینه</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">ابتدا حذف‌کننده پس‌زمینه را دریافت کنید. این یک دانلود ۵ مگابایتی است.</string>
     <string name="import_sticker_editor_cutout_download_progress">برنامه در حال دریافت حذف‌کننده پس‌زمینه است...</string>
@@ -3522,7 +3520,6 @@
     <string name="layout_editor_alternate_columns_default">از تنظیمات</string>
     <string name="layout_editor_alternate_columns_subtitle">این کلید چند جایگزین در یک ردیف قرار می‌دهد</string>
     <string name="layout_editor_alternate_columns_title">ستون‌ها در پنجره بازشو</string>
-    <string name="layout_editor_alternate_hint_badge">راهنما</string>
     <string name="layout_editor_alternates_field_hint">ورودی‌ها را با فاصله جدا کنید، بنابراین یک جایگزین نمی‌تواند یک فاصله باشد. ورودی‌های بیش از یک کاراکتر، مانند .com، درست هستند. برنامه همچنین اولین مورد را در گوشه کلید ترسیم می‌کند.</string>
     <string name="layout_editor_alternates_field_label">جایگزین‌ها برای فشار دادن و نگه داشتن</string>
     <string name="layout_editor_apply_action">اعمال</string>
@@ -3618,7 +3615,6 @@
     <string name="layout_editor_field_row_title">مؤلفه</string>
     <string name="layout_editor_fill_row_action">پر کردن ردیف (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">ردیف اعداد قبلاً ارقام را نشان می‌دهد، بنابراین صفحه‌کلید این ردیف را به جای ردیف اول این لایه نشان می‌دهد.</string>
-    <string name="layout_editor_fill_row_off_caption">هنگامی که ردیف اعداد روشن است، صفحه‌کلید این ردیف را به جای ردیف اول این لایه نشان می‌دهد، زیرا ردیف اعداد قبلاً ارقام را نشان می‌دهد. ردیف اعداد اکنون خاموش است.</string>
     <string name="layout_editor_fill_row_title">ردیف جایگزین ارقام</string>
     <string name="layout_editor_fit_row_action">متناسب کردن ردیف با شبکه (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">در این جهت حرکتی وجود ندارد. برای انتخاب یک عمل ضربه بزنید.</string>
@@ -3793,8 +3789,6 @@
     <string name="layout_editor_new_secondary_title">شروع یک طرح‌بندی ثانویه</string>
     <string name="layout_editor_not_live_caption">تغییرات شما در اینجا تا زمانی که طرح‌بندی را در بخش زبان‌ها فعال نکنید، بر تایپ تأثیری نخواهد داشت.</string>
     <string name="layout_editor_number_row_caption">صفحه‌کلید این ردیف را بالای این لایه نشان می‌دهد. برای تغییر یک کلید، روی آن ضربه بزنید. برای جابه‌جایی، کلیدی را نگه دارید و بکشید.</string>
-    <string name="layout_editor_number_row_hidden_caption">هنگامی که ردیف اعداد در نمادها در بخش «طرح‌بندی و اندازه» روشن باشد، صفحه‌کلید این ردیف را بالای این لایه نشان می‌دهد. این گزینه اکنون خاموش است.</string>
-    <string name="layout_editor_number_row_off_caption">هنگامی که ردیف اعداد در بخش «طرح‌بندی و اندازه» روشن باشد، صفحه‌کلید این ردیف را بالای این لایه نشان می‌دهد. ردیف اعداد اکنون خاموش است.</string>
     <string name="layout_editor_number_row_title">ردیف اعداد</string>
     <string name="layout_editor_panel_inherited_caption">این طرح‌بندی از پنل مشترک %1$s استفاده می‌کند. تغییر هر چیزی در اینجا، یک کپی فقط برای همین طرح‌بندی ایجاد می‌کند. پنل مشترک در بخش «طرح‌بندی‌های کلید» و «طرح‌بندی‌های پنل» قرار دارد.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">به ارث بردن تم از طرح‌بندی</string>
@@ -3997,11 +3991,8 @@
     <string name="layout_split_spacebar_title">تقسیم کلید فاصله</string>
     <string name="layout_split_subtitle">کلیدها را به دو نیمه چپ و راست تقسیم کنید</string>
     <string name="layout_split_title">صفحه‌کلید دو نیم شده</string>
-    <string name="layout_summon_button_info">هنگامی که صفحه‌کلید بسته است، یک دکمه گرد کوچک روی هر برنامه شناور می‌شود. روی آن ضربه بزنید تا صفحه‌کلید باز شود، حتی در صفحه‌ای که فیلد متنی ندارد، و تا زمانی که آن را نبندید، باز می‌ماند. کلیدها سپس به عنوان فشار کلید به برنامه می‌رسند، همانند حالت «نگه داشتن صفحه‌کلید روی صفحه». دکمه را بکشید تا جابجا شود؛ در سمت نزدیک‌تر قرار می‌گیرد. آن را فشار دهید و نگه دارید تا زمانی که صفحه‌کلید دوباره باز شود، پنهان بماند. نیاز به مجوز «نمایش روی سایر برنامه‌ها» در اندروید دارد.</string>
     <string name="layout_summon_button_permission_subtitle">دکمه نمی‌تواند ظاهر شود تا زمانی که اندروید اجازه دهد</string>
     <string name="layout_summon_button_permission_title">اجازه نمایش روی سایر برنامه‌ها</string>
-    <string name="layout_summon_button_subtitle">دکمه‌ای روی سایر برنامه‌ها که صفحه‌کلید را با یا بدون فیلد متنی باز می‌کند</string>
-    <string name="layout_summon_button_title">دکمه شناور صفحه‌کلید</string>
     <string name="layout_swap_comma_globe_info">دو کلید در هر طرف کلید فاصله جای خود را عوض می‌کنند. اگر یکی از آن‌ها کلید ایموجی باشد، به موقعیت بیرونی منتقل می‌شود و کاما در کنار کلید فاصله باقی می‌ماند. برای بازگشت به ترتیب معمول، این گزینه را خاموش کنید.</string>
     <string name="layout_swap_comma_globe_subtitle">ویرگول را کنار کلید فاصله قرار دهید</string>
     <string name="layout_swap_comma_globe_title">جابجایی کلیدهای ویرگول و 🌐</string>
@@ -5821,7 +5812,6 @@
     <string name="search_kw_layout_show_globe">پنهان کردن حذف زبان کره</string>
     <string name="search_kw_layout_size_position">تغییر اندازه کوچک‌سازی فشرده بزرگ‌سازی</string>
     <string name="search_kw_layout_split">شست ارگونومیک تبلت</string>
-    <string name="search_kw_layout_summon_button">نمایش حباب روی صفحه برای فراخوانی فیلد هکرها</string>
     <string name="search_kw_layout_symbols_numpad_key">صفحه‌کلید عددی شماره‌گیر ۱۲۳۴ جی‌بورد</string>
     <string name="search_kw_learnedcorrections">اصلاحات یادگرفته‌شده، اصلاحات من، جفت‌های غلط تایپی، اصلاحات آموزش‌داده‌شده، یادگیری تصحیح خودکار، لغزش‌ها، عادت‌ها</string>
     <string name="search_kw_licenses">متن‌باز، انتساب، اعتبارها</string>
@@ -5860,7 +5850,7 @@
     <string name="search_kw_translate_engine">آفلاین خصوصی اینترنت هواپیما محلی دستگاه کیت یادگیری ماشین مدل گوگل دانلود ابری</string>
     <string name="search_kw_translate_models">مدل ترجمه آفلاین دانلود حذف حافظه ml kit گوگل</string>
     <string name="search_kw_translate_only_downloaded">پنهان کردن منوی انتخابگر مدل آفلاین فیلتر کوتاه</string>
-    <string name="search_kw_translate_server">openai سازگار خودمیزبان میزبانی‌شده محلی llm هوش مصنوعی مدل ollama llama studio vllm localai تکمیل چت</string>
+    <string name="search_kw_translate_server">openai سازگار خودمیزبان میزبانی‌شده محلی llm هوش مصنوعی مدل ollama llama studio vllm localai تکمیل چت mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">غلط‌یاب، تکمیل خودکار، متن پیش‌بینی‌کننده، تایپ کشیدنی، تایپ با حرکت انگشت، حرکات، مخاطبین، واگرد</string>
     <string name="search_kw_typing_auto_capitalize">حروف بزرگ خودکار، سرمایه گذاری خودکار، سرمایه گذاری خودکار</string>
     <string name="search_kw_typing_auto_close_brackets">بستن خودکار جفت پرانتزها، آکولادها، تطبیق پرانتز و تکمیل بستن</string>
@@ -6832,7 +6822,6 @@
     <string name="theme_parts_strip_subtitle">حذف رنگ پس‌زمینه، رنگ کلمات و اندازه</string>
     <string name="theme_parts_toolbar_subtitle">پرکننده‌های ابزار، آیکون‌ها، شکل، حاشیه</string>
     <string name="theme_pick_hint">یک کلید، یک ابزار یا نوار را فشار دهید</string>
-    <string name="theme_pick_start_desc">بخشی از صفحه‌کلید را برای استایل‌دهی انتخاب کنید</string>
     <string name="theme_pick_start_subtitle">برای استایل‌دهی، یک کلید، ابزار یا نوار پیشنهاد را در پیش‌نمایش فشار دهید</string>
     <string name="theme_pick_start_title">انتخاب روی صفحه‌کلید</string>
     <string name="theme_pick_strip_sample_words">سلام,ممنون,باشه</string>
@@ -7659,12 +7648,6 @@
     <string name="tooldetail_ocr_info">تشخیص با استفاده از ML Kit روی دستگاه شما اجرا می‌شود. هیچ عکس و متنی از دستگاه شما خارج نمی‌شود و به صورت آفلاین کار می‌کند. این ابزار متن‌های لاتین، برای مثال انگلیسی، را می‌خواند. تشخیص‌دهنده متن ML Kit هنوز از زبان بنگالی پشتیبانی نمی‌کند. پس از گرفتن عکس، روی کلمات ضربه بزنید تا دقیقاً آنچه را که صفحه‌کلید تایپ یا کپی می‌کند، انتخاب کنید.</string>
     <string name="tooldetail_ocr_online_group">متن‌خوان آنلاین</string>
     <string name="tooldetail_ocr_online_info">عکس به مدلی ارسال می‌شود که می‌تواند تصاویر را بخواند، در آدرسی که شما انتخاب می‌کنید، و مدل متن دیده شده را می‌نویسد. این مدل هر خطی را می‌خواند و نیازی به داده‌های زبانی ندارد. هر سرویسی با API سازگار با OpenAI کار می‌کند: OpenAI، OpenRouter، Gemini، Mistral یا مدلی روی رایانه خودتان با Ollama یا LM Studio. هر اسکن عکس را به آن سرویس می‌فرستد و ممکن است سرویس برای آن هزینه دریافت کند.</string>
-    <string name="tooldetail_ocr_online_key_hint">برای سروری که نیازی به کلید ندارد، خالی بگذارید</string>
-    <string name="tooldetail_ocr_online_key_label">کلید API</string>
-    <string name="tooldetail_ocr_online_model_hint">مدلی که تصاویر را می‌خواند، برای مثال gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">مدل</string>
-    <string name="tooldetail_ocr_online_url_hint">برای مثال https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">آدرس</string>
     <string name="tooldetail_ocr_packs_header">زبان‌های Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract تنها زمانی یک زبان را می‌خواند که داده‌های آن زبان روی دستگاه شما موجود باشد. برای هر زبانی که تایپ می‌کنید، یک دانلود بین ۰.۴ تا ۱۲ مگابایت وجود دارد. این داده‌ها از مجموعه tessdata_fast پروژه Tesseract در گیت‌هاب می‌آیند. همچنین می‌توانید یک زبان را مستقیماً از خود اسکنر دانلود کنید.</string>
     <string name="tooldetail_ocr_packs_none_info">هیچ‌یک از زبان‌هایی که فعال کرده‌اید دارای داده‌های Tesseract نیستند. یک زبان را در صفحه زبان‌ها اضافه کنید. سپس داده‌های آن در اینجا نمایش داده می‌شود.</string>
@@ -8501,7 +8484,7 @@
     <string name="typing_letter_swipe_select_key_label">کشیدن به سمت یک کلید</string>
     <string name="typing_letter_swipe_type_words_desc">کشیدن انگشت روی کلیدها یک کلمه را هجی می‌کند</string>
     <string name="typing_letter_swipe_type_words_label">تایپ کلمات</string>
-    <string name="typing_mistype_tolerance_info">هر ضربه نسبت به جایی که فرود آمده خوانده می‌شود، نه فقط نسبت به کلیدی که به آن برخورد کرده است، بنابراین ضربه نزدیک به لبه یک کلید همچنان می‌تواند به عنوان کلید مجاور خوانده شود. این تنظیم تعیین می‌کند که آن خواندن چقدر سخاوتمندانه باشد. بالای ۱۰۰٪، ضربه کاملاً داخل یک کلید همسایه همچنان یک لغزش احتمالی است که برای تایپ سریع یا پرمشغله و انگشتان بزرگ مناسب است. زیر ۱۰۰٪، به کلیدی که به آن ضربه زده‌اید اعتماد بیشتری می‌شود که برای تایپ دقیق مناسب است. این تنظیم کلماتی را که نوار پیشنهاد می‌دهد و آنچه تصحیح خودکار انتخاب می‌کند تغییر می‌دهد. پیش‌فرض ۱۰۰٪ است.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">هر ضربه نسبت به جایی که فرود آمده خوانده می‌شود، نه فقط نسبت به کلیدی که به آن برخورد کرده است، بنابراین ضربه نزدیک به لبه یک کلید همچنان می‌تواند به عنوان کلید مجاور خوانده شود. این تنظیم تعیین می‌کند که آن خواندن چقدر سخاوتمندانه باشد. بالای ۱۰۰٪، ضربه کاملاً داخل یک کلید همسایه همچنان یک لغزش احتمالی است که برای تایپ سریع یا پرمشغله و انگشتان بزرگ مناسب است. زیر ۱۰۰٪، به کلیدی که به آن ضربه زده‌اید اعتماد بیشتری می‌شود که برای تایپ دقیق مناسب است. این تنظیم کلماتی را که نوار پیشنهاد می‌دهد و آنچه تصحیح خودکار انتخاب می‌کند تغییر می‌دهد. پیش‌فرض ۱۰۰٪ است.</string>
     <string name="typing_mistype_tolerance_subtitle">اینکه یک ضربه تا چه حد می‌تواند در کلید مجاور قرار گیرد و همچنان به عنوان یک لغزش محسوب شود</string>
     <string name="typing_mistype_tolerance_title">تحمل خطای تایپی</string>
     <string name="typing_new_word_sightings_info">فقط کلماتی که در هیچ لغت‌نامه‌ای نیستند شمرده می‌شوند. کلمه‌ای که از قبل در لغت‌نامه باشد، همان لحظه که تایپش می‌کنید یاد گرفته می‌شود. یک استفاده فقط زمانی شمرده می‌شود که از کلمه عبور کرده و آن را رها کرده باشید، بنابراین غلط املایی که برمی‌گردید و اصلاحش می‌کنید هرگز شمرده نمی‌شود. اگر نام‌ها و اصطلاحات عامیانه خودتان خیلی طول می‌کشد تا ثبت شوند، این مقدار را کاهش دهید. آن را روی ۱ تنظیم کنید تا هر کلمه جدید بلافاصله ذخیره شود، کاری که نسخه‌های قدیمی انجام می‌دادند. این تنظیم به‌طور پیش‌فرض ۳ است.</string>
@@ -8796,11 +8779,9 @@
     <string name="typing_trail_opacity_title">شفافیت رد تایپ</string>
     <string name="typing_trail_width_subtitle">ضخامت مسیر حرکت انگشت</string>
     <string name="typing_trail_width_title">عرض رد تایپ</string>
-    <string name="typing_two_thumb_info">از هر دو شست با هم استفاده کنید. هر شست می‌تواند همزمان با دیگری ضربه بزند یا بکشد، و هر ضربه و کشیدن به همان کلمه اضافه می‌شود. برای مثال، با شست چپ روی S ضربه بزنید، با راست O تا M را بکشید، با چپ روی E ضربه بزنید، سپس با راست T H I N G را بکشید، و کلمه something ساخته می‌شود. ضربه‌ای که در حین کشیدن شست دیگر زده شود، در همان نقطه به کلمه اضافه می‌شود، بنابراین کشیدن روی H E L O و ضربه روی L کلمه hello را می‌سازد. کلید بازگشت (Backspace) آخرین ضربه یا کشیدن را از کلمه حذف می‌کند.</string>
     <string name="typing_two_thumb_subtitle">برای ساختن یک کلمه، با هر دو شست همزمان ضربه بزنید و بکشید</string>
     <string name="typing_two_thumb_title">تایپ با دو شست</string>
     <string name="typing_two_thumb_word_end_all_up_label">همه عالی</string>
-    <string name="typing_two_thumb_word_end_info">با فاصله، کلمه در حین ضربه زدن و کشیدن باز می‌ماند و صفحه‌کلید پس از هر بار آن را دوباره می‌خواند. برای تایپ آن، روی فاصله یا علائم نگارشی ضربه بزنید. با بالا بودن همه انگشتان، کلمه به محض اینکه هیچ انگشتی صفحه‌کلید را لمس نکند، با یک فاصله تایپ می‌شود، مانند کشیدن معمولی، بنابراین انگشتان شما باید برای اشتراک‌گذاری یک کلمه با هم همپوشانی داشته باشند.</string>
     <string name="typing_two_thumb_word_end_space_label">فاصله</string>
     <string name="typing_two_thumb_word_end_subtitle">آنچه کلمه‌ای که در حال ساخت آن هستید را تایپ می‌کند</string>
     <string name="typing_two_thumb_word_end_title">پایان یک کلمه با دو انگشت شست</string>

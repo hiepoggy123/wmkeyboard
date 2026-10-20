@@ -27,6 +27,31 @@ kover {
 // bundled artifacts (or none, for lite) so scanners never depend on GMS there.
 // Both variants expose the identical com.google.mlkit.vision.* API, so no
 // source changes ride on this flag.
+// The Google Home APIs SDK, which Google hands out as a bundle rather than
+// a public Maven artifact: unpacked to libs/googlehome/m2 it is a Maven
+// repository (settings.gradle.kts registers it when the directory exists),
+// and the newest play-services-home under it is the version to depend on.
+// Loose AARs dropped straight into libs/googlehome work too.
+val googleHomeVersion: String? = file("libs/googlehome/m2/com/google/android/gms/play-services-home").listFiles()
+    ?.filter { it.isDirectory }?.map { it.name }?.maxOrNull()
+val googleHomeAars: Boolean = file("libs/googlehome").listFiles()?.any { it.name.endsWith(".aar") } == true
+val googleHomeSdk: Boolean = googleHomeVersion != null || googleHomeAars
+// Having the SDK on disk is not enough: it costs about 22 MB of dex before R8,
+// so it is linked only when wmkb.enableGoogleHome says so too. Pass
+// -Pwmkb.enableGoogleHome=true for one build (a fast one, say) and leave
+// local.properties at false; :core:config reads the same flag for
+// ENABLE_GOOGLE_HOME, so the code and the dependency never disagree.
+val googleHome: Boolean = googleHomeSdk && run {
+    val localProperties = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+    (providers.gradleProperty("wmkb.enableGoogleHome").orNull
+        ?: localProperties.getProperty("wmkb.enableGoogleHome")
+        ?: System.getenv("WMKB_ENABLE_GOOGLE_HOME")
+        ?: "false").toBoolean()
+}
+
 val playStoreChannel = run {
     val localProperties = Properties().apply {
         val file = rootProject.file("local.properties")
@@ -53,6 +78,20 @@ android {
     productFlavors {
         create("full") { dimension = "capabilities" }
         create("lite") { dimension = "capabilities" }
+    }
+    // The Google Home APIs are a hand-downloaded SDK (Google hosts no Maven
+    // artifact for them): the AARs go under libs/googlehome, and only a full
+    // build that has them compiles the real GoogleHomeSupport. Without them
+    // the full flavour uses the same stub lite does, so a checkout without
+    // the SDK still builds. ENABLE_GOOGLE_HOME in :core:config follows suit.
+    sourceSets {
+        getByName("full") {
+            val dir = if (googleHome) "src/googlehome/java" else "src/googlehomestub/java"
+            java.srcDir(dir)
+            kotlin.srcDir(dir)
+            // The Play services module request the Home APIs need; only with the SDK.
+            if (googleHome) manifest.srcFile("src/googlehome/AndroidManifest.xml")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -94,6 +133,9 @@ dependencies {
     api(project(":core:content"))
     api(project(":core:tools"))
     api(project(":core:kdeconnect"))
+    api(project(":core:homeassistant"))
+    api(project(":core:smarthome"))
+    api(project(":core:send"))
     api(project(":core:settings"))
     api(project(":core:addons"))
     api(project(":core:voice"))
@@ -133,7 +175,22 @@ dependencies {
         "fullImplementation"(libs.mlkit.text.recognition)
         "fullImplementation"(libs.mlkit.barcode.scanning)
     }
+    // The other four OCR scripts (#757), unbundled on every channel: Play
+    // services fetches each model on first use. About 3 KB of code each, as
+    // the shared pipeline is already here through the Latin artifact (the
+    // bundled one depends on the unbundled one). Without Play services those
+    // scripts read with Paddle or Tesseract instead (OcrLanguages).
+    "fullImplementation"(libs.mlkit.text.recognition.chinese.unbundled)
+    "fullImplementation"(libs.mlkit.text.recognition.japanese.unbundled)
+    "fullImplementation"(libs.mlkit.text.recognition.korean.unbundled)
+    "fullImplementation"(libs.mlkit.text.recognition.devanagari.unbundled)
     "fullImplementation"(libs.mlkit.document.scanner)
+    if (googleHome && googleHomeVersion != null) {
+        "fullImplementation"("com.google.android.gms:play-services-home:$googleHomeVersion")
+        "fullImplementation"("com.google.android.gms:play-services-home-types:$googleHomeVersion")
+    } else if (googleHome && googleHomeAars) {
+        "fullImplementation"(fileTree("libs/googlehome") { include("*.aar", "*.jar") })
+    }
 
     testImplementation(libs.junit)
     // A virtual clock for the coroutine plumbing around the input connection.

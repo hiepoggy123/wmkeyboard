@@ -22,7 +22,7 @@ You can reach this screen from the home screen's **Layout & size** tile, from Ac
 
 <SettingsPath path="Layout & size" />
 
-A small keyboard preview stays pinned under the title while you scroll. Size and position (with the per-screen overrides) and One-handed, split and floating are pages of their own; Your layouts, Number row, Arrow keys row, Symbols layer, Numerals and Bottom-row keys stay on the hub.
+Size and position (with the per-screen overrides) and One-handed, split and floating are pages of their own; Your layouts, Number row, Arrow keys row, Symbols layer, Numerals and Bottom-row keys stay on the hub.
 
 ### Your layouts
 
@@ -63,7 +63,7 @@ See [Number row and numerals](/typing/basics/#number-row-and-numerals) for the f
 | Arrow keys row | Toggle | On / Off | Off |
 | Arrow order | Drag list | Left, Up, Down, Right in any order | Left, Up, Down, Right |
 
-**Arrow keys row** adds a row of four arrow keys under the spacebar, so you can move the cursor without a toolbar tool or a drag on the spacebar. Each key sends a real arrow key press, and holding one keeps moving the cursor. The row shows on every layer except a secondary layout, which stays exactly as its author built it. It takes the height of the number row (the **Number row height** slider above, or a screen shape's own override), so the resize handle and one-handed mode scale it with the rest of the keyboard, and the keyboard grows by that much. **Arrow order** appears once the row is on: drag the handles to put the four keys in the order you want, left to right.
+**Arrow keys row** adds a row of four arrow keys under the spacebar, so you can move the cursor without a toolbar tool or a drag on the spacebar. Each key sends a real arrow key press, and holding one keeps moving the cursor. The row shows on every layer except a secondary layout, which stays exactly as its author built it. It takes the height of the number row (the **Number row height** slider above, or a screen shape's own override), so the resize handle and one-handed mode scale it with the rest of the keyboard, and the keyboard grows by that much. **Arrow order** appears once the row is on: drag the handles to put the four keys in the order you want, left to right. A layout can put keys of its own on the row instead, such as Word left or a second Shift: the [layout editor](/reference/settings/keymaps/#the-rows-around-the-grid) draws the row under the grid while it's on, and editing a key there gives that layer its own row.
 
 ### Symbols layer
 
@@ -174,12 +174,8 @@ Landscape is also the one shape that doesn't fall back to portrait for the three
 | Floating keyboard width *(shown only when Floating keyboard is on)* | Slider | 240–500 dp | 320 dp |
 | Floating keyboard height *(shown only when Floating keyboard is on)* | Slider | 60%–160% | 100% |
 | Keep the keyboard on screen | Toggle | On / Off | Off |
-| Floating keyboard button | Toggle | On / Off | Off |
-| Floating AI button | Toggle | On / Off | Off |
-| Let the AI button read the screen *(shown only when the AI button is on and its accessibility service is off; not in the Play Store build)* | Link | Explains, then opens Android's accessibility settings | |
-| Allow display over other apps *(shown only when a floating button is on and Android hasn't allowed it yet)* | Link | Opens Android's "Display over other apps" page | |
 
-One-handed mode tunes separately per orientation. The rail's arrow inside the keyboard flips the side, and it remembers the answer here for whichever orientation you're in. **Portrait only** switches the mode off while the phone is sideways and back on when it is upright again, so a thumb-sized portrait keyboard and a split landscape one can coexist. Split divides every row into left and right halves with a gap between them, and **Split only on wide screens** holds that back until you're in landscape or on an unfolded screen, so rotating out of landscape doesn't leave a portrait phone split in two. Floating detaches the keyboard into a movable, resizable panel. While it's active it replaces the width, position and bottom-padding logic above, though split still works alongside it. **Keep the keyboard on screen** stops the keyboard from closing when a text field loses focus, so it stays up over screens with no field at all until you hide it yourself. See [Keeping the keyboard on screen](/typing/size-position/#keeping-the-keyboard-on-screen) for what reaches the app and how to close it.
+One-handed mode tunes separately per orientation. The rail's arrow inside the keyboard flips the side, and it remembers the answer here for whichever orientation you're in. **Portrait only** switches the mode off while the phone is sideways and back on when it is upright again, so a thumb-sized portrait keyboard and a split landscape one can coexist. Split divides every row into left and right halves with a gap between them, and **Split only on wide screens** holds that back until you're in landscape or on an unfolded screen, so rotating out of landscape doesn't leave a portrait phone split in two. Floating detaches the keyboard into a movable, resizable panel. While it's active it replaces the width, position and bottom-padding logic above, though split still works alongside it. **Keep the keyboard on screen** stops the keyboard from closing when a text field loses focus, so it stays up over screens with no field at all until you hide it yourself. See [Keeping the keyboard on screen](/typing/size-position/#keeping-the-keyboard-on-screen) for what reaches the app and how to close it. The floating button that opens the keyboard without a text field used to sit here too; it has its own screen now, [Advanced › Floating button](/reference/settings/floating-button/).
 
 <PhoneFrame side caption="One-handed mode set to Right, with the Portrait width, height, and side sliders below it.">
   <Shot id="reference/settings/layout-one-handed-split-floating" alt="One-handed mode set to Right, with the Portrait width, height, and side sliders below it." />

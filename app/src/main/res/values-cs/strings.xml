@@ -1150,7 +1150,7 @@
     <string name="clipboard_key_row_info">Vložte odkaz a stiskněte Enter pro přechod na něj, nebo vložte více klipů s mezerou nebo novým řádkem mezi nimi, aniž byste se vraceli ke klávesnici. ABC se vrací k písmenům. Pokud jste změnili rozvržení panelu, toto nastavení nic nedělá: místo toho přidejte klávesy v editoru rozvržení. Řádek se nezobrazuje, když je schránka umístěna nad klávesami. Toto nastavení je ve výchozím nastavení vypnuto.</string>
     <string name="clipboard_key_row_subtitle">Řada kláves podél spodní části panelu schránky</string>
     <string name="clipboard_key_row_title">Klávesy ABC, mezerník a enter</string>
-    <string name="clipboard_line_spacing_info">Při 100 % jsou řádky klipu u sebe tak blízko, jak to písmo dovoluje. Zvyšte hodnotu pro jejich rozestoupení. Výchozí hodnota je 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Při 100 % jsou řádky klipu u sebe tak blízko, jak to písmo dovoluje. Zvyšte hodnotu pro jejich rozestoupení. Výchozí hodnota je 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Mezera mezi řádky textu výstřižku</string>
     <string name="clipboard_line_spacing_title">Řádkování</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">Bílá</string>
     <string name="import_sticker_editor_border_width_label">Šířka okraje</string>
     <string name="import_sticker_editor_brush_size_label">Velikost štětce</string>
-    <string name="import_sticker_editor_caption">Klávesnice uloží nálepku o velikosti 512 na 512. Posunutím a sevřením obrázku vyberte část, kterou chcete zachovat, poté odstraňte pozadí a přidejte okraj. Aplikace uchovává tento obrázek v telefonu, takže nálepku můžete později znovu upravit.</string>
     <string name="import_sticker_editor_crop_action">Oříznout</string>
-    <string name="import_sticker_editor_crop_hint">Přetažením obrázek posunete. Sevřením prstů jej zvětšíte.</string>
     <string name="import_sticker_editor_cutout_action">Odstranit pozadí</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Nejdříve si stáhněte nástroj pro odstranění pozadí. Má 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Aplikace stahuje nástroj pro odstranění pozadí…</string>
@@ -3513,7 +3511,6 @@
     <string name="layout_editor_alternate_columns_default">Z nastavení</string>
     <string name="layout_editor_alternate_columns_subtitle">Kolik alternativních znaků tato klávesa umístí do řádku</string>
     <string name="layout_editor_alternate_columns_title">Sloupce ve vyskakovacím okně</string>
-    <string name="layout_editor_alternate_hint_badge">nápověda</string>
     <string name="layout_editor_alternates_field_hint">Oddělte položky mezerami, takže alternativou nemůže být mezera. Položky o více než jednom znaku, jako např. .com, jsou v pořádku. Aplikace také vykreslí první z nich v rohu klávesy.</string>
     <string name="layout_editor_alternates_field_label">Alternativy pro stisknutí a podržení</string>
     <string name="layout_editor_apply_action">Použít</string>
@@ -3609,7 +3606,6 @@
     <string name="layout_editor_field_row_title">Komponenta</string>
     <string name="layout_editor_fill_row_action">Vyplnit řádek (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Číselný řádek již číslice zobrazuje, takže klávesnice zobrazuje tento řádek namísto prvního řádku této vrstvy.</string>
-    <string name="layout_editor_fill_row_off_caption">Když je zapnutý číselný řádek, klávesnice zobrazuje tento řádek namísto prvního řádku této vrstvy, protože číselný řádek již číslice zobrazuje. Číselný řádek je nyní vypnutý.</string>
     <string name="layout_editor_fill_row_title">Řádek namísto číslic</string>
     <string name="layout_editor_fit_row_action">Přizpůsobit řádek mřížce (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Tímto směrem žádný švih. Klepnutím vyberte akci.</string>
@@ -3784,8 +3780,6 @@
     <string name="layout_editor_new_secondary_title">Spustit sekundární rozložení</string>
     <string name="layout_editor_not_live_caption">Vaše změny zde neovlivní psaní, dokud rozložení nezapnete v části Jazyky.</string>
     <string name="layout_editor_number_row_caption">Klávesnice zobrazuje tento řádek nad touto vrstvou. Klepnutím na klávesu ji změníte. Podržením a přetažením klávesu přesunete.</string>
-    <string name="layout_editor_number_row_hidden_caption">Klávesnice zobrazuje tento řádek nad touto vrstvou, když je v Rozvržení a velikost zapnuta volba Číselný řádek v symbolech. Nyní je vypnutá.</string>
-    <string name="layout_editor_number_row_off_caption">Klávesnice zobrazuje tento řádek nad touto vrstvou, když je v Rozvržení a velikost zapnutý Číselný řádek. Číselný řádek je nyní vypnutý.</string>
     <string name="layout_editor_number_row_title">Číselný řádek</string>
     <string name="layout_editor_panel_inherited_caption">Toto rozvržení používá sdílený panel %1$s. Změna čehokoli zde vytvoří kopii pouze pro toto rozvržení. Sdílený panel je v části Rozvržení kláves, Rozvržení panelů.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Převzít motiv rozložení</string>
@@ -3988,11 +3982,8 @@
     <string name="layout_split_spacebar_title">Rozdělit mezerník</string>
     <string name="layout_split_subtitle">Rozdělit klávesy na levou a pravou polovinu</string>
     <string name="layout_split_title">Rozdělená klávesnice</string>
-    <string name="layout_summon_button_info">Když je klávesnice zavřená, nad každou aplikací se vznáší malé kulaté tlačítko. Klepněte na něj a klávesnice se otevře, a to i na obrazovce bez textového pole, a zůstane tam otevřená, dokud ji nezavřete. Klávesy pak odesílají vstupy do aplikace jako stisky kláves, stejně jako u volby Ponechat klávesnici na obrazovce. Přetažením tlačítka jej přesunete; usadí se u bližší strany. Stisknutím a podržením jej skryjete, dokud se klávesnice příště neotevře. Vyžaduje oprávnění systému Android Zobrazovat přes ostatní aplikace.</string>
     <string name="layout_summon_button_permission_subtitle">Tlačítko se nemůže zobrazit, dokud to Android nepovolí</string>
     <string name="layout_summon_button_permission_title">Povolit zobrazení přes ostatní aplikace</string>
-    <string name="layout_summon_button_subtitle">Tlačítko nad ostatními aplikacemi, které otevře klávesnici, s textovým polem nebo bez něj</string>
-    <string name="layout_summon_button_title">Plovoucí tlačítko klávesnice</string>
     <string name="layout_swap_comma_globe_info">Dvě klávesy na každé straně mezerníku si vymění místa. Pokud je jednou z nich klávesa emoji, přesune se na vnější pozici a čárka zůstane vedle mezerníku. Vypněte tuto možnost pro návrat k obvyklému pořadí.</string>
     <string name="layout_swap_comma_globe_subtitle">Umístit čárku vedle mezerníku</string>
     <string name="layout_swap_comma_globe_title">Prohodit klávesy čárky a 🌐</string>
@@ -5811,7 +5802,6 @@
     <string name="search_kw_layout_show_globe">skrýt odstranit jazyk zeměkoule</string>
     <string name="search_kw_layout_size_position">změnit velikost zmenšit kompaktní zvětšit</string>
     <string name="search_kw_layout_split">palec ergonomický tablet</string>
-    <string name="search_kw_layout_summon_button">zobrazit vyskakovací okno pro vyvolání hackerů bez pole</string>
     <string name="search_kw_layout_symbols_numpad_key">numerická klávesnice číselník 1234 gboard</string>
     <string name="search_kw_learnedcorrections">naučené opravy, moje opravy, páry překlepů, naučené opravy, učení automatických oprav, překlepy, návyky</string>
     <string name="search_kw_licenses">open source, uvedení autora, kredity</string>
@@ -5850,7 +5840,7 @@
     <string name="search_kw_translate_engine">offline soukromý internet letadlo místní zařízení ml kit google model stažení cloud</string>
     <string name="search_kw_translate_models">offline překladový model stáhnout odstranit úložiště ml kit google</string>
     <string name="search_kw_translate_only_downloaded">skrýt krátkou nabídku výběru offline modelu pro filtr</string>
-    <string name="search_kw_translate_server">openai kompatibilní selfhosted hostovaný lokální llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai kompatibilní selfhosted hostovaný lokální llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">kontrola pravopisu, automatické doplňování, prediktivní text, psaní tahem, psaní přejetím, gesta, kontakty, zpět</string>
     <string name="search_kw_typing_auto_capitalize">automatická velká písmena automatické psaní velkých písmen</string>
     <string name="search_kw_typing_auto_close_brackets">automatické zavírání párů závorky složené závorky shoda závorek doplnění</string>
@@ -6822,7 +6812,6 @@
     <string name="theme_parts_strip_subtitle">Výplň pruhu, barvy slov a velikost</string>
     <string name="theme_parts_toolbar_subtitle">Výplně nástrojů, ikony, tvar, ohraničení</string>
     <string name="theme_pick_hint">Stiskněte klávesu, nástroj nebo lištu</string>
-    <string name="theme_pick_start_desc">Vyberte část klávesnice, kterou chcete stylovat</string>
     <string name="theme_pick_start_subtitle">Stiskněte klávesu, nástroj nebo panel návrhů v náhledu pro úpravu stylu</string>
     <string name="theme_pick_start_title">Vybrat na klávesnici</string>
     <string name="theme_pick_strip_sample_words">Ahoj,Díky,Dobře</string>
@@ -7648,12 +7637,6 @@
     <string name="tooldetail_ocr_info">Rozpoznávání probíhá ve vašem zařízení pomocí ML Kit. Žádná fotografie ani text neopustí vaše zařízení a funguje to offline. Čte text v latince, například v angličtině. Rozpoznávač textu ML Kit zatím nepodporuje bengálštinu. Po zachycení stiskněte slova pro přesný výběr toho, co má klávesnice napsat nebo zkopírovat.</string>
     <string name="tooldetail_ocr_online_group">Online čtečka textu</string>
     <string name="tooldetail_ocr_online_info">Fotografie je odeslána modelu, který umí číst obrázky, na vámi zvolenou adresu, a model vypíše text, který vidí. Čte jakékoli písmo a nepotřebuje jazyková data. Funguje jakákoli služba s rozhraním API kompatibilním s OpenAI: OpenAI, OpenRouter, Gemini, Mistral nebo model ve vašem vlastním počítači s Ollama či LM Studio. Každé skenování odešle fotografii do této služby a služba si za to může účtovat poplatky.</string>
-    <string name="tooldetail_ocr_online_key_hint">Ponechte prázdné pro server, který nevyžaduje klíč</string>
-    <string name="tooldetail_ocr_online_key_label">Klíč API</string>
-    <string name="tooldetail_ocr_online_model_hint">Model, který čte obrázky, například gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_url_hint">Například https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adresa</string>
     <string name="tooldetail_ocr_packs_header">Jazyky Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract čte jazyk pouze poté, co jsou data pro tento jazyk ve vašem zařízení. Pro každý jazyk, ve kterém píšete, existuje jedno stažení o velikosti 0,4 MB až 12 MB. Data pocházejí ze sady tessdata_fast projektu Tesseract na GitHubu. Jazyk si můžete stáhnout také přímo ze skeneru.</string>
     <string name="tooldetail_ocr_packs_none_info">Žádný z jazyků, které jste zapnuli, nemá data Tesseract. Přidejte jazyk na obrazovce Jazyky. Jeho data se poté zobrazí zde.</string>
@@ -8781,11 +8764,9 @@
     <string name="typing_trail_opacity_title">Průhlednost stopy</string>
     <string name="typing_trail_width_subtitle">Tloušťka stopy při psaní gesty</string>
     <string name="typing_trail_width_title">Šířka stopy</string>
-    <string name="typing_two_thumb_info">Používejte oba palce současně. Každý palec může klepnout nebo přejet, ve stejnou chvíli jako ten druhý, a každé klepnutí a přejetí se přidá ke stejnému slovu. Například klepněte levým palcem na S, pravým přejeďte z O na M, levým klepněte na E, pak pravým přejeďte T H I N G a dostanete něco. Klepnutí, které dopadne, zatímco druhý palec stále přejíždí, se v daném bodě vloží do slova, takže přejetí přes H E L O a klepnutí na L dá hello. Backspace odstraní ze slova poslední klepnutí nebo přejetí.</string>
     <string name="typing_two_thumb_subtitle">Klepněte a přejeďte oběma palci najednou, abyste vytvořili jedno slovo</string>
     <string name="typing_two_thumb_title">Psaní dvěma palci</string>
     <string name="typing_two_thumb_word_end_all_up_label">Všechny palce nahoru</string>
-    <string name="typing_two_thumb_word_end_info">S mezerou zůstane slovo otevřené, zatímco klepete a přejíždíte, a klávesnice ho po každém úkonu znovu přečte. Klepnutím na mezeru nebo interpunkci jej napíšete. Se všemi palci nahoře se slovo napíše s mezerou, jakmile se žádný palec nedotýká klávesnice, podobně jako u běžného psaní tahem, takže vaše palce se musí překrývat, aby sdílely slovo.</string>
     <string name="typing_two_thumb_word_end_space_label">Mezera</string>
     <string name="typing_two_thumb_word_end_subtitle">Co napíše slovo, které právě vytváříte</string>
     <string name="typing_two_thumb_word_end_title">Dokončit slovo dvěma palci</string>

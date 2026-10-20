@@ -1154,7 +1154,7 @@
     <string name="clipboard_key_row_info">Поставете връзка и натиснете Enter, за да отидете на нея, или поставете още клипове с интервал или нов ред между тях, без да се връщате към клавиатурата. ABC се връща към буквите. Ако сте променили оформлението на панела, тази настройка не прави нищо: добавете клавишите в редактора на оформления. Редът не се показва, докато клипбордът е поставен върху клавишите. Тази настройка е изключена по подразбиране.</string>
     <string name="clipboard_key_row_subtitle">Ред с клавиши в долната част на панела на клипборда</string>
     <string name="clipboard_key_row_title">Клавиши ABC, интервал и въвеждане</string>
-    <string name="clipboard_line_spacing_info">При 100% редовете на клипа са възможно най-близо, колкото позволява шрифтът. Увеличете го, за да ги раздалечите. Стойността по подразбиране е 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">При 100% редовете на клипа са възможно най-близо, колкото позволява шрифтът. Увеличете го, за да ги раздалечите. Стойността по подразбиране е 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Разстоянието между редовете на текста в клипа</string>
     <string name="clipboard_line_spacing_title">Междуредие</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Бяло</string>
     <string name="import_sticker_editor_border_width_label">Ширина на рамката</string>
     <string name="import_sticker_editor_brush_size_label">Размер на четката</string>
-    <string name="import_sticker_editor_caption">Клавиатурата записва стикер с размер 512 на 512. Преместете и мащабирайте изображението, за да изберете частта, която искате да запазите, след това премахнете фона и добавете рамка. Приложението запазва това изображение на телефона, така че можете да редактирате стикера отново по-късно.</string>
     <string name="import_sticker_editor_crop_action">Изрязване</string>
-    <string name="import_sticker_editor_crop_hint">Плъзнете, за да преместите изображението. Щипнете, за да го увеличите.</string>
     <string name="import_sticker_editor_cutout_action">Премахване на фона</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Първо изтеглете инструмента за премахване на фон. Това е изтегляне от 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Приложението изтегля инструмента за премахване на фон…</string>
@@ -3518,7 +3516,6 @@
     <string name="layout_editor_alternate_columns_default">От настройките</string>
     <string name="layout_editor_alternate_columns_subtitle">Колко алтернативи поставя този клавиш на един ред</string>
     <string name="layout_editor_alternate_columns_title">Колони в изскачащия прозорец</string>
-    <string name="layout_editor_alternate_hint_badge">подсказка</string>
     <string name="layout_editor_alternates_field_hint">Разделете записите с интервали, така че алтернативата да не може да бъде интервал. Записи от повече от един знак, като .com, са правилни. Приложението също така изчертава първия в ъгъла на клавиша.</string>
     <string name="layout_editor_alternates_field_label">Алтернативи за натискане и задържане</string>
     <string name="layout_editor_apply_action">Прилагане</string>
@@ -3614,7 +3611,6 @@
     <string name="layout_editor_field_row_title">Компонент</string>
     <string name="layout_editor_fill_row_action">Запълване на реда (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Редът с цифри вече показва цифрите, затова клавиатурата показва този ред на мястото на първия ред от този слой.</string>
-    <string name="layout_editor_fill_row_off_caption">Когато „Ред с цифри“ е включен, клавиатурата показва този ред на мястото на първия ред от този слой, тъй като редът с цифри вече показва цифрите. В момента редът с цифри е изключен.</string>
     <string name="layout_editor_fill_row_title">Ред на мястото на цифрите</string>
     <string name="layout_editor_fit_row_action">Напасни реда към мрежата (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Няма плъзгане в тази посока. Докоснете, за да изберете действие.</string>
@@ -3789,8 +3785,6 @@
     <string name="layout_editor_new_secondary_title">Стартиране на вторична подредба</string>
     <string name="layout_editor_not_live_caption">Промените ви тук няма да повлияят на писането, докато не включите оформлението в „Езици“.</string>
     <string name="layout_editor_number_row_caption">Клавиатурата показва този ред над този слой. Докоснете клавиш, за да го промените. Задръжте клавиш и го плъзнете, за да го преместите.</string>
-    <string name="layout_editor_number_row_hidden_caption">Клавиатурата показва този ред над този слой, когато „Ред с цифри в символите“ е включен в „Оформление и размер“. В момента е изключен.</string>
-    <string name="layout_editor_number_row_off_caption">Клавиатурата показва този ред над този слой, когато „Ред с цифри“ е включен в „Оформление и размер“. В момента редът с цифри е изключен.</string>
     <string name="layout_editor_number_row_title">Ред с цифри</string>
     <string name="layout_editor_panel_inherited_caption">Това оформление използва споделения панел %1$s. Промяната на каквото и да е тук създава копие само за това оформление. Споделеният панел се намира под „Оформления на клавиши“, „Оформления на панели“.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Наследяване на темата от оформлението</string>
@@ -3993,11 +3987,8 @@
     <string name="layout_split_spacebar_title">Разделяне на интервала</string>
     <string name="layout_split_subtitle">Разделяне на клавишите на лява и дясна половина</string>
     <string name="layout_split_title">Разделена клавиатура</string>
-    <string name="layout_summon_button_info">Докато клавиатурата е затворена, малък кръгъл бутон плава над всяко приложение. Докоснете го и клавиатурата ще се отвори, дори на екран без текстово поле, и ще остане там, докато не я затворите. Клавишите след това достигат до приложението като натискания на клавиши, точно както при „Задържане на клавиатурата на екрана“. Плъзнете бутона, за да го преместите; той се установява към по-близката страна. Натиснете и задръжте, за да го скриете, докато клавиатурата не се отвори следващия път. Изисква разрешението на Android „Показване върху други приложения“.</string>
     <string name="layout_summon_button_permission_subtitle">Бутонът не може да се появи, докато Android не позволи това</string>
     <string name="layout_summon_button_permission_title">Разрешаване на показване върху други приложения</string>
-    <string name="layout_summon_button_subtitle">Бутон над други приложения, който отваря клавиатурата, със или без текстово поле</string>
-    <string name="layout_summon_button_title">Плаващ бутон на клавиатурата</string>
     <string name="layout_swap_comma_globe_info">Двата клавиша от всяка страна на интервала сменят местата си. Ако единият от тях е клавиш за емоджи, той се премества в най-външната позиция, а запетаята остава до интервала. Изключете това, за да възстановите обичайната подредба.</string>
     <string name="layout_swap_comma_globe_subtitle">Поставете запетаята до интервала</string>
     <string name="layout_swap_comma_globe_title">Размяна на клавишите за запетая и 🌐</string>
@@ -5816,7 +5807,6 @@
     <string name="search_kw_layout_show_globe">скриване премахване на езиков глобус</string>
     <string name="search_kw_layout_size_position">преоразмеряване свиване компактно разрастване</string>
     <string name="search_kw_layout_split">ергономичен таблет за палци</string>
-    <string name="search_kw_layout_summon_button">балонно наслагване показване извикване без поле хакери</string>
     <string name="search_kw_layout_symbols_numpad_key">цифрова клавиатура numpad dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">научени корекции, мои поправки, двойки с печатни грешки, научени поправки, автоматично коригиране на обучението, грешки, навици</string>
     <string name="search_kw_licenses">с отворен код, приписване, кредити</string>
@@ -5855,7 +5845,7 @@
     <string name="search_kw_translate_engine">офлайн частен интернет самолет локално устройство ml kit google изтегляне на модел облак</string>
     <string name="search_kw_translate_models">изтегляне на офлайн модел за превод изтриване съхранение ml kit google</string>
     <string name="search_kw_translate_only_downloaded">скриване на филтър меню за избор на офлайн модел кратко</string>
-    <string name="search_kw_translate_server">openai съвместим хостван локален llm ai модел ollama llama studio vllm localai чат завършвания</string>
+    <string name="search_kw_translate_server">openai съвместим хостван локален llm ai модел ollama llama studio vllm localai чат завършвания mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">проверка на правописа, автоматично довършване, предвиждане на текст, плъзгане, писане с плъзгане, жестове, контакти, отмяна</string>
     <string name="search_kw_typing_auto_capitalize">автоматично главни букви автоматично капитализиране</string>
     <string name="search_kw_typing_auto_close_brackets">автоматично затваряне на двойки скоби съответствие на скоби завършване</string>
@@ -6826,7 +6816,6 @@
     <string name="theme_parts_strip_subtitle">Премахване на запълването, цветовете на думите и размера</string>
     <string name="theme_parts_toolbar_subtitle">Запълване на инструменти, икони, форма, рамка</string>
     <string name="theme_pick_hint">Натиснете клавиш, инструмент или лентата</string>
-    <string name="theme_pick_start_desc">Изберете част от клавиатурата за стилизиране</string>
     <string name="theme_pick_start_subtitle">Натиснете клавиш, инструмент или лентата с предложения върху визуализацията, за да го стилизирате</string>
     <string name="theme_pick_start_title">Избор на клавиатурата</string>
     <string name="theme_pick_strip_sample_words">Здравей,Благодаря,Добре</string>
@@ -7651,12 +7640,6 @@
     <string name="tooldetail_ocr_info">Разпознаването се извършва на вашето устройство чрез ML Kit. Никакви снимки или текст не напускат устройството ви и функцията работи офлайн. Тя разчита текст на латиница, например на английски. Инструментът за разпознаване на текст на ML Kit все още не поддържа бенгалски език. След заснемане натиснете върху думите, за да изберете точно това, което клавиатурата да въведе или копира.</string>
     <string name="tooldetail_ocr_online_group">Онлайн четец на текст</string>
     <string name="tooldetail_ocr_online_info">Снимката отива към модел, който може да чете изображения, на адрес, който изберете, и моделът изписва текста, който вижда. Той чете всяка писменост и не се нуждае от езикови данни. Всяка услуга с OpenAI-съвместим API работи: OpenAI, OpenRouter, Gemini, Mistral или модел на вашия собствен компютър с Ollama или LM Studio. Всяко сканиране изпраща снимката към тази услуга и услугата може да таксува за това.</string>
-    <string name="tooldetail_ocr_online_key_hint">Оставете празно за сървър, който не изисква ключ</string>
-    <string name="tooldetail_ocr_online_key_label">API ключ</string>
-    <string name="tooldetail_ocr_online_model_hint">Модел, който чете изображения, например gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Модел</string>
-    <string name="tooldetail_ocr_online_url_hint">Например https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Адрес</string>
     <string name="tooldetail_ocr_packs_header">Езици за Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract чете даден език само след като данните за него са на устройството ви. За всеки език, на който пишете, се изтегля по един пакет с размер от 0,4 MB до 12 MB. Данните идват от набора tessdata_fast на проекта Tesseract в GitHub. Можете също да изтеглите език директно от самия скенер.</string>
     <string name="tooldetail_ocr_packs_none_info">Никой от активираните от вас езици няма данни за Tesseract. Добавете език на екрана „Езици“. След това данните му ще се покажат тук.</string>
@@ -8494,7 +8477,7 @@
     <string name="typing_letter_swipe_select_key_label">Плъзнете до клавиш</string>
     <string name="typing_letter_swipe_type_words_desc">Плъзгане през клавишите изписва една дума</string>
     <string name="typing_letter_swipe_type_words_label">Въвеждане на думи</string>
-    <string name="typing_mistype_tolerance_info">Всяко докосване се отчита спрямо мястото, където е попаднало, а не само спрямо клавиша, който е ударен, така че докосване близо до ръба на клавиш все още може да се разчете като съседния клавиш. Това задава колко щедро е това отчитане. Над 100% докосване дълбоко в съседен клавиш все още се счита за вероятна грешка, което е подходящо за бързо или хаотично писане и големи пръсти. Под 100% клавишът, който сте ударили, се счита за по-вероятен, което е подходящо за внимателно писане. Това променя кои думи предлага лентата и какво избира автоматичната корекция. Стойността по подразбиране е 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Всяко докосване се отчита спрямо мястото, където е попаднало, а не само спрямо клавиша, който е ударен, така че докосване близо до ръба на клавиш все още може да се разчете като съседния клавиш. Това задава колко щедро е това отчитане. Над 100% докосване дълбоко в съседен клавиш все още се счита за вероятна грешка, което е подходящо за бързо или хаотично писане и големи пръсти. Под 100% клавишът, който сте ударили, се счита за по-вероятен, което е подходящо за внимателно писане. Това променя кои думи предлага лентата и какво избира автоматичната корекция. Стойността по подразбиране е 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Колко далеч в съседен клавиш може да попадне докосване и все още да се брои за грешка</string>
     <string name="typing_mistype_tolerance_title">Толерантност към грешки при писане</string>
     <string name="typing_new_word_sightings_info">Броят се само думи, които не се съдържат в нито един речник. Дума, която вече е в речник, се нуждае от едно използване, а не от няколко, защото няма съмнение относно изписването ѝ. Така или иначе, използването се брои само след като сте продължили напред и сте оставили думата, така че дума, която се връщате да поправите, или плъзгане, което се е оказало грешна дума, никога не се брои. Нищо не се записва, докато все още пишете: думите, които сте оставили, се добавят, когато затворите клавиатурата, изпратите съобщението или преминете към друго поле. Намалете това, ако вашите собствени имена и жаргон отнемат твърде много време, за да се запомнят. Задайте го на 1, за да записвате всяка нова дума след еднократно използване. Тази настройка е 3 по подразбиране.</string>
@@ -8787,11 +8770,9 @@
     <string name="typing_trail_opacity_title">Непрозрачност на следата</string>
     <string name="typing_trail_width_subtitle">Дебелина на следата при плъзгане</string>
     <string name="typing_trail_width_title">Ширина на следата</string>
-    <string name="typing_two_thumb_info">Използвайте двата палеца заедно. Всеки палец може да докосва или плъзга едновременно с другия, като всяко докосване и плъзгане се добавя към една и съща дума. Например, докоснете S с левия палец, плъзнете O до M с десния, докоснете E с левия, след това плъзнете T H I N G с десния и ще получите думата „something“. Докосване, което се случва, докато другият палец все още плъзга, се вмъква в думата в този момент, така че плъзгане върху H E L O и докосване на L дава „hello“. Клавишът за изтриване премахва последното докосване или плъзгане от думата.</string>
     <string name="typing_two_thumb_subtitle">Докосвайте и плъзгайте с двата палеца едновременно, за да съставите дума</string>
     <string name="typing_two_thumb_title">Писане с два палеца</string>
     <string name="typing_two_thumb_word_end_all_up_label">Всички палци нагоре</string>
-    <string name="typing_two_thumb_word_end_info">С интервал думата остава отворена, докато докосвате и плъзгате, а клавиатурата я прочита отново след всяко действие. Докоснете интервал или пунктуация, за да я въведете. Когато вдигнете всички палци, думата се въвежда с интервал веднага щом нито един палец не докосва клавиатурата, подобно на обикновено плъзгане, така че палците ви трябва да се застъпват, за да споделят дума.</string>
     <string name="typing_two_thumb_word_end_space_label">Интервал</string>
     <string name="typing_two_thumb_word_end_subtitle">Какво изписва думата, която съставяте</string>
     <string name="typing_two_thumb_word_end_title">Завършване на дума с два палеца</string>

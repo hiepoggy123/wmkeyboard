@@ -1149,7 +1149,7 @@
     <string name="clipboard_key_row_info">粘贴链接并按回车键即可访问，或用空格或换行符分隔多个剪辑片段以进行连续粘贴，无需切回键盘。点击 ABC 返回字母面板。如果您更改了面板布局，此设置将无效：请改用布局编辑器添加这些按键。当剪贴板悬浮于键盘之上时，该行将隐藏。此设置默认处于关闭状态。</string>
     <string name="clipboard_key_row_subtitle">剪贴板面板底部的一排按键</string>
     <string name="clipboard_key_row_title">ABC、空格和回车键</string>
-    <string name="clipboard_line_spacing_info">在 100% 时，剪贴板条目的行间距尽可能紧凑。调高该值可增加行间距。默认值为 130%。</string>
+    <string name="clipboard_line_spacing_info" formatted="false">在 100% 时，剪贴板条目的行间距尽可能紧凑。调高该值可增加行间距。默认值为 130%。</string>
     <string name="clipboard_line_spacing_subtitle">剪贴板文本的行间距</string>
     <string name="clipboard_line_spacing_title">行间距</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2394,9 +2394,7 @@
     <string name="import_sticker_editor_border_white_option">白色</string>
     <string name="import_sticker_editor_border_width_label">边框宽度</string>
     <string name="import_sticker_editor_brush_size_label">画笔大小</string>
-    <string name="import_sticker_editor_caption">键盘会保存一张 512x512 的贴纸。移动并缩放图像以选择要保留的部分，然后移除背景并添加边框。应用程序会将此图像保留在手机上，以便您稍后可以再次编辑该贴纸。</string>
     <string name="import_sticker_editor_crop_action">裁剪</string>
-    <string name="import_sticker_editor_crop_hint">拖动以移动图像。捏合以放大。</string>
     <string name="import_sticker_editor_cutout_action">移除背景</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">请先获取背景移除工具。这是一个 5 MB 的下载包。</string>
     <string name="import_sticker_editor_cutout_download_progress">应用正在获取背景移除工具……</string>
@@ -3506,7 +3504,6 @@
     <string name="layout_editor_alternate_columns_default">从设置中获取</string>
     <string name="layout_editor_alternate_columns_subtitle">此按键在单行中显示的备选字符数量</string>
     <string name="layout_editor_alternate_columns_title">弹出窗口中的列数</string>
-    <string name="layout_editor_alternate_hint_badge">提示</string>
     <string name="layout_editor_alternates_field_hint">用空格分隔条目，因此替代项不能包含空格。超过一个字符的条目（例如 .com）是正确的。应用也会在按键角落绘制第一个条目。</string>
     <string name="layout_editor_alternates_field_label">长按备选字符</string>
     <string name="layout_editor_apply_action">应用</string>
@@ -3602,7 +3599,6 @@
     <string name="layout_editor_field_row_title">组件</string>
     <string name="layout_editor_fill_row_action">填充行 (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">由于数字行已经显示了数字，因此键盘会显示此行来替代该层的第一行。</string>
-    <string name="layout_editor_fill_row_off_caption">当数字行开启时，键盘会显示此行来替代该层的第一行，因为数字行已经显示了数字。目前数字行已关闭。</string>
     <string name="layout_editor_fill_row_title">替代数字的行</string>
     <string name="layout_editor_fit_row_action">使行适应网格 (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">此方向无轻拂操作。点击以选择操作。</string>
@@ -3777,8 +3773,6 @@
     <string name="layout_editor_new_secondary_title">开始创建辅助布局</string>
     <string name="layout_editor_not_live_caption">除非您在“语言”设置中启用该布局，否则此处的更改不会影响输入。</string>
     <string name="layout_editor_number_row_caption">键盘会在该层上方显示此行。点击按键即可更改，按住并拖动即可移动。</string>
-    <string name="layout_editor_number_row_hidden_caption">当“布局和大小”中的“符号数字行”开启时，键盘会在该层上方显示此行。目前该功能已关闭。</string>
-    <string name="layout_editor_number_row_off_caption">当“布局和大小”中的“数字行”开启时，键盘会在该层上方显示此行。目前数字行已关闭。</string>
     <string name="layout_editor_number_row_title">数字行</string>
     <string name="layout_editor_panel_inherited_caption">此布局使用共享的 %1$s 面板。在此处进行任何更改都将仅为此布局创建一个副本。共享面板位于“按键布局”下的“面板布局”中。</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">继承布局的主题</string>
@@ -3981,11 +3975,8 @@
     <string name="layout_split_spacebar_title">分割空格键</string>
     <string name="layout_split_subtitle">将按键分为左右两半</string>
     <string name="layout_split_title">拆分键盘</string>
-    <string name="layout_summon_button_info">当键盘关闭时，一个圆形小按钮会悬浮在每个应用上方。点击它即可打开键盘，即使在没有文本框的屏幕上也是如此，并且会保持打开直到你关闭它。此时按键会作为按键输入发送到应用，与“保持键盘在屏幕上”功能相同。拖动按钮可移动位置；它会自动吸附到靠近的边缘。长按可将其隐藏，直到下次键盘打开。需要 Android 的“在其他应用上层显示”权限。</string>
     <string name="layout_summon_button_permission_subtitle">在 Android 允许之前，该按钮无法显示</string>
     <string name="layout_summon_button_permission_title">允许在其他应用上层显示</string>
-    <string name="layout_summon_button_subtitle">一个悬浮在其他应用之上的按钮，用于打开键盘，无论是否有文本框</string>
-    <string name="layout_summon_button_title">浮动键盘按钮</string>
     <string name="layout_swap_comma_globe_info">空格键两侧的两个键互换位置。如果其中一个是表情符号键，它会移动到外侧位置，而逗号会保留在空格键旁边。关闭此选项可恢复常规顺序。</string>
     <string name="layout_swap_comma_globe_subtitle">将逗号放在空格键旁边</string>
     <string name="layout_swap_comma_globe_title">交换逗号和 🌐 键</string>
@@ -5804,7 +5795,6 @@
     <string name="search_kw_layout_show_globe">隐藏移除地球图标语言</string>
     <string name="search_kw_layout_size_position">调整大小 收缩 紧凑 放大</string>
     <string name="search_kw_layout_split">拇指 人体工学 平板电脑</string>
-    <string name="search_kw_layout_summon_button">气泡悬浮窗显示召唤无字段黑客</string>
     <string name="search_kw_layout_symbols_numpad_key">数字小键盘 拨号盘 1234 gboard</string>
     <string name="search_kw_learnedcorrections">已学习的修正, 我的修正, 拼写错误对, 已教授的修正, 自动更正学习, 输入习惯, 习惯</string>
     <string name="search_kw_licenses">开源、署名、致谢</string>
@@ -5843,7 +5833,7 @@
     <string name="search_kw_translate_engine">离线 私有 互联网 飞行模式 本地设备 ml kit 谷歌 模型下载 云端</string>
     <string name="search_kw_translate_models">离线翻译模型下载删除存储 ml kit google</string>
     <string name="search_kw_translate_only_downloaded">隐藏过滤离线模型选择器菜单短名称</string>
-    <string name="search_kw_translate_server">openai 兼容 自托管 托管 本地 llm ai 模型 ollama llama studio vllm localai 聊天补全</string>
+    <string name="search_kw_translate_server">openai 兼容 自托管 托管 本地 llm ai 模型 ollama llama studio vllm localai 聊天补全 mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">拼写检查, 自动完成, 预测文本, 滑动输入, 手势, 联系人, 撤销</string>
     <string name="search_kw_typing_auto_capitalize">自动大写 自动首字母大写</string>
     <string name="search_kw_typing_auto_close_brackets">自动关闭括号 配对括号 圆括号 大括号 自动补全</string>
@@ -6814,7 +6804,6 @@
     <string name="theme_parts_strip_subtitle">工具栏填充、文字颜色和大小</string>
     <string name="theme_parts_toolbar_subtitle">工具填充、图标、形状、边框</string>
     <string name="theme_pick_hint">按下一个键、工具或工具条</string>
-    <string name="theme_pick_start_desc">选择键盘的一部分进行样式设置</string>
     <string name="theme_pick_start_subtitle">在预览中按下按键、工具或建议栏以进行样式设置</string>
     <string name="theme_pick_start_title">在键盘上选择</string>
     <string name="theme_pick_strip_sample_words">你好,谢谢,好的</string>
@@ -7639,12 +7628,6 @@
     <string name="tooldetail_ocr_info">识别功能通过 ML Kit 在您的设备上运行。没有任何照片或文本会离开您的设备，且支持离线使用。它可读取拉丁字母文本（例如英语）。ML Kit 的文本识别器尚不支持孟加拉语。捕获后，点击单词即可精确选择键盘输入或复制的内容。</string>
     <string name="tooldetail_ocr_online_group">在线文本阅读器</string>
     <string name="tooldetail_ocr_online_info">照片会被发送至您选择的地址处能够读取图像的模型，模型会写出其识别到的文本。它支持读取任何脚本，无需语言数据。任何兼容 OpenAI API 的服务均可使用：OpenAI、OpenRouter、Gemini、Mistral，或使用 Ollama 或 LM Studio 在您自己的计算机上运行的模型。每次扫描都会将照片发送至该服务，服务商可能会对此收费。</string>
-    <string name="tooldetail_ocr_online_key_hint">若服务器无需密钥，请留空</string>
-    <string name="tooldetail_ocr_online_key_label">API 密钥</string>
-    <string name="tooldetail_ocr_online_model_hint">一种读取图像的模型，例如 gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">模型</string>
-    <string name="tooldetail_ocr_online_url_hint">例如 https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">地址</string>
     <string name="tooldetail_ocr_packs_header">Tesseract 语言</string>
     <string name="tooldetail_ocr_packs_info">Tesseract 仅在设备上拥有相应语言数据后才能识别该语言。每种您输入的语言都需要下载一次数据，大小在 0.4 MB 到 12 MB 之间。数据源自 GitHub 上 Tesseract 项目的 tessdata_fast 集。您也可以直接从扫描仪中下载语言包。</string>
     <string name="tooldetail_ocr_packs_none_info">您启用的语言均无 Tesseract 数据。请在“语言”屏幕中添加一种语言，其数据随后会显示在此处。</string>
@@ -8478,7 +8461,7 @@
     <string name="typing_letter_swipe_select_key_label">滑动到按键</string>
     <string name="typing_letter_swipe_type_words_desc">在按键上滑动即可拼写一个单词</string>
     <string name="typing_letter_swipe_type_words_label">输入单词</string>
-    <string name="typing_mistype_tolerance_info">系统会根据点击位置而非仅根据击中的按键来读取输入，因此点击按键边缘时仍可能被识别为相邻按键。此设置用于调整该读取的宽容度。超过 100% 时，即使点击在相邻按键内部较深处，仍可能被视为误触，适合快速或忙乱的打字以及手指较大的用户。低于 100% 时，系统更信任您击中的按键，适合细致的打字。这会改变候选词栏提供的词汇以及自动更正的选择。默认值为 100%。</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">系统会根据点击位置而非仅根据击中的按键来读取输入，因此点击按键边缘时仍可能被识别为相邻按键。此设置用于调整该读取的宽容度。超过 100% 时，即使点击在相邻按键内部较深处，仍可能被视为误触，适合快速或忙乱的打字以及手指较大的用户。低于 100% 时，系统更信任您击中的按键，适合细致的打字。这会改变候选词栏提供的词汇以及自动更正的选择。默认值为 100%。</string>
     <string name="typing_mistype_tolerance_subtitle">点击落入相邻按键多远距离仍可计为误触</string>
     <string name="typing_mistype_tolerance_title">误触容错度</string>
     <string name="typing_new_word_sightings_info">仅计算字典中不存在的单词。字典中已有的单词在您输入的那一刻就会被学习。只有在您继续输入并离开该单词后，使用次数才会增加，因此您返回并修复的拼写错误永远不会被计算在内。如果您的名字和俚语需要太长时间才能被记住，请调低此值。将其设置为 1 可立即保存每个新单词，旧版本就是这样做的。此设置默认为 3。</string>
@@ -8771,11 +8754,9 @@
     <string name="typing_trail_opacity_title">轨迹不透明度</string>
     <string name="typing_trail_width_subtitle">滑动轨迹的粗细</string>
     <string name="typing_trail_width_title">轨迹宽度</string>
-    <string name="typing_two_thumb_info">同时使用两个拇指。每个拇指都可以点击或滑动，并且可以同时进行，每次点击和滑动都会添加到同一个单词中。例如，左拇指点击 S，右拇指从 O 滑动到 M，左拇指点击 E，然后右拇指滑动 T H I N G，你就会得到 something。当另一个拇指还在滑动时落下的点击会插入到该位置的单词中，因此在 H E L O 上滑动并点击 L 会得到 hello。退格键会从单词中删除最后一次点击或滑动。</string>
     <string name="typing_two_thumb_subtitle">同时用两个拇指点击和滑动以拼写一个单词</string>
     <string name="typing_two_thumb_title">双拇指输入</string>
     <string name="typing_two_thumb_word_end_all_up_label">全部大拇指向上</string>
-    <string name="typing_two_thumb_word_end_info">使用空格键时，单词在您点击和滑动时保持打开状态，键盘会在每次操作后重新读取它。点击空格或标点符号即可输入。当所有拇指抬起时，只要没有拇指接触键盘，单词就会立即连同空格一起输入，就像普通的滑动输入一样，因此您的拇指必须重叠才能共享一个单词。</string>
     <string name="typing_two_thumb_word_end_space_label">空格</string>
     <string name="typing_two_thumb_word_end_subtitle">输入您正在构建的单词</string>
     <string name="typing_two_thumb_word_end_title">完成双拇指输入单词</string>

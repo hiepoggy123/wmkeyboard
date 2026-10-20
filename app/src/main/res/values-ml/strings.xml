@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">ഒരു ലിങ്ക് ഒട്ടിച്ച് എന്റർ അമർത്തി അതിലേക്ക് പോകുക, അല്ലെങ്കിൽ കീബോർഡിലേക്ക് തിരികെ പോകാതെ തന്നെ അവയ്ക്കിടയിൽ ഒരു സ്പേസോ പുതിയ വരിയോ ഉപയോഗിച്ച് കൂടുതൽ ക്ലിപ്പുകൾ ഒട്ടിക്കുക. ABC അക്ഷരങ്ങളിലേക്ക് തിരികെ പോകുന്നു. നിങ്ങൾ പാനൽ ലേഔട്ട് മാറ്റിയെങ്കിൽ, ഈ ക്രമീകരണം ഒന്നും ചെയ്യുന്നില്ല: പകരം ലേഔട്ട് എഡിറ്ററിൽ കീകൾ ചേർക്കുക. ക്ലിപ്പ്ബോർഡ് കീകൾക്ക് മുകളിൽ അടുക്കിവെച്ചിരിക്കുമ്പോൾ ഈ വരി കാണിക്കില്ല. ഈ ക്രമീകരണം സ്ഥിരസ്ഥിതിയായി ഓഫാണ്.</string>
     <string name="clipboard_key_row_subtitle">ക്ലിപ്പ്ബോർഡ് പാനലിന്റെ താഴെയായി കീകളുടെ ഒരു നിര</string>
     <string name="clipboard_key_row_title">ABC, സ്പേസ്, എൻ്റർ കീകൾ</string>
-    <string name="clipboard_line_spacing_info">100%-ൽ ഒരു ക്ലിപ്പിന്റെ വരികൾ ഫോണ്ട് അനുവദിക്കുന്നത്ര അടുത്തിരിക്കും. അവ അകറ്റാൻ ഇത് വർദ്ധിപ്പിക്കുക. ഡിഫോൾട്ട് 130% ആണ്.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100%-ൽ ഒരു ക്ലിപ്പിന്റെ വരികൾ ഫോണ്ട് അനുവദിക്കുന്നത്ര അടുത്തിരിക്കും. അവ അകറ്റാൻ ഇത് വർദ്ധിപ്പിക്കുക. ഡിഫോൾട്ട് 130% ആണ്.</string>
     <string name="clipboard_line_spacing_subtitle">ഒരു ക്ലിപ്പിന്റെ വാചകത്തിലെ വരികൾക്കിടയിലുള്ള സ്ഥലം</string>
     <string name="clipboard_line_spacing_title">ലൈൻ സ്പേസിംഗ്</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">വെള്ള</string>
     <string name="import_sticker_editor_border_width_label">ബോർഡർ വീതി</string>
     <string name="import_sticker_editor_brush_size_label">ബ്രഷ് വലുപ്പം</string>
-    <string name="import_sticker_editor_caption">കീബോർഡ് 512 ബൈ 512 വലിപ്പമുള്ള സ്റ്റിക്കർ സേവ് ചെയ്യുന്നു. ചിത്രം നീക്കി പിഞ്ച് ചെയ്ത് ആവശ്യമുള്ള ഭാഗം തിരഞ്ഞെടുക്കുക, തുടർന്ന് പശ്ചാത്തലം നീക്കം ചെയ്ത് ബോർഡർ ചേർക്കുക. ഈ ചിത്രം ഫോണിൽ തന്നെ സൂക്ഷിക്കുന്നതിനാൽ നിങ്ങൾക്ക് പിന്നീട് സ്റ്റിക്കർ വീണ്ടും എഡിറ്റ് ചെയ്യാം.</string>
     <string name="import_sticker_editor_crop_action">ക്രോപ്പ് ചെയ്യുക</string>
-    <string name="import_sticker_editor_crop_hint">ചിത്രം നീക്കാൻ വലിച്ചിടുക. വലുതാക്കാൻ പിഞ്ച് ചെയ്യുക.</string>
     <string name="import_sticker_editor_cutout_action">പശ്ചാത്തലം നീക്കം ചെയ്യുക</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">ആദ്യം ബാക്ക്ഗ്രൗണ്ട് റിമൂവർ ഡൗൺലോഡ് ചെയ്യുക. ഇതൊരു 5 MB ഡൗൺലോഡ് ആണ്.</string>
     <string name="import_sticker_editor_cutout_download_progress">ആപ്പ് ബാക്ക്ഗ്രൗണ്ട് റിമൂവർ നേടുന്നു...</string>
@@ -3525,7 +3523,6 @@
     <string name="layout_editor_alternate_columns_default">ക്രമീകരണങ്ങളിൽ നിന്ന്</string>
     <string name="layout_editor_alternate_columns_subtitle">ഈ കീ ഒരു വരിയിൽ എത്ര ബദലുകൾ നൽകുന്നു</string>
     <string name="layout_editor_alternate_columns_title">പോപ്പപ്പിലെ കോളങ്ങൾ</string>
-    <string name="layout_editor_alternate_hint_badge">സൂചന</string>
     <string name="layout_editor_alternates_field_hint">എൻട്രികളെ സ്പേസ് ഉപയോഗിച്ച് വേർതിരിക്കുക, അതിനാൽ ഒരു ബദൽ (alternate) സ്പേസ് ആകാൻ കഴിയില്ല. .com പോലുള്ള ഒന്നിലധികം അക്ഷരങ്ങളുള്ള എൻട്രികൾ ശരിയാണ്. ആപ്പ് കീയുടെ മൂലയിൽ ആദ്യത്തേത് വരയ്ക്കുകയും ചെയ്യുന്നു.</string>
     <string name="layout_editor_alternates_field_label">അമർത്തിപ്പിടിക്കുമ്പോൾ ലഭിക്കുന്ന ബദലുകൾ</string>
     <string name="layout_editor_apply_action">പ്രയോഗിക്കുക</string>
@@ -3621,7 +3618,6 @@
     <string name="layout_editor_field_row_title">ഘടകം</string>
     <string name="layout_editor_fill_row_action">വരി പൂരിപ്പിക്കുക (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">നമ്പർ റോയിൽ ഇതിനകം അക്കങ്ങൾ കാണിക്കുന്നതിനാൽ, ഈ ലെയറിന്റെ ആദ്യ വരിക്ക് പകരം കീബോർഡ് ഈ വരി കാണിക്കുന്നു.</string>
-    <string name="layout_editor_fill_row_off_caption">നമ്പർ റോ ഓൺ ആയിരിക്കുമ്പോൾ, നമ്പർ റോയിൽ ഇതിനകം അക്കങ്ങൾ കാണിക്കുന്നതിനാൽ, ഈ ലെയറിന്റെ ആദ്യ വരിക്ക് പകരം കീബോർഡ് ഈ വരി കാണിക്കുന്നു. നമ്പർ റോ ഇപ്പോൾ ഓഫ് ആണ്.</string>
     <string name="layout_editor_fill_row_title">അക്കങ്ങൾക്ക് പകരമുള്ള വരി</string>
     <string name="layout_editor_fit_row_action">ഗ്രിഡിലേക്ക് വരി ക്രമീകരിക്കുക (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">ഈ ദിശയിൽ ഫ്ലിക്ക് ഇല്ല. ഒരു പ്രവർത്തനം തിരഞ്ഞെടുക്കാൻ ടാപ്പ് ചെയ്യുക.</string>
@@ -3796,8 +3792,6 @@
     <string name="layout_editor_new_secondary_title">ഒരു സെക്കൻഡറി ലേഔട്ട് ആരംഭിക്കുക</string>
     <string name="layout_editor_not_live_caption">ഭാഷകൾ എന്നതിന് കീഴിൽ ലേഔട്ട് ഓൺ ചെയ്യുന്നത് വരെ ഇവിടെ വരുത്തുന്ന മാറ്റങ്ങൾ ടൈപ്പിംഗിനെ ബാധിക്കില്ല.</string>
     <string name="layout_editor_number_row_caption">കീബോർഡ് ഈ ലെയറിന് മുകളിൽ ഈ വരി കാണിക്കുന്നു. അത് മാറ്റാൻ ഒരു കീയിൽ ടാപ്പ് ചെയ്യുക. നീക്കാൻ ഒരു കീയിൽ അമർത്തിപ്പിടിച്ച് വലിച്ചിടുക.</string>
-    <string name="layout_editor_number_row_hidden_caption">ലേഔട്ട് ആൻഡ് സൈസിൽ സിംബലുകളിലെ നമ്പർ റോ ഓൺ ആയിരിക്കുമ്പോൾ കീബോർഡ് ഈ ലെയറിന് മുകളിൽ ഈ വരി കാണിക്കുന്നു. ഇത് ഇപ്പോൾ ഓഫ് ആണ്.</string>
-    <string name="layout_editor_number_row_off_caption">ലേഔട്ട് ആൻഡ് സൈസിൽ നമ്പർ റോ ഓൺ ആയിരിക്കുമ്പോൾ കീബോർഡ് ഈ ലെയറിന് മുകളിൽ ഈ വരി കാണിക്കുന്നു. നമ്പർ റോ ഇപ്പോൾ ഓഫ് ആണ്.</string>
     <string name="layout_editor_number_row_title">നമ്പർ റോ</string>
     <string name="layout_editor_panel_inherited_caption">ഈ ലേഔട്ട് പങ്കിട്ട %1$s പാനൽ ഉപയോഗിക്കുന്നു. ഇവിടെ എന്തെങ്കിലും മാറ്റുന്നത് ഈ ലേഔട്ടിനായി മാത്രം ഒരു പകർപ്പ് ഉണ്ടാക്കുന്നു. പങ്കിട്ട പാനൽ കീ ലേഔട്ടുകൾ, പാനൽ ലേഔട്ടുകൾ എന്നിവയ്ക്ക് കീഴിലാണ്.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">ലേഔട്ടിന്റെ തീം സ്വീകരിക്കുക</string>
@@ -4000,11 +3994,8 @@
     <string name="layout_split_spacebar_title">സ്പേസ് ബാർ വിഭജിക്കുക</string>
     <string name="layout_split_subtitle">കീകൾ ഇടത് പകുതിയായും വലത് പകുതിയായും വിഭജിക്കുക</string>
     <string name="layout_split_title">സ്പ്ലിറ്റ് കീബോർഡ്</string>
-    <string name="layout_summon_button_info">കീബോർഡ് അടച്ചിരിക്കുമ്പോൾ, എല്ലാ ആപ്പുകൾക്കും മുകളിൽ ഒരു ചെറിയ വട്ടത്തിലുള്ള ബട്ടൺ ഒഴുകി നടക്കും. അതിൽ ടാപ്പ് ചെയ്താൽ കീബോർഡ് തുറക്കും, ടെക്സ്റ്റ് ഫീൽഡ് ഇല്ലാത്ത സ്ക്രീനിൽ പോലും, നിങ്ങൾ അടയ്ക്കുന്നത് വരെ അത് അവിടെ തുറന്നിരിക്കും. കീബോർഡ് സ്ക്രീനിൽ നിലനിർത്തുന്നത് പോലെ തന്നെ കീ അമർത്തലുകളായി കീകൾ ആപ്പിലേക്ക് എത്തും. ബട്ടൺ നീക്കാൻ അത് വലിച്ചിടുക; അത് അടുത്തുള്ള വശത്തേക്ക് ഒതുങ്ങി നിൽക്കും. കീബോർഡ് അടുത്ത തവണ തുറക്കുന്നത് വരെ അത് മറയ്ക്കാൻ ബട്ടൺ അമർത്തിപ്പിടിക്കുക. ആൻഡ്രോയിഡിന്റെ \'മറ്റ് ആപ്പുകൾക്ക് മുകളിൽ പ്രദർശിപ്പിക്കുക\' എന്ന അനുമതി ആവശ്യമാണ്.</string>
     <string name="layout_summon_button_permission_subtitle">Android അനുവദിക്കുന്നത് വരെ ഈ ബട്ടൺ ദൃശ്യമാകില്ല</string>
     <string name="layout_summon_button_permission_title">മറ്റ് ആപ്പുകൾക്ക് മുകളിൽ പ്രദർശിപ്പിക്കാൻ അനുവദിക്കുക</string>
-    <string name="layout_summon_button_subtitle">ടെക്സ്റ്റ് ഫീൽഡ് ഉണ്ടെങ്കിലും ഇല്ലെങ്കിലും കീബോർഡ് തുറക്കുന്ന മറ്റ് ആപ്പുകൾക്ക് മുകളിലുള്ള ഒരു ബട്ടൺ</string>
-    <string name="layout_summon_button_title">ഫ്ലോട്ടിംഗ് കീബോർഡ് ബട്ടൺ</string>
     <string name="layout_swap_comma_globe_info">സ്പേസ് ബാറിന്റെ ഇരുവശത്തുമുള്ള രണ്ട് കീകൾ സ്ഥാനം മാറുന്നു. അവയിലൊന്ന് ഇമോജി കീ ആണെങ്കിൽ, അത് പുറത്തെ സ്ഥാനത്തേക്ക് നീങ്ങുകയും കോമ സ്പേസ് ബാറിന് അടുത്തായി തുടരുകയും ചെയ്യുന്നു. സാധാരണ ക്രമം ലഭിക്കാൻ ഇത് ഓഫാക്കുക.</string>
     <string name="layout_swap_comma_globe_subtitle">കോമ സ്പേസ് ബാറിന് അടുത്തായി വെക്കുക</string>
     <string name="layout_swap_comma_globe_title">കോമ, 🌐 കീകൾ പരസ്പരം മാറ്റുക</string>
@@ -5823,7 +5814,6 @@
     <string name="search_kw_layout_show_globe">ഗ്ലോബ് ഭാഷ നീക്കം ചെയ്യുന്നത് മറയ്ക്കുക</string>
     <string name="search_kw_layout_size_position">വലിപ്പം മാറ്റുക ചുരുക്കുക ഒതുക്കുക വലുതാക്കുക</string>
     <string name="search_kw_layout_split">തംബ് എർഗണോമിക് ടാബ്‌ലെറ്റ്</string>
-    <string name="search_kw_layout_summon_button">ബബിൾ ഓവർലേ ഫീൽഡ്‌ലെസ് ഹാക്കർമാരെ വിളിക്കാൻ കാണിക്കുക</string>
     <string name="search_kw_layout_symbols_numpad_key">നമ്പാപഡ് കീപാഡ് ഡയൽപാഡ് 1234 ജിബോർഡ്</string>
     <string name="search_kw_learnedcorrections">learned corrections, my fixes, typo pairs, taught fixes, autocorrect learning, slips, habits</string>
     <string name="search_kw_licenses">ഓപ്പൺ സോഴ്സ്, ആട്രിബ്യൂഷൻ, ക്രെഡിറ്റുകൾ</string>
@@ -5862,7 +5852,7 @@
     <string name="search_kw_translate_engine">ഓഫ്‌ലൈൻ സ്വകാര്യ ഇന്റർനെറ്റ് എയർപ്ലെയിൻ ലോക്കൽ ഡിവൈസ് ml കിറ്റ് ഗൂഗിൾ മോഡൽ ഡൗൺലോഡ് ക്ലൗഡ്</string>
     <string name="search_kw_translate_models">ഓഫ്‌ലൈൻ വിവർത്തന മോഡൽ ഡൗൺലോഡ് ഡിലീറ്റ് സ്റ്റോറേജ് എംഎൽ കിറ്റ് ഗൂഗിൾ</string>
     <string name="search_kw_translate_only_downloaded">ഓഫ്‌ലൈൻ മോഡൽ പിക്കർ മെനു ഷോർട്ട് ഫിൽട്ടർ മറയ്ക്കുക</string>
-    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">സ്പെൽ ചെക്ക്, ഓട്ടോകംപ്ലീറ്റ്, പ്രെഡിക്റ്റീവ് ടെക്സ്റ്റ്, ഗ്ലൈഡ്, സ്വൈപ്പ് ടൈപ്പിംഗ്, ജെസ്റ്ററുകൾ, കോൺടാക്റ്റുകൾ, അൺഡൂ</string>
     <string name="search_kw_typing_auto_capitalize">ഓട്ടോകയാപ്സ് ഓട്ടോകയാപ്പിറ്റലൈസ് ഓട്ടോകയാപ്പിറ്റലൈസേഷൻ</string>
     <string name="search_kw_typing_auto_close_brackets">ഓട്ടോക്ലോസ് പെയർ പാരന്തസിസ് ബ്രേസസ് പാരന്തസിസ് മാച്ചിംഗ് കംപ്ലീറ്റ് ക്ലോസിംഗ്</string>
@@ -6833,7 +6823,6 @@
     <string name="theme_parts_strip_subtitle">ഫിൽ, വാക്ക് നിറങ്ങൾ, വലിപ്പം എന്നിവ നീക്കം ചെയ്യുക</string>
     <string name="theme_parts_toolbar_subtitle">ടൂൾ ഫില്ലുകൾ, ഐക്കണുകൾ, ആകൃതി, ബോർഡർ</string>
     <string name="theme_pick_hint">ഒരു കീ, ഒരു ടൂൾ അല്ലെങ്കിൽ സ്ട്രിപ്പ് അമർത്തുക</string>
-    <string name="theme_pick_start_desc">കീബോർഡിന്റെ ഒരു ഭാഗം തിരഞ്ഞെടുത്ത് സ്റ്റൈൽ ചെയ്യുക</string>
     <string name="theme_pick_start_subtitle">ഒരു കീ, ടൂൾ അല്ലെങ്കിൽ പ്രിവ്യൂവിലെ നിർദ്ദേശ സ്ട്രിപ്പ് എന്നിവയിൽ അമർത്തി അത് സ്റ്റൈൽ ചെയ്യുക</string>
     <string name="theme_pick_start_title">കീബോർഡിൽ നിന്ന് തിരഞ്ഞെടുക്കുക</string>
     <string name="theme_pick_strip_sample_words">ഹലോ,നന്ദി,ശരി</string>
@@ -7659,12 +7648,6 @@
     <string name="tooldetail_ocr_info">ML കിറ്റ് ഉപയോഗിച്ച് നിങ്ങളുടെ ഉപകരണത്തിൽ തന്നെ തിരിച്ചറിയൽ നടക്കുന്നു. ഫോട്ടോയോ വാചകമോ നിങ്ങളുടെ ഉപകരണത്തിൽ നിന്ന് പുറത്തുപോകുന്നില്ല, ഇത് ഓഫ്‌ലൈനായി പ്രവർത്തിക്കുന്നു. ഇത് ലാറ്റിൻ ലിപിയിലുള്ള വാചകങ്ങൾ വായിക്കുന്നു, ഉദാഹരണത്തിന് ഇംഗ്ലീഷ്. ML കിറ്റിന്റെ ടെക്സ്റ്റ് റെക്കഗ്നൈസർ ഇതുവരെ ബംഗാളി പിന്തുണയ്ക്കുന്നില്ല. ക്യാപ്‌ചർ ചെയ്ത ശേഷം, കീബോർഡ് ടൈപ്പ് ചെയ്യുന്നതോ പകർത്തുന്നതോ ആയ കാര്യങ്ങൾ കൃത്യമായി തിരഞ്ഞെടുക്കാൻ വാക്കുകളിൽ അമർത്തുക.</string>
     <string name="tooldetail_ocr_online_group">ഓൺലൈൻ ടെക്സ്റ്റ് റീഡർ</string>
     <string name="tooldetail_ocr_online_info">ഫോട്ടോ ചിത്രങ്ങൾ വായിക്കാൻ കഴിയുന്ന ഒരു മോഡലിലേക്ക് നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന വിലാസത്തിൽ അയക്കുന്നു, മോഡൽ അത് കാണുന്ന വാചകം എഴുതുന്നു. ഇത് ഏത് ലിപിയും വായിക്കുന്നു, ഭാഷാ ഡാറ്റ ആവശ്യമില്ല. OpenAI-അനുയോജ്യമായ API ഉള്ള ഏത് സേവനവും പ്രവർത്തിക്കും: OpenAI, OpenRouter, Gemini, Mistral, അല്ലെങ്കിൽ Ollama അല്ലെങ്കിൽ LM Studio ഉപയോഗിച്ച് നിങ്ങളുടെ സ്വന്തം കമ്പ്യൂട്ടറിലെ ഒരു മോഡൽ. ഓരോ സ്കാനും ഫോട്ടോ ആ സേവനത്തിലേക്ക് അയക്കുന്നു, സേവനം അതിനായി നിരക്ക് ഈടാക്കിയേക്കാം.</string>
-    <string name="tooldetail_ocr_online_key_hint">കീ ആവശ്യമില്ലാത്ത സെർവറിനായി ഇത് ശൂന്യമായി വിടുക</string>
-    <string name="tooldetail_ocr_online_key_label">API കീ</string>
-    <string name="tooldetail_ocr_online_model_hint">ചിത്രങ്ങൾ വായിക്കുന്ന ഒരു മോഡൽ, ഉദാഹരണത്തിന് gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">മോഡൽ</string>
-    <string name="tooldetail_ocr_online_url_hint">ഉദാഹരണത്തിന് https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">വിലാസം</string>
     <string name="tooldetail_ocr_packs_header">ടെസരാക്റ്റ് ഭാഷകൾ</string>
     <string name="tooldetail_ocr_packs_info">ഒരു ഭാഷയുടെ ഡാറ്റ നിങ്ങളുടെ ഉപകരണത്തിലുണ്ടെങ്കിൽ മാത്രമേ ടെസറാക്റ്റ് ആ ഭാഷ വായിക്കൂ. നിങ്ങൾ ടൈപ്പ് ചെയ്യുന്ന ഓരോ ഭാഷയ്ക്കും 0.4 MB മുതൽ 12 MB വരെയുള്ള ഡൗൺലോഡ് ആവശ്യമാണ്. ഗിറ്റ്‌ഹബിലെ ടെസറാക്റ്റ് പ്രോജക്റ്റിലെ tessdata_fast സെറ്റിൽ നിന്നാണ് ഈ ഡാറ്റ വരുന്നത്. സ്കാനറിൽ നിന്ന് നേരിട്ടും നിങ്ങൾക്ക് ഒരു ഭാഷ ഡൗൺലോഡ് ചെയ്യാവുന്നതാണ്.</string>
     <string name="tooldetail_ocr_packs_none_info">നിങ്ങൾ ഓൺ ചെയ്‌ത ഭാഷകളിലൊന്നിലും ടെസെറാക്റ്റ് (Tesseract) ഡാറ്റയില്ല. ഭാഷകളുടെ സ്ക്രീനിൽ ഒരു ഭാഷ ചേർക്കുക. അപ്പോൾ അതിന്റെ ഡാറ്റ ഇവിടെ കാണിക്കും.</string>
@@ -8501,7 +8484,7 @@
     <string name="typing_letter_swipe_select_key_label">ഒരു കീയിലേക്ക് സ്ലൈഡ് ചെയ്യുക</string>
     <string name="typing_letter_swipe_type_words_desc">കീകളിലൂടെയുള്ള ഒരു സ്വൈപ്പ് ഒരു വാക്ക് സ്പെൽ ചെയ്യുന്നു</string>
     <string name="typing_letter_swipe_type_words_label">വാക്കുകൾ ടൈപ്പ് ചെയ്യുക</string>
-    <string name="typing_mistype_tolerance_info">ഓരോ ടാപ്പും അത് എവിടെയാണ് വീണത് എന്നതിനെ അടിസ്ഥാനമാക്കിയാണ് വായിക്കുന്നത്, അല്ലാതെ അത് അടിച്ച കീയെ മാത്രം അടിസ്ഥാനമാക്കിയല്ല, അതിനാൽ ഒരു കീയുടെ അറ്റത്ത് തൊട്ടാൽ പോലും അത് അടുത്തുള്ള കീയായി വായിക്കാം. ഇത് ആ വായന എത്രത്തോളം ഉദാരമായിരിക്കണം എന്ന് സജ്ജമാക്കുന്നു. 100%-ന് മുകളിൽ, അടുത്തുള്ള കീയുടെ ഉള്ളിൽ വീഴുന്ന ടാപ്പ് പോലും ഒരു തെറ്റായി കണക്കാക്കപ്പെടുന്നു, ഇത് വേഗത്തിലുള്ള അല്ലെങ്കിൽ തിരക്കുള്ള ടൈപ്പിംഗിനും വലിയ വിരലുകൾക്കും അനുയോജ്യമാണ്. 100%-ന് താഴെ, നിങ്ങൾ അടിച്ച കീ കൂടുതൽ വിശ്വസിക്കപ്പെടുന്നു, ഇത് ശ്രദ്ധാപൂർവ്വമുള്ള ടൈപ്പിംഗിന് അനുയോജ്യമാണ്. ഇത് സ്ട്രിപ്പ് വാഗ്ദാനം ചെയ്യുന്ന വാക്കുകളെയും ഓട്ടോകറക്റ്റ് തിരഞ്ഞെടുക്കുന്നതിനെയും മാറ്റുന്നു. ഡിഫോൾട്ട് 100% ആണ്.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">ഓരോ ടാപ്പും അത് എവിടെയാണ് വീണത് എന്നതിനെ അടിസ്ഥാനമാക്കിയാണ് വായിക്കുന്നത്, അല്ലാതെ അത് അടിച്ച കീയെ മാത്രം അടിസ്ഥാനമാക്കിയല്ല, അതിനാൽ ഒരു കീയുടെ അറ്റത്ത് തൊട്ടാൽ പോലും അത് അടുത്തുള്ള കീയായി വായിക്കാം. ഇത് ആ വായന എത്രത്തോളം ഉദാരമായിരിക്കണം എന്ന് സജ്ജമാക്കുന്നു. 100%-ന് മുകളിൽ, അടുത്തുള്ള കീയുടെ ഉള്ളിൽ വീഴുന്ന ടാപ്പ് പോലും ഒരു തെറ്റായി കണക്കാക്കപ്പെടുന്നു, ഇത് വേഗത്തിലുള്ള അല്ലെങ്കിൽ തിരക്കുള്ള ടൈപ്പിംഗിനും വലിയ വിരലുകൾക്കും അനുയോജ്യമാണ്. 100%-ന് താഴെ, നിങ്ങൾ അടിച്ച കീ കൂടുതൽ വിശ്വസിക്കപ്പെടുന്നു, ഇത് ശ്രദ്ധാപൂർവ്വമുള്ള ടൈപ്പിംഗിന് അനുയോജ്യമാണ്. ഇത് സ്ട്രിപ്പ് വാഗ്ദാനം ചെയ്യുന്ന വാക്കുകളെയും ഓട്ടോകറക്റ്റ് തിരഞ്ഞെടുക്കുന്നതിനെയും മാറ്റുന്നു. ഡിഫോൾട്ട് 100% ആണ്.</string>
     <string name="typing_mistype_tolerance_subtitle">ഒരു ടാപ്പ് അടുത്തുള്ള കീയിലേക്ക് എത്ര ദൂരം വരെ വീഴാം, എന്നിട്ടും അത് ഒരു തെറ്റായി കണക്കാക്കപ്പെടും</string>
     <string name="typing_mistype_tolerance_title">തെറ്റായ ടൈപ്പിംഗ് സഹിഷ്ണുത</string>
     <string name="typing_new_word_sightings_info">നിഘണ്ടുവിലില്ലാത്ത വാക്കുകൾ മാത്രമേ കണക്കാക്കൂ. നിഘണ്ടുവിലുള്ള ഒരു വാക്ക് നിങ്ങൾ ടൈപ്പ് ചെയ്യുന്ന നിമിഷം തന്നെ പഠിക്കപ്പെടുന്നു. നിങ്ങൾ വാക്ക് പൂർത്തിയാക്കി മുന്നോട്ട് പോകുമ്പോൾ മാത്രമേ അത് ഒരു ഉപയോഗമായി കണക്കാക്കൂ, അതിനാൽ നിങ്ങൾ തിരികെ പോയി തിരുത്തുന്ന അക്ഷരത്തെറ്റുകൾ ഒരിക്കലും കണക്കാക്കില്ല. നിങ്ങളുടെ സ്വന്തം പേരുകളും സ്ലാങ് വാക്കുകളും പഠിക്കാൻ കൂടുതൽ സമയമെടുക്കുന്നുണ്ടെങ്കിൽ ഇത് കുറയ്ക്കുക. പഴയ പതിപ്പുകളിൽ ഉണ്ടായിരുന്നതുപോലെ ഓരോ പുതിയ വാക്കും ഉടൻ തന്നെ സേവ് ചെയ്യാൻ ഇത് 1 ആയി സജ്ജമാക്കുക. ഈ ക്രമീകരണം ഡിഫോൾട്ടായി 3 ആണ്.</string>
@@ -8796,11 +8779,9 @@
     <string name="typing_trail_opacity_title">ട്രെയിൽ ഒപാസിറ്റി</string>
     <string name="typing_trail_width_subtitle">ഗ്ലൈഡ് ട്രെയിലിന്റെ കനം</string>
     <string name="typing_trail_width_title">ട്രയൽ വീതി</string>
-    <string name="typing_two_thumb_info">രണ്ട് തള്ളവിരലുകളും ഒരുമിച്ച് ഉപയോഗിക്കുക. ഓരോ തള്ളവിരലിനും ടാപ്പ് ചെയ്യാനോ സ്വൈപ്പ് ചെയ്യാനോ സാധിക്കും, ഒരേ സമയം തന്നെ. ഓരോ ടാപ്പും സ്വൈപ്പും ഒരേ വാക്കിലേക്ക് ചേർക്കപ്പെടും. ഉദാഹരണത്തിന്, ഇടത് തള്ളവിരൽ കൊണ്ട് S ടാപ്പ് ചെയ്യുക, വലത് തള്ളവിരൽ കൊണ്ട് O മുതൽ M വരെ സ്വൈപ്പ് ചെയ്യുക, ഇടത് തള്ളവിരൽ കൊണ്ട് E ടാപ്പ് ചെയ്യുക, തുടർന്ന് വലത് തള്ളവിരൽ കൊണ്ട് T H I N G എന്ന് സ്വൈപ്പ് ചെയ്യുക, അപ്പോൾ നിങ്ങൾക്ക് ഒരു വാക്ക് ലഭിക്കും. മറ്റൊരു തള്ളവിരൽ സ്വൈപ്പ് ചെയ്യുമ്പോൾ തന്നെ ഒരു ടാപ്പ് നടത്തിയാൽ, ആ ടാപ്പ് ആ സ്ഥാനത്ത് വാക്കിലേക്ക് ചേരും. അതിനാൽ H E L O എന്നതിലൂടെയുള്ള ഒരു സ്വൈപ്പും L-ൽ ഒരു ടാപ്പും ചേർന്നാൽ \'hello\' എന്ന് ലഭിക്കും. ബാക്ക്സ്പേസ് വാക്കിൽ നിന്ന് അവസാനത്തെ ടാപ്പോ സ്വൈപ്പോ നീക്കം ചെയ്യുന്നു.</string>
     <string name="typing_two_thumb_subtitle">ഒരു വാക്ക് നിർമ്മിക്കാൻ രണ്ട് തള്ളവിരലുകൾ ഉപയോഗിച്ച് ഒരേസമയം ടാപ്പ് ചെയ്യുകയും സ്വൈപ്പ് ചെയ്യുകയും ചെയ്യുക</string>
     <string name="typing_two_thumb_title">രണ്ട് തള്ളവിരൽ ഉപയോഗിച്ചുള്ള ടൈപ്പിംഗ്</string>
     <string name="typing_two_thumb_word_end_all_up_label">എല്ലാം തംബ്‌സ് അപ്പ്</string>
-    <string name="typing_two_thumb_word_end_info">സ്പേസ് ഉപയോഗിക്കുമ്പോൾ, നിങ്ങൾ ടാപ്പ് ചെയ്യുമ്പോഴും സ്വൈപ്പ് ചെയ്യുമ്പോഴും വാക്ക് തുറന്നിരിക്കും, ഓരോ തവണയും കീബോർഡ് അത് വീണ്ടും വായിക്കും. അത് ടൈപ്പ് ചെയ്യാൻ സ്പേസ് അല്ലെങ്കിൽ വിരാമചിഹ്നം ടാപ്പ് ചെയ്യുക. തള്ളവിരലുകൾ ഉയർത്തുമ്പോൾ, സാധാരണ ഗ്ലൈഡ് പോലെ കീബോർഡിൽ തള്ളവിരൽ തൊടാത്ത ഉടൻ തന്നെ വാക്ക് സ്പേസിനൊപ്പം ടൈപ്പ് ചെയ്യപ്പെടും, അതിനാൽ ഒരു വാക്ക് പങ്കിടാൻ നിങ്ങളുടെ തള്ളവിരലുകൾ ഓവർലാപ്പ് ചെയ്യേണ്ടതുണ്ട്.</string>
     <string name="typing_two_thumb_word_end_space_label">സ്പേസ്</string>
     <string name="typing_two_thumb_word_end_subtitle">നിങ്ങൾ നിർമ്മിക്കുന്ന വാക്ക് ടൈപ്പ് ചെയ്യുന്നത് എന്താണെന്ന് കാണിക്കുന്നു</string>
     <string name="typing_two_thumb_word_end_title">രണ്ട് തള്ളവിരൽ ഉപയോഗിച്ചുള്ള വാക്ക് പൂർത്തിയാക്കുക</string>

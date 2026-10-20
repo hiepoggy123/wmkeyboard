@@ -28,6 +28,7 @@ import com.wasimaster.wmkeyboard.core.location.LocationAccess
 import com.wasimaster.wmkeyboard.core.tools.AiCalendarMode
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.homes
 import com.wasimaster.wmkeyboard.core.settings.hasSearchKey
 import com.wasimaster.wmkeyboard.core.tools.AiBuiltInTool
 import com.wasimaster.wmkeyboard.core.tools.AiToolGroup
@@ -43,6 +44,10 @@ internal class BuiltInToolText(@StringRes val title: Int, @StringRes val subtitl
 
 /** Every tool in [AiTools.builtIns] has an entry; one without would have no row. */
 internal val builtInToolText: Map<String, BuiltInToolText> = mapOf(
+    AiTools.WM_DOCS to BuiltInToolText(
+        R.string.toolai_ai_builtin_wm_docs_title,
+        R.string.toolai_ai_builtin_wm_docs_subtitle,
+    ),
     AiTools.IMAGE_SEARCH to BuiltInToolText(
         R.string.toolai_ai_builtin_image_search_title,
         R.string.toolai_ai_builtin_image_search_subtitle,
@@ -86,6 +91,14 @@ internal val builtInToolText: Map<String, BuiltInToolText> = mapOf(
     AiTools.CURRENT_LOCATION to BuiltInToolText(
         R.string.toolai_ai_builtin_current_location_title,
         R.string.toolai_ai_builtin_current_location_subtitle,
+    ),
+    AiTools.HOME_ASSISTANT_STATES to BuiltInToolText(
+        R.string.toolai_ai_builtin_home_assistant_states_title,
+        R.string.toolai_ai_builtin_home_assistant_states_subtitle,
+    ),
+    AiTools.HOME_ASSISTANT to BuiltInToolText(
+        R.string.toolai_ai_builtin_home_assistant_title,
+        R.string.toolai_ai_builtin_home_assistant_subtitle,
     ),
     AiTools.ADD_CALENDAR_EVENT to BuiltInToolText(
         R.string.toolai_ai_builtin_add_calendar_event_title,
@@ -155,6 +168,7 @@ internal fun AiBuiltInToolSettings(
     val context = LocalContext.current
     val searchReady = settings.watch { hasSearchKey(it) }
     val kdeOn = settings.watch { it.kdeConnect.enabled }
+    val haOn = settings.watch { it.homeAssistant.enabled && it.homes().isNotEmpty() }
     val locationBuilt = remember { LocationAccess.declared(context) }
     val calendarAddOn = settings.watch { s ->
         AiTools.builtIn(AiTools.ADD_CALENDAR_EVENT)?.let { AiTools.policyOf(it, s.ai.toolPolicies) } != McpToolPolicy.OFF
@@ -169,6 +183,7 @@ internal fun AiBuiltInToolSettings(
                 val shown = when (tool.name) {
                     AiTools.IMAGE_SEARCH -> searchReady
                     AiTools.SEND_TO_PC -> kdeOn
+                    AiTools.HOME_ASSISTANT, AiTools.HOME_ASSISTANT_STATES -> haOn
                     AiTools.CURRENT_LOCATION -> locationBuilt
                     else -> true
                 }

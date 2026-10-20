@@ -49,7 +49,15 @@ class GlideWorkspace {
 
     var bound = DoubleArray(INITIAL); private set
 
-    /** [SAMPLE_POINTS] alignment costs per state, laid end to end. */
+    /**
+     * Samples the current stroke was resampled to: [SHORT_SAMPLES], or
+     * [SAMPLE_POINTS] for a stroke of [LONG_STROKE] key widths or more. Every
+     * per-sample array holds [SAMPLE_POINTS]; a decode reads the first
+     * [samples] of each, and a state's column is [samples] long.
+     */
+    var samples = SHORT_SAMPLES
+
+    /** [samples] alignment costs per state, laid end to end. */
     var cols = FloatArray(INITIAL * SAMPLE_POINTS); private set
 
     private var size = 0
@@ -128,24 +136,8 @@ class GlideWorkspace {
     val loopShrink = FloatArray(SAMPLE_POINTS)
     var loopCount = 0
 
-    /**
-     * The stroke resampled finely, for the loop search alone: [fineCount]
-     * points [fineStep] key widths apart. The alignment's samples are too
-     * coarse for it — on a long word they sit half a key apart, and a loop
-     * on a key is three of them.
-     */
-    var fineX = FloatArray(INITIAL_FINE); private set
-    var fineY = FloatArray(INITIAL_FINE); private set
-    var fineCount = 0
-    var fineStep = 0f
-
-    /** Grows the fine arrays to hold [count] points. */
-    fun prepareFine(count: Int) {
-        if (fineX.size < count) {
-            fineX = FloatArray(count)
-            fineY = FloatArray(count)
-        }
-    }
+    /** The loop search's fine resample and the windows it finds; see [LoopScan]. */
+    internal val loopScan = LoopScan()
 
     /** Per key, the strongest loop event that key is the mark of. */
     var keyLoop = FloatArray(INITIAL_KEYS); private set
@@ -181,17 +173,17 @@ class GlideWorkspace {
      * rather than allocated per candidate: the rescore runs over a handful of
      * words on every preview event.
      */
-    val drawnShapeX = FloatArray(SAMPLE_POINTS)
-    val drawnShapeY = FloatArray(SAMPLE_POINTS)
+    val drawnShapeX = FloatArray(SHAPE_POINTS)
+    val drawnShapeY = FloatArray(SHAPE_POINTS)
 
     /** The drawn shape as the shape store keeps one, for comparing against learned shapes. */
-    val drawnShape8 = ByteArray(2 * SAMPLE_POINTS)
-    val idealShapeX = FloatArray(SAMPLE_POINTS)
-    val idealShapeY = FloatArray(SAMPLE_POINTS)
+    val drawnShape8 = ByteArray(2 * SHAPE_POINTS)
+    val idealShapeX = FloatArray(SHAPE_POINTS)
+    val idealShapeY = FloatArray(SHAPE_POINTS)
 
     /** A learned shape of a candidate word, normalised like the drawn one. */
-    val learnedShapeX = FloatArray(SAMPLE_POINTS)
-    val learnedShapeY = FloatArray(SAMPLE_POINTS)
+    val learnedShapeX = FloatArray(SHAPE_POINTS)
+    val learnedShapeY = FloatArray(SHAPE_POINTS)
 
     /** A candidate word's key centres, before resampling. */
     val idealX = FloatArray(MAX_IDEAL_POINTS)
@@ -266,16 +258,16 @@ class GlideWorkspace {
     }
 
     /** Start of state [id]'s column within [cols]. */
-    fun columnOf(id: Int): Int = id * SAMPLE_POINTS
+    fun columnOf(id: Int): Int = id * samples
 
     /** Commits [scratch] as state [id]'s column. */
     fun storeScratch(id: Int) {
-        System.arraycopy(scratch, 0, cols, id * SAMPLE_POINTS, SAMPLE_POINTS)
+        System.arraycopy(scratch, 0, cols, id * samples, samples)
     }
 
     /** Copies one state's column onto another — a repeated letter reuses it. */
     fun copyColumn(from: Int, to: Int) {
-        System.arraycopy(cols, from * SAMPLE_POINTS, cols, to * SAMPLE_POINTS, SAMPLE_POINTS)
+        System.arraycopy(cols, from * samples, cols, to * samples, samples)
     }
 
     fun popBest(): Int {
@@ -363,12 +355,34 @@ class GlideWorkspace {
         /**
          * Path samples the drawn stroke is resampled to. The alignment is
          * O(SAMPLE_POINTS) per trie edge and a column is 4 bytes a sample, so
-         * this is the decoder's one real size dial.
+         * this is the decoder's one real size dial. This is the most a
+         * stroke gets; most get [SHORT_SAMPLES].
+         *
+         * 48 for everything left a long word two and a half samples a key:
+         * with a finger's rounded corners, "internationalization" decoded
+         * from 5 of 30 noisy strokes, the walk spending its budget on short
+         * readings before a twenty-letter one fit. At 64 it decodes from 26.
+         * 64 for everything also cost about 40% more CPU on every stroke,
+         * so only a stroke of [LONG_STROKE] key widths or more gets it.
          */
-        const val SAMPLE_POINTS = 48
+        const val SAMPLE_POINTS = 64
+
+        /** Samples a stroke shorter than [LONG_STROKE] is resampled to. */
+        const val SHORT_SAMPLES = 48
+
+        /** Stroke length, in key widths, from which a stroke gets [SAMPLE_POINTS] samples. */
+        const val LONG_STROKE = 40f
 
         /**
-         * Frontier cap, worth ~1.5 MB of columns once the pool has grown into
+         * Samples a *shape* has, apart from the alignment's: the learned
+         * shapes are saved at this size, and a stored shape of another size
+         * is skipped, so changing it would forget every shape a user has
+         * taught. The shape channel resamples the stroke down to it.
+         */
+        const val SHAPE_POINTS = 48
+
+        /**
+         * Frontier cap, worth ~2 MB of columns once the pool has grown into
          * it (MAX_STATES × SAMPLE_POINTS × 4 bytes). Best-first order means the
          * states that matter are expanded first, so hitting this is a backstop
          * rather than a bound anyone should reach; [saturated] records when it
@@ -385,11 +399,6 @@ class GlideWorkspace {
 
         /** Longest key sequence a candidate's ideal path can have. */
         const val MAX_IDEAL_POINTS = 32
-
-        /** Most points the loop search's fine resample holds; a longer stroke is spaced out to fit. */
-        const val MAX_FINE_POINTS = 1024
-
-        private const val INITIAL_FINE = 256
 
         private const val INITIAL = 256
         private const val INITIAL_KEYS = 48

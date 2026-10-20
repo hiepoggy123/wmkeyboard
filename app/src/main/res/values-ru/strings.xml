@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Вставьте ссылку и нажмите ввод, чтобы перейти по ней, или вставьте несколько фрагментов через пробел или новую строку, не возвращаясь к клавиатуре. ABC возвращает к буквам. Если вы изменили макет панели, эта настройка не работает: добавьте клавиши в редакторе макетов. Ряд не отображается, пока буфер обмена перекрывает клавиши. Эта настройка отключена по умолчанию.</string>
     <string name="clipboard_key_row_subtitle">Ряд клавиш в нижней части панели буфера обмена</string>
     <string name="clipboard_key_row_title">Клавиши ABC, пробел и ввод</string>
-    <string name="clipboard_line_spacing_info">При 100% строки клипа располагаются максимально близко, насколько позволяет шрифт. Увеличьте значение, чтобы раздвинуть их. По умолчанию 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">При 100% строки клипа располагаются максимально близко, насколько позволяет шрифт. Увеличьте значение, чтобы раздвинуть их. По умолчанию 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Расстояние между строками текста фрагмента</string>
     <string name="clipboard_line_spacing_title">Межстрочный интервал</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">Белый</string>
     <string name="import_sticker_editor_border_width_label">Ширина границы</string>
     <string name="import_sticker_editor_brush_size_label">Размер кисти</string>
-    <string name="import_sticker_editor_caption">Клавиатура сохраняет стикер размером 512 на 512. Перемещайте и масштабируйте изображение, чтобы выбрать нужную область, затем удалите фон и добавьте рамку. Приложение сохраняет это изображение на телефоне, поэтому вы сможете отредактировать стикер позже.</string>
     <string name="import_sticker_editor_crop_action">Обрезать</string>
-    <string name="import_sticker_editor_crop_hint">Перетащите, чтобы переместить изображение. Ущипните, чтобы увеличить его.</string>
     <string name="import_sticker_editor_cutout_action">Удалить фон</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Сначала загрузите инструмент для удаления фона. Это загрузка размером 5 МБ.</string>
     <string name="import_sticker_editor_cutout_download_progress">Приложение загружает средство удаления фона…</string>
@@ -3519,7 +3517,6 @@
     <string name="layout_editor_alternate_columns_default">Из настроек</string>
     <string name="layout_editor_alternate_columns_subtitle">Сколько альтернативных символов эта клавиша размещает в ряду</string>
     <string name="layout_editor_alternate_columns_title">Столбцы во всплывающем окне</string>
-    <string name="layout_editor_alternate_hint_badge">подсказка</string>
     <string name="layout_editor_alternates_field_hint">Разделяйте записи пробелами, поэтому альтернатива не может быть пробелом. Записи из нескольких символов, например .com, допустимы. Приложение также отображает первую из них в углу клавиши.</string>
     <string name="layout_editor_alternates_field_label">Альтернативы для длительного нажатия</string>
     <string name="layout_editor_apply_action">Применить</string>
@@ -3615,7 +3612,6 @@
     <string name="layout_editor_field_row_title">Компонент</string>
     <string name="layout_editor_fill_row_action">Заполнить ряд (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Цифровой ряд уже отображает цифры, поэтому клавиатура показывает этот ряд вместо первого ряда этого слоя.</string>
-    <string name="layout_editor_fill_row_off_caption">Когда включен цифровой ряд, клавиатура показывает этот ряд вместо первого ряда этого слоя, так как цифровой ряд уже отображает цифры. Сейчас цифровой ряд выключен.</string>
     <string name="layout_editor_fill_row_title">Ряд вместо цифр</string>
     <string name="layout_editor_fit_row_action">Подогнать ряд к сетке (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Нет жеста в этом направлении. Нажмите, чтобы выбрать действие.</string>
@@ -3790,8 +3786,6 @@
     <string name="layout_editor_new_secondary_title">Начать вторичную раскладку</string>
     <string name="layout_editor_not_live_caption">Ваши изменения здесь не повлияют на ввод текста, пока вы не включите раскладку в разделе «Языки».</string>
     <string name="layout_editor_number_row_caption">Клавиатура показывает этот ряд над этим слоем. Нажмите на клавишу, чтобы изменить её. Удерживайте клавишу и перетащите её, чтобы переместить.</string>
-    <string name="layout_editor_number_row_hidden_caption">Клавиатура показывает этот ряд над этим слоем, когда включен «Цифровой ряд в символах» в разделе «Раскладка и размер». Сейчас он выключен.</string>
-    <string name="layout_editor_number_row_off_caption">Клавиатура показывает этот ряд над этим слоем, когда включен «Цифровой ряд» в разделе «Раскладка и размер». Сейчас цифровой ряд выключен.</string>
     <string name="layout_editor_number_row_title">Цифровой ряд</string>
     <string name="layout_editor_panel_inherited_caption">Эта раскладка использует общую панель %1$s. Любые изменения здесь создают копию только для этой раскладки. Общая панель находится в разделе «Ключевые раскладки», «Панели раскладок».</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Наследовать тему макета</string>
@@ -3994,11 +3988,8 @@
     <string name="layout_split_spacebar_title">Разделить пробел</string>
     <string name="layout_split_subtitle">Разделить клавиши на левую и правую половины</string>
     <string name="layout_split_title">Разделенная клавиатура</string>
-    <string name="layout_summon_button_info">Пока клавиатура закрыта, маленькая круглая кнопка плавает поверх каждого приложения. Нажмите на нее, и клавиатура откроется, даже на экране без текстового поля, и останется открытой до тех пор, пока вы ее не закроете. Клавиши затем передаются в приложение как нажатия клавиш, так же, как при включенной опции «Оставлять клавиатуру на экране». Перетащите кнопку, чтобы переместить ее; она закрепится у ближайшего края. Нажмите и удерживайте ее, чтобы скрыть до следующего открытия клавиатуры. Требуется разрешение Android «Отображение поверх других приложений».</string>
     <string name="layout_summon_button_permission_subtitle">Кнопка не появится, пока Android не предоставит разрешение</string>
     <string name="layout_summon_button_permission_title">Разрешить отображение поверх других приложений</string>
-    <string name="layout_summon_button_subtitle">Кнопка поверх других приложений, которая открывает клавиатуру, с текстовым полем или без него</string>
-    <string name="layout_summon_button_title">Кнопка плавающей клавиатуры</string>
     <string name="layout_swap_comma_globe_info">Две клавиши по бокам от пробела меняются местами. Если одна из них — клавиша эмодзи, она перемещается во внешнюю позицию, а запятая остается рядом с пробелом. Отключите это, чтобы вернуть обычный порядок.</string>
     <string name="layout_swap_comma_globe_subtitle">Поместить запятую рядом с пробелом</string>
     <string name="layout_swap_comma_globe_title">Поменять местами клавиши запятой и 🌐</string>
@@ -5817,7 +5808,6 @@
     <string name="search_kw_layout_show_globe">скрыть удалить глобус языка</string>
     <string name="search_kw_layout_size_position">изменить размер сжать компактный увеличить</string>
     <string name="search_kw_layout_split">эргономичный планшет для больших пальцев</string>
-    <string name="search_kw_layout_summon_button">пузырьковое наложение показывает поле вызова без хакеров</string>
     <string name="search_kw_layout_symbols_numpad_key">цифровая клавиатура numpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">изученные исправления, мои исправления, пары опечаток, обученные исправления, обучение автокоррекции, ошибки, привычки</string>
     <string name="search_kw_licenses">открытый исходный код, авторство, благодарности</string>
@@ -5856,7 +5846,7 @@
     <string name="search_kw_translate_engine">офлайн приватный интернет самолет локальное устройство ml kit google модель загрузка облако</string>
     <string name="search_kw_translate_models">офлайн перевод модель загрузка удалить хранилище ml kit google</string>
     <string name="search_kw_translate_only_downloaded">скрыть фильтр офлайн модель выбор меню язык список короткий</string>
-    <string name="search_kw_translate_server">openai совместимый selfhosted хостинг локальный llm ai модель ollama llama studio vllm localai чат завершения</string>
+    <string name="search_kw_translate_server">openai совместимый selfhosted хостинг локальный llm ai модель ollama llama studio vllm localai чат завершения mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">проверка орфографии, автозаполнение, предиктивный ввод, скольжение, ввод смахиванием, жесты, контакты, отмена</string>
     <string name="search_kw_typing_auto_capitalize">автозаглавные автокапитализация</string>
     <string name="search_kw_typing_auto_close_brackets">автозакрытие пара скобки фигурные скобки соответствие завершение закрытие</string>
@@ -6827,7 +6817,6 @@
     <string name="theme_parts_strip_subtitle">Заливка полосы, цвета слов и размер</string>
     <string name="theme_parts_toolbar_subtitle">Заливка инструментов, значки, форма, граница</string>
     <string name="theme_pick_hint">Нажмите клавишу, инструмент или полосу</string>
-    <string name="theme_pick_start_desc">Выберите часть клавиатуры для оформления</string>
     <string name="theme_pick_start_subtitle">Нажмите на клавишу, инструмент или панель предложений в окне предварительного просмотра, чтобы настроить их оформление</string>
     <string name="theme_pick_start_title">Выберите на клавиатуре</string>
     <string name="theme_pick_strip_sample_words">Привет,Спасибо,Окей</string>
@@ -7652,12 +7641,6 @@
     <string name="tooldetail_ocr_info">Распознавание выполняется на вашем устройстве с помощью ML Kit. Никакие фотографии или текст не покидают ваше устройство, и функция работает офлайн. Она считывает текст на латинице, например, на английском. Распознаватель текста ML Kit пока не поддерживает бенгальский язык. После захвата нажмите на слова, чтобы выбрать именно то, что клавиатура должна напечатать или скопировать.</string>
     <string name="tooldetail_ocr_online_group">Онлайн-считыватель текста</string>
     <string name="tooldetail_ocr_online_info">Фотография отправляется модели, которая умеет читать изображения, по выбранному вами адресу, и модель записывает текст, который она видит. Она читает любой шрифт и не требует языковых данных. Работает любой сервис с API, совместимым с OpenAI: OpenAI, OpenRouter, Gemini, Mistral или модель на вашем компьютере с помощью Ollama или LM Studio. Каждое сканирование отправляет фотографию в этот сервис, и сервис может взимать за это плату.</string>
-    <string name="tooldetail_ocr_online_key_hint">Оставьте пустым, если сервер не требует ключ</string>
-    <string name="tooldetail_ocr_online_key_label">API-ключ</string>
-    <string name="tooldetail_ocr_online_model_hint">Модель для распознавания изображений, например gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Модель</string>
-    <string name="tooldetail_ocr_online_url_hint">Например, https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Адрес</string>
     <string name="tooldetail_ocr_packs_header">Языки Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract считывает язык только после того, как данные для этого языка появятся на вашем устройстве. Для каждого языка, на котором вы печатаете, требуется одна загрузка размером от 0,4 МБ до 12 МБ. Данные поступают из набора tessdata_fast проекта Tesseract на GitHub. Вы также можете загрузить язык из самого сканера.</string>
     <string name="tooldetail_ocr_packs_none_info">Ни в одном из включенных вами языков нет данных Tesseract. Добавьте язык на экране «Языки». После этого данные появятся здесь.</string>
@@ -8495,7 +8478,7 @@
     <string name="typing_letter_swipe_select_key_label">Проведите пальцем до клавиши</string>
     <string name="typing_letter_swipe_type_words_desc">Проведение пальцем по клавишам позволяет набрать слово</string>
     <string name="typing_letter_swipe_type_words_label">Ввод слов</string>
-    <string name="typing_mistype_tolerance_info">Каждое нажатие считывается относительно места, куда оно пришлось, а не только относительно клавиши, по которой попали, поэтому нажатие рядом с краем клавиши все еще может быть считано как соседняя клавиша. Это определяет степень допустимости такого считывания. Выше 100% нажатие глубоко внутри соседней клавиши все еще считается вероятной опечаткой, что подходит для быстрого или хаотичного набора и крупных пальцев. Ниже 100% клавише, по которой вы попали, доверяют больше, что подходит для аккуратного набора. Это меняет слова, предлагаемые в строке подсказок, и выбор автокоррекции. По умолчанию установлено 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Каждое нажатие считывается относительно места, куда оно пришлось, а не только относительно клавиши, по которой попали, поэтому нажатие рядом с краем клавиши все еще может быть считано как соседняя клавиша. Это определяет степень допустимости такого считывания. Выше 100% нажатие глубоко внутри соседней клавиши все еще считается вероятной опечаткой, что подходит для быстрого или хаотичного набора и крупных пальцев. Ниже 100% клавише, по которой вы попали, доверяют больше, что подходит для аккуратного набора. Это меняет слова, предлагаемые в строке подсказок, и выбор автокоррекции. По умолчанию установлено 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Насколько далеко от центра клавиши может быть нажатие, чтобы оно все еще засчитывалось как опечатка</string>
     <string name="typing_mistype_tolerance_title">Допуск к опечаткам</string>
     <string name="typing_new_word_sightings_info">Учитываются только слова, которых нет в словаре. Слово, уже имеющееся в словаре, запоминается сразу после ввода. Использование засчитывается только после того, как вы перешли к следующему слову, поэтому опечатка, которую вы исправили, не учитывается. Уменьшите это значение, если ваши имена и сленг запоминаются слишком долго. Установите 1, чтобы сохранять каждое новое слово сразу, как это было в старых версиях. По умолчанию установлено значение 3.</string>
@@ -8788,11 +8771,9 @@
     <string name="typing_trail_opacity_title">Непрозрачность следа</string>
     <string name="typing_trail_width_subtitle">Толщина следа жеста</string>
     <string name="typing_trail_width_title">Ширина следа</string>
-    <string name="typing_two_thumb_info">Используйте оба больших пальца одновременно. Каждый палец может нажимать или проводить по экрану одновременно с другим, и каждое действие добавляется к одному и тому же слову. Например, нажмите S левым пальцем, проведите от O до M правым, нажмите E левым, затем проведите T H I N G правым, и вы получите слово. Нажатие, которое происходит, пока другой палец еще проводит, добавляется в слово в этот момент, поэтому проведение по H E L O и нажатие на L дает hello. Backspace удаляет последнее нажатие или проведение из слова.</string>
     <string name="typing_two_thumb_subtitle">Нажимайте и проводите обоими большими пальцами одновременно, чтобы составить одно слово</string>
     <string name="typing_two_thumb_title">Печать двумя большими пальцами</string>
     <string name="typing_two_thumb_word_end_all_up_label">Все большие пальцы вверх</string>
-    <string name="typing_two_thumb_word_end_info">При использовании пробела слово остается открытым, пока вы нажимаете и проводите пальцем, а клавиатура считывает его снова после каждого действия. Нажмите пробел или знак препинания, чтобы ввести его. Если оба пальца подняты, слово вводится с пробелом, как только ни один палец не касается клавиатуры (как при обычном скольжении), поэтому ваши пальцы должны перекрываться, чтобы использовать одно слово.</string>
     <string name="typing_two_thumb_word_end_space_label">Пробел</string>
     <string name="typing_two_thumb_word_end_subtitle">Что вводит слово, которое вы составляете</string>
     <string name="typing_two_thumb_word_end_title">Завершить слово двумя большими пальцами</string>

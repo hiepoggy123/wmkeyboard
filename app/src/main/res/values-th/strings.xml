@@ -1150,7 +1150,7 @@
     <string name="clipboard_key_row_info">วางลิงก์แล้วกด Enter เพื่อเปิด หรือวางคลิปบอร์ดเพิ่มโดยเว้นด้วยเว้นวรรคหรือขึ้นบรรทัดใหม่โดยไม่ต้องสลับกลับไปที่คีย์บอร์ด ปุ่ม ABC ใช้เพื่อกลับไปยังแป้นพิมพ์ตัวอักษร หากคุณเปลี่ยนรูปแบบแผงควบคุม การตั้งค่านี้จะไม่มีผล ให้เพิ่มปุ่มในเครื่องมือแก้ไขรูปแบบแผงควบคุมแทน แถวนี้จะไม่แสดงขณะที่คลิปบอร์ดซ้อนทับอยู่เหนือปุ่มต่างๆ โดยค่าเริ่มต้นการตั้งค่านี้จะถูกปิดไว้</string>
     <string name="clipboard_key_row_subtitle">แถวของปุ่มกดที่ด้านล่างของแผงคลิปบอร์ด</string>
     <string name="clipboard_key_row_title">ปุ่ม ABC, เว้นวรรค และ Enter</string>
-    <string name="clipboard_line_spacing_info">ที่ 100% บรรทัดของคลิปจะชิดกันมากที่สุดเท่าที่แบบอักษรจะอนุญาต เพิ่มค่านี้เพื่อขยายระยะห่าง ค่าเริ่มต้นคือ 130%</string>
+    <string name="clipboard_line_spacing_info" formatted="false">ที่ 100% บรรทัดของคลิปจะชิดกันมากที่สุดเท่าที่แบบอักษรจะอนุญาต เพิ่มค่านี้เพื่อขยายระยะห่าง ค่าเริ่มต้นคือ 130%</string>
     <string name="clipboard_line_spacing_subtitle">ระยะห่างระหว่างบรรทัดของข้อความในคลิป</string>
     <string name="clipboard_line_spacing_title">ระยะห่างระหว่างบรรทัด</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2395,9 +2395,7 @@
     <string name="import_sticker_editor_border_white_option">สีขาว</string>
     <string name="import_sticker_editor_border_width_label">ความกว้างของเส้นขอบ</string>
     <string name="import_sticker_editor_brush_size_label">ขนาดแปรง</string>
-    <string name="import_sticker_editor_caption">แป้นพิมพ์จะบันทึกสติกเกอร์ขนาด 512 คูณ 512 เลื่อนและย่อขยายรูปภาพเพื่อเลือกส่วนที่ต้องการเก็บไว้ จากนั้นลบพื้นหลังและเพิ่มขอบ แอปจะเก็บรูปภาพนี้ไว้ในโทรศัพท์เพื่อให้คุณแก้ไขสติกเกอร์ได้อีกครั้งในภายหลัง</string>
     <string name="import_sticker_editor_crop_action">ครอบตัด</string>
-    <string name="import_sticker_editor_crop_hint">ลากเพื่อย้ายรูปภาพ ใช้สองนิ้วถ่างเพื่อขยาย</string>
     <string name="import_sticker_editor_cutout_action">ลบพื้นหลัง</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">ดาวน์โหลดตัวลบพื้นหลังก่อน ซึ่งมีขนาด 5 MB</string>
     <string name="import_sticker_editor_cutout_download_progress">แอปกำลังดาวน์โหลดตัวลบพื้นหลัง...</string>
@@ -3508,7 +3506,6 @@
     <string name="layout_editor_alternate_columns_default">จากการตั้งค่า</string>
     <string name="layout_editor_alternate_columns_subtitle">จำนวนตัวเลือกสำรองที่ปุ่มนี้ใส่ไว้ในแถว</string>
     <string name="layout_editor_alternate_columns_title">คอลัมน์ในป๊อปอัป</string>
-    <string name="layout_editor_alternate_hint_badge">คำใบ้</string>
     <string name="layout_editor_alternates_field_hint">แยกรายการด้วยช่องว่าง ดังนั้นตัวเลือกอื่นไม่สามารถเป็นช่องว่างได้ รายการที่มีมากกว่าหนึ่งตัวอักษร เช่น .com สามารถใช้ได้ แอปจะวาดตัวแรกไว้ที่มุมของปุ่มด้วย</string>
     <string name="layout_editor_alternates_field_label">ตัวเลือกสำหรับการกดค้าง</string>
     <string name="layout_editor_apply_action">ใช้</string>
@@ -3604,7 +3601,6 @@
     <string name="layout_editor_field_row_title">ส่วนประกอบ</string>
     <string name="layout_editor_fill_row_action">เติมเต็มแถว (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">แถวตัวเลขแสดงตัวเลขอยู่แล้ว แป้นพิมพ์จึงแสดงแถวนี้แทนที่แถวแรกของเลเยอร์นี้</string>
-    <string name="layout_editor_fill_row_off_caption">เมื่อเปิดใช้งานแถวตัวเลข แป้นพิมพ์จะแสดงแถวนี้แทนที่แถวแรกของเลเยอร์นี้ เนื่องจากแถวตัวเลขแสดงตัวเลขอยู่แล้ว ขณะนี้แถวตัวเลขปิดอยู่</string>
     <string name="layout_editor_fill_row_title">แถวแทนที่ตัวเลข</string>
     <string name="layout_editor_fit_row_action">ปรับแถวให้พอดีกับตาราง (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">ไม่มีการปัดในทิศทางนี้ แตะเพื่อเลือกการดำเนินการ</string>
@@ -3779,8 +3775,6 @@
     <string name="layout_editor_new_secondary_title">เริ่มเลย์เอาต์รอง</string>
     <string name="layout_editor_not_live_caption">การเปลี่ยนแปลงของคุณที่นี่จะยังไม่มีผลต่อการพิมพ์จนกว่าคุณจะเปิดใช้งานเลย์เอาต์ภายใต้หัวข้อภาษา</string>
     <string name="layout_editor_number_row_caption">แป้นพิมพ์จะแสดงแถวนี้เหนือเลเยอร์นี้ แตะปุ่มเพื่อเปลี่ยน หรือกดปุ่มค้างไว้แล้วลากเพื่อย้าย</string>
-    <string name="layout_editor_number_row_hidden_caption">แป้นพิมพ์จะแสดงแถวนี้เหนือเลเยอร์นี้เมื่อเปิดใช้งานแถวตัวเลขในสัญลักษณ์ในการตั้งค่าเค้าโครงและขนาด ขณะนี้แถวตัวเลขปิดอยู่</string>
-    <string name="layout_editor_number_row_off_caption">แป้นพิมพ์จะแสดงแถวนี้เหนือเลเยอร์นี้เมื่อเปิดใช้งานแถวตัวเลขในการตั้งค่าเค้าโครงและขนาด ขณะนี้แถวตัวเลขปิดอยู่</string>
     <string name="layout_editor_number_row_title">แถวตัวเลข</string>
     <string name="layout_editor_panel_inherited_caption">เค้าโครงนี้ใช้แผง %1$s ที่แชร์ร่วมกัน การเปลี่ยนแปลงใดๆ ที่นี่จะเป็นการสร้างสำเนาสำหรับเค้าโครงนี้เท่านั้น แผงที่แชร์จะอยู่ภายใต้เค้าโครงคีย์และเค้าโครงแผง</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">สืบทอดธีมของเลย์เอาต์</string>
@@ -3983,11 +3977,8 @@
     <string name="layout_split_spacebar_title">แยกปุ่มสเปซบาร์</string>
     <string name="layout_split_subtitle">แบ่งปุ่มออกเป็นครึ่งซ้ายและครึ่งขวา</string>
     <string name="layout_split_title">แยกแป้นพิมพ์</string>
-    <string name="layout_summon_button_info">ในขณะที่ปิดแป้นพิมพ์ ปุ่มกลมเล็กๆ จะลอยอยู่เหนือทุกแอป แตะปุ่มนั้นแล้วแป้นพิมพ์จะเปิดขึ้น แม้บนหน้าจอที่ไม่มีช่องข้อความ และจะเปิดค้างไว้ที่นั่นจนกว่าคุณจะปิด จากนั้นปุ่มจะส่งการกดแป้นไปยังแอปเหมือนกับการตั้งค่า \'คงแป้นพิมพ์ไว้บนหน้าจอ\' ลากปุ่มเพื่อย้ายตำแหน่ง มันจะไปเกาะอยู่ที่ด้านที่ใกล้ที่สุด กดค้างไว้เพื่อซ่อนจนกว่าแป้นพิมพ์จะเปิดขึ้นในครั้งถัดไป จำเป็นต้องได้รับสิทธิ์ \'แสดงทับแอปอื่น\' ของ Android</string>
     <string name="layout_summon_button_permission_subtitle">ปุ่มจะไม่ปรากฏจนกว่า Android จะอนุญาต</string>
     <string name="layout_summon_button_permission_title">อนุญาตให้แสดงทับแอปอื่น</string>
-    <string name="layout_summon_button_subtitle">ปุ่มเหนือแอปอื่นที่เปิดแป้นพิมพ์ โดยมีหรือไม่มีช่องข้อความ</string>
-    <string name="layout_summon_button_title">ปุ่มแป้นพิมพ์ลอย</string>
     <string name="layout_swap_comma_globe_info">ปุ่มสองปุ่มที่อยู่แต่ละด้านของสเปซบาร์จะสลับตำแหน่งกัน หากปุ่มใดปุ่มหนึ่งเป็นปุ่มอีโมจิ ปุ่มนั้นจะย้ายไปอยู่ตำแหน่งนอกสุดและปุ่มจุลภาคจะยังคงอยู่ติดกับสเปซบาร์ ปิดการตั้งค่านี้เพื่อกลับไปใช้ลำดับปกติ</string>
     <string name="layout_swap_comma_globe_subtitle">วางเครื่องหมายจุลภาคไว้ข้างปุ่มเว้นวรรค</string>
     <string name="layout_swap_comma_globe_title">สลับปุ่มจุลภาคและปุ่ม 🌐</string>
@@ -5807,7 +5798,6 @@
     <string name="search_kw_layout_show_globe">ซ่อนการลบภาษาลูกโลก</string>
     <string name="search_kw_layout_size_position">ปรับขนาด ย่อ กระชับ ขยาย</string>
     <string name="search_kw_layout_split">นิ้วโป้ง ตามหลักสรีรศาสตร์ แท็บเล็ต</string>
-    <string name="search_kw_layout_summon_button">แสดงหน้าต่างบับเบิลเรียกใช้งานแฮกเกอร์โดยไม่ต้องระบุช่องข้อมูล</string>
     <string name="search_kw_layout_symbols_numpad_key">แป้นตัวเลข แผงปุ่มกด แป้นกดหมายเลข 1234 gboard</string>
     <string name="search_kw_learnedcorrections">การแก้ไขที่เรียนรู้, การแก้ไขของฉัน, คู่คำผิด, การแก้ไขที่สอน, การเรียนรู้การแก้ไขอัตโนมัติ, ความผิดพลาด, นิสัย</string>
     <string name="search_kw_licenses">โอเพนซอร์ส, การอ้างอิง, เครดิต</string>
@@ -5846,7 +5836,7 @@
     <string name="search_kw_translate_engine">ออฟไลน์ ส่วนตัว อินเทอร์เน็ต เครื่องบิน อุปกรณ์ท้องถิ่น ml kit google ดาวน์โหลดโมเดล คลาวด์</string>
     <string name="search_kw_translate_models">ดาวน์โหลดโมเดลแปลภาษาออฟไลน์ ลบพื้นที่จัดเก็บ ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ซ่อนเมนูตัวเลือกโมเดลออฟไลน์ในตัวกรอง</string>
-    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">ตรวจสอบการสะกด, เติมคำอัตโนมัติ, ข้อความคาดเดา, การพิมพ์แบบลาก, การพิมพ์แบบปัด, ท่าทาง, รายชื่อติดต่อ, เลิกทำ</string>
     <string name="search_kw_typing_auto_capitalize">ตัวพิมพ์ใหญ่อัตโนมัติ</string>
     <string name="search_kw_typing_auto_close_brackets">ปิดวงเล็บอัตโนมัติ จับคู่วงเล็บ</string>
@@ -6817,7 +6807,6 @@
     <string name="theme_parts_strip_subtitle">เติมแถบ สีคำ และขนาด</string>
     <string name="theme_parts_toolbar_subtitle">สีเติมแถบเครื่องมือ, ไอคอน, รูปร่าง, ขอบ</string>
     <string name="theme_pick_hint">กดปุ่ม เครื่องมือ หรือแถบ</string>
-    <string name="theme_pick_start_desc">เลือกส่วนของแป้นพิมพ์เพื่อปรับแต่งสไตล์</string>
     <string name="theme_pick_start_subtitle">กดปุ่ม เครื่องมือ หรือแถบคำแนะนำบนตัวอย่างเพื่อปรับแต่งสไตล์</string>
     <string name="theme_pick_start_title">เลือกบนแป้นพิมพ์</string>
     <string name="theme_pick_strip_sample_words">สวัสดี,ขอบคุณ,ตกลง</string>
@@ -7643,12 +7632,6 @@
     <string name="tooldetail_ocr_info">การจดจำทำงานบนอุปกรณ์ของคุณด้วย ML Kit ไม่มีรูปภาพหรือข้อความใดออกจากอุปกรณ์ของคุณ และทำงานแบบออฟไลน์ได้ โดยจะอ่านข้อความอักษรละติน เช่น ภาษาอังกฤษ ตัวจดจำข้อความของ ML Kit ยังไม่รองรับภาษาเบงกาลี หลังจากจับภาพแล้ว ให้กดที่คำเพื่อเลือกสิ่งที่คุณต้องการให้แป้นพิมพ์พิมพ์หรือคัดลอกอย่างแม่นยำ</string>
     <string name="tooldetail_ocr_online_group">โปรแกรมอ่านข้อความออนไลน์</string>
     <string name="tooldetail_ocr_online_info">รูปภาพจะถูกส่งไปยังโมเดลที่สามารถอ่านรูปภาพได้ตามที่อยู่ที่คุณเลือก และโมเดลจะเขียนข้อความที่เห็นออกมา โดยสามารถอ่านได้ทุกภาษาและไม่จำเป็นต้องใช้ข้อมูลภาษา บริการใดก็ตามที่มี API ที่เข้ากันได้กับ OpenAI สามารถใช้งานได้ เช่น OpenAI, OpenRouter, Gemini, Mistral หรือโมเดลบนคอมพิวเตอร์ของคุณเองด้วย Ollama หรือ LM Studio การสแกนแต่ละครั้งจะส่งรูปภาพไปยังบริการนั้น และบริการอาจมีค่าใช้จ่าย</string>
-    <string name="tooldetail_ocr_online_key_hint">เว้นว่างไว้สำหรับเซิร์ฟเวอร์ที่ไม่ต้องการคีย์</string>
-    <string name="tooldetail_ocr_online_key_label">คีย์ API</string>
-    <string name="tooldetail_ocr_online_model_hint">โมเดลที่อ่านรูปภาพ เช่น gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">โมเดล</string>
-    <string name="tooldetail_ocr_online_url_hint">ตัวอย่างเช่น https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">ที่อยู่</string>
     <string name="tooldetail_ocr_packs_header">ภาษาของ Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract จะอ่านภาษาได้ก็ต่อเมื่อมีข้อมูลสำหรับภาษานั้นบนอุปกรณ์ของคุณแล้ว โดยต้องดาวน์โหลดหนึ่งครั้งสำหรับแต่ละภาษาที่คุณพิมพ์ ขนาดตั้งแต่ 0.4 MB ถึง 12 MB ข้อมูลมาจากชุด tessdata_fast ของโปรเจกต์ Tesseract บน GitHub คุณยังสามารถดาวน์โหลดภาษาจากตัวเครื่องสแกนได้โดยตรง</string>
     <string name="tooldetail_ocr_packs_none_info">ไม่มีภาษาที่คุณเปิดใช้งานที่มีข้อมูล Tesseract ให้เพิ่มภาษาในหน้าจอภาษา แล้วข้อมูลจะปรากฏที่นี่</string>
@@ -8481,7 +8464,7 @@
     <string name="typing_letter_swipe_select_key_label">เลื่อนไปยังปุ่ม</string>
     <string name="typing_letter_swipe_type_words_desc">การปัดนิ้วผ่านแป้นพิมพ์เพื่อสะกดหนึ่งคำ</string>
     <string name="typing_letter_swipe_type_words_label">พิมพ์คำ</string>
-    <string name="typing_mistype_tolerance_info">การแตะทุกครั้งจะถูกอ่านตามตำแหน่งที่แตะ ไม่ใช่แค่ปุ่มที่กด ดังนั้นการแตะใกล้ขอบปุ่มอาจถูกอ่านเป็นปุ่มข้างเคียงได้ การตั้งค่านี้กำหนดระดับความแม่นยำในการอ่าน หากสูงกว่า 100% การแตะที่อยู่ลึกเข้าไปในปุ่มข้างเคียงยังคงถือว่าเป็นการพิมพ์ผิด ซึ่งเหมาะสำหรับการพิมพ์ที่รวดเร็วหรือเร่งรีบและผู้ที่มีนิ้วใหญ่ หากต่ำกว่า 100% ระบบจะเชื่อถือปุ่มที่คุณกดมากขึ้น ซึ่งเหมาะสำหรับการพิมพ์อย่างระมัดระวัง การตั้งค่านี้จะเปลี่ยนคำที่แถบคำแนะนำเสนอและสิ่งที่ระบบแก้ไขอัตโนมัติเลือก โดยค่าเริ่มต้นคือ 100%</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">การแตะทุกครั้งจะถูกอ่านตามตำแหน่งที่แตะ ไม่ใช่แค่ปุ่มที่กด ดังนั้นการแตะใกล้ขอบปุ่มอาจถูกอ่านเป็นปุ่มข้างเคียงได้ การตั้งค่านี้กำหนดระดับความแม่นยำในการอ่าน หากสูงกว่า 100% การแตะที่อยู่ลึกเข้าไปในปุ่มข้างเคียงยังคงถือว่าเป็นการพิมพ์ผิด ซึ่งเหมาะสำหรับการพิมพ์ที่รวดเร็วหรือเร่งรีบและผู้ที่มีนิ้วใหญ่ หากต่ำกว่า 100% ระบบจะเชื่อถือปุ่มที่คุณกดมากขึ้น ซึ่งเหมาะสำหรับการพิมพ์อย่างระมัดระวัง การตั้งค่านี้จะเปลี่ยนคำที่แถบคำแนะนำเสนอและสิ่งที่ระบบแก้ไขอัตโนมัติเลือก โดยค่าเริ่มต้นคือ 100%</string>
     <string name="typing_mistype_tolerance_subtitle">ระยะที่นิ้วแตะลงบนปุ่มข้างเคียงแล้วยังนับว่าเป็นการพิมพ์ผิด</string>
     <string name="typing_mistype_tolerance_title">ความทนทานต่อการพิมพ์ผิด</string>
     <string name="typing_new_word_sightings_info">ระบบจะนับเฉพาะคำที่ไม่มีในพจนานุกรมเท่านั้น คำที่มีอยู่ในพจนานุกรมแล้วจะถูกเรียนรู้ทันทีที่คุณพิมพ์ การใช้งานจะนับก็ต่อเมื่อคุณพิมพ์คำนั้นเสร็จและปล่อยผ่านไป ดังนั้นคำผิดที่คุณย้อนกลับไปแก้ไขจะไม่ถูกนับ ลดค่านี้หากชื่อเฉพาะหรือคำสแลงของคุณต้องใช้เวลานานกว่าจะจดจำ ตั้งค่าเป็น 1 เพื่อบันทึกคำใหม่ทุกคำทันที ซึ่งเป็นวิธีที่เวอร์ชันเก่าทำ ค่าเริ่มต้นของการตั้งค่านี้คือ 3</string>
@@ -8774,11 +8757,9 @@
     <string name="typing_trail_opacity_title">ความทึบของเส้นลาก</string>
     <string name="typing_trail_width_subtitle">ความหนาของเส้นลากนิ้ว</string>
     <string name="typing_trail_width_title">ความกว้างของเส้นลาก</string>
-    <string name="typing_two_thumb_info">ใช้นิ้วโป้งทั้งสองข้างพร้อมกัน นิ้วโป้งแต่ละข้างสามารถแตะหรือปัดได้ในเวลาเดียวกันกับอีกข้าง และทุกการแตะและปัดจะเพิ่มเข้าไปในคำเดียวกัน ตัวอย่างเช่น แตะ S ด้วยนิ้วโป้งซ้าย ปัด O ไป M ด้วยนิ้วโป้งขวา แตะ E ด้วยนิ้วโป้งซ้าย จากนั้นปัด T H I N G ด้วยนิ้วโป้งขวา แล้วคุณจะได้คำว่า something การแตะที่เกิดขึ้นในขณะที่นิ้วโป้งอีกข้างยังคงปัดอยู่จะเข้าไปอยู่ในคำ ณ จุดนั้น ดังนั้นการปัดผ่าน H E L O และการแตะที่ L จะได้คำว่า hello ปุ่ม Backspace จะลบการแตะหรือการปัดครั้งล่าสุดออกจากคำ</string>
     <string name="typing_two_thumb_subtitle">แตะและปัดด้วยนิ้วโป้งทั้งสองข้างพร้อมกันเพื่อสร้างคำ</string>
     <string name="typing_two_thumb_title">การพิมพ์ด้วยสองนิ้วโป้ง</string>
     <string name="typing_two_thumb_word_end_all_up_label">ยกนิ้วโป้งขึ้นทั้งหมด</string>
-    <string name="typing_two_thumb_word_end_info">เมื่อใช้เว้นวรรค คำจะยังคงเปิดอยู่ขณะที่คุณแตะและปัด และคีย์บอร์ดจะอ่านคำนั้นอีกครั้งหลังจากแต่ละครั้ง ให้แตะเว้นวรรคหรือเครื่องหมายวรรคตอนเพื่อพิมพ์คำนั้น เมื่อยกนิ้วโป้งขึ้นทั้งหมด คำจะถูกพิมพ์พร้อมเว้นวรรคทันทีที่ไม่มีนิ้วโป้งสัมผัสคีย์บอร์ด เหมือนกับการเลื่อนนิ้วปกติ ดังนั้นนิ้วโป้งของคุณจะต้องทับซ้อนกันเพื่อแชร์คำ</string>
     <string name="typing_two_thumb_word_end_space_label">เว้นวรรค</string>
     <string name="typing_two_thumb_word_end_subtitle">สิ่งที่พิมพ์คำที่คุณกำลังสร้าง</string>
     <string name="typing_two_thumb_word_end_title">จบคำด้วยสองนิ้วโป้ง</string>

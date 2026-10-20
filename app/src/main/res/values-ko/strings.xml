@@ -1150,7 +1150,7 @@
     <string name="clipboard_key_row_info">링크를 붙여넣고 엔터를 눌러 이동하거나, 키보드로 돌아가지 않고 공백이나 줄 바꿈을 사용하여 클립을 더 붙여넣으세요. ABC는 문자로 돌아갑니다. 패널 레이아웃을 변경한 경우 이 설정은 작동하지 않으며, 대신 레이아웃 편집기에서 키를 추가하세요. 클립보드가 키 위에 쌓여 있는 동안에는 행이 표시되지 않습니다. 이 설정은 기본적으로 꺼져 있습니다.</string>
     <string name="clipboard_key_row_subtitle">클립보드 패널 하단을 따라 배치된 키 행</string>
     <string name="clipboard_key_row_title">ABC, 공백 및 엔터 키</string>
-    <string name="clipboard_line_spacing_info">100%일 때 클립의 줄 간격은 글꼴이 허용하는 최소 간격이 됩니다. 값을 높이면 간격이 넓어집니다. 기본값은 130%입니다.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100%일 때 클립의 줄 간격은 글꼴이 허용하는 최소 간격이 됩니다. 값을 높이면 간격이 넓어집니다. 기본값은 130%입니다.</string>
     <string name="clipboard_line_spacing_subtitle">클립 텍스트 줄 간격</string>
     <string name="clipboard_line_spacing_title">줄 간격</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2395,9 +2395,7 @@
     <string name="import_sticker_editor_border_white_option">흰색</string>
     <string name="import_sticker_editor_border_width_label">테두리 두께</string>
     <string name="import_sticker_editor_brush_size_label">브러시 크기</string>
-    <string name="import_sticker_editor_caption">키보드는 512x512 크기의 스티커를 저장합니다. 이미지를 이동하고 핀치하여 유지할 부분을 선택한 다음, 배경을 제거하고 테두리를 추가하세요. 앱이 이 이미지를 휴대폰에 보관하므로 나중에 스티커를 다시 편집할 수 있습니다.</string>
     <string name="import_sticker_editor_crop_action">자르기</string>
-    <string name="import_sticker_editor_crop_hint">드래그하여 이미지를 이동하세요. 핀치하여 확대하세요.</string>
     <string name="import_sticker_editor_cutout_action">배경 제거</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">먼저 배경 제거 도구를 받으세요. 5MB를 다운로드합니다.</string>
     <string name="import_sticker_editor_cutout_download_progress">앱에서 배경 제거 도구를 가져오는 중…</string>
@@ -3510,7 +3508,6 @@
     <string name="layout_editor_alternate_columns_info">이 키에 대한 열 개수입니다. 키마다 다릅니다. 대체 키가 많은 키는 그리드로 표시하는 것이 좋고, 3~4개인 키는 단일 행으로 표시하는 것이 좋습니다. 설정에서 \'대체 키 열\' 설정은 키 누르기 아래에 있으며, 변경하지 않으면 자동으로 설정됩니다. 3에서 11 사이의 숫자를 입력하면 설정과 관계없이 해당 키에 지정된 열 개수가 적용됩니다.</string>
     <string name="layout_editor_alternate_columns_subtitle">이 키가 한 행에 배치하는 대체 키의 개수</string>
     <string name="layout_editor_alternate_columns_title">팝업 내 열</string>
-    <string name="layout_editor_alternate_hint_badge">힌트</string>
     <string name="layout_editor_alternates_field_hint">항목을 공백으로 구분하세요(대체 문자는 공백일 수 없음). .com과 같이 한 글자 이상의 항목도 가능합니다. 앱은 첫 번째 항목을 키 모서리에 표시합니다.</string>
     <string name="layout_editor_alternates_field_label">길게 누르기 대체 키</string>
     <string name="layout_editor_apply_action">적용</string>
@@ -3606,7 +3603,6 @@
     <string name="layout_editor_field_row_title">구성 요소</string>
     <string name="layout_editor_fill_row_action">행 채우기 (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">숫자 행에 이미 숫자가 표시되므로 키보드가 이 레이어의 첫 번째 행 대신 이 행을 표시합니다.</string>
-    <string name="layout_editor_fill_row_off_caption">숫자 행이 켜져 있으면 숫자 행에 이미 숫자가 표시되므로 키보드가 이 레이어의 첫 번째 행 대신 이 행을 표시합니다. 현재 숫자 행이 꺼져 있습니다.</string>
     <string name="layout_editor_fill_row_title">숫자 대신 표시되는 행</string>
     <string name="layout_editor_fit_row_action">행을 그리드에 맞춤(%1$.2f)</string>
     <string name="layout_editor_flick_action_none">이 방향으로 플릭 없음. 탭하여 동작을 선택하세요.</string>
@@ -3781,8 +3777,6 @@
     <string name="layout_editor_new_secondary_title">보조 레이아웃 시작</string>
     <string name="layout_editor_not_live_caption">언어 설정에서 레이아웃을 켜기 전까지는 여기서 변경한 내용이 입력에 반영되지 않습니다.</string>
     <string name="layout_editor_number_row_caption">키보드가 이 레이어 위에 이 행을 표시합니다. 키를 탭하여 변경하세요. 키를 길게 누르고 드래그하여 이동할 수 있습니다.</string>
-    <string name="layout_editor_number_row_hidden_caption">레이아웃 및 크기 설정에서 기호의 숫자 행이 켜져 있으면 키보드가 이 레이어 위에 이 행을 표시합니다. 현재 꺼져 있습니다.</string>
-    <string name="layout_editor_number_row_off_caption">레이아웃 및 크기 설정에서 숫자 행이 켜져 있으면 키보드가 이 레이어 위에 이 행을 표시합니다. 현재 숫자 행이 꺼져 있습니다.</string>
     <string name="layout_editor_number_row_title">숫자 행</string>
     <string name="layout_editor_panel_inherited_caption">이 레이아웃은 공유 %1$s 패널을 사용합니다. 여기서 변경하면 이 레이아웃 전용 사본이 생성됩니다. 공유 패널은 키 레이아웃, 패널 레이아웃에서 찾을 수 있습니다.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">레이아웃 테마 상속</string>
@@ -3985,11 +3979,8 @@
     <string name="layout_split_spacebar_title">스페이스바 분할</string>
     <string name="layout_split_subtitle">키를 왼쪽과 오른쪽 절반으로 나눕니다</string>
     <string name="layout_split_title">분할 키보드</string>
-    <string name="layout_summon_button_info">키보드가 닫혀 있을 때 작은 원형 버튼이 모든 앱 위에 떠 있습니다. 이 버튼을 누르면 텍스트 필드가 없는 화면에서도 키보드가 열리며, 닫을 때까지 유지됩니다. 키보드가 화면에 유지될 때와 마찬가지로 키 입력이 앱으로 전달됩니다. 버튼을 드래그하여 이동할 수 있으며, 가장 가까운 가장자리에 고정됩니다. 길게 누르면 다음번에 키보드가 열릴 때까지 숨겨집니다. Android의 \'다른 앱 위에 표시\' 권한이 필요합니다.</string>
     <string name="layout_summon_button_permission_subtitle">Android에서 허용할 때까지 버튼이 나타나지 않습니다</string>
     <string name="layout_summon_button_permission_title">다른 앱 위에 표시 허용</string>
-    <string name="layout_summon_button_subtitle">텍스트 필드 유무와 관계없이 키보드를 여는 다른 앱 위의 버튼</string>
-    <string name="layout_summon_button_title">플로팅 키보드 버튼</string>
     <string name="layout_swap_comma_globe_info">스페이스바 양옆의 두 키 위치가 바뀝니다. 그중 하나가 이모지 키인 경우 바깥쪽 위치로 이동하고 쉼표는 스페이스바 옆에 유지됩니다. 일반적인 순서로 되돌리려면 이 기능을 끄세요.</string>
     <string name="layout_swap_comma_globe_subtitle">쉼표를 스페이스바 옆에 배치</string>
     <string name="layout_swap_comma_globe_title">쉼표(,) 키와 🌐 키 바꾸기</string>
@@ -5808,7 +5799,6 @@
     <string name="search_kw_layout_show_globe">지구본 언어 제거 숨기기</string>
     <string name="search_kw_layout_size_position">크기 조절 축소 컴팩트 확대</string>
     <string name="search_kw_layout_split">엄지 인체공학 태블릿</string>
-    <string name="search_kw_layout_summon_button">버블 오버레이 표시 소환 필드리스 해커</string>
     <string name="search_kw_layout_symbols_numpad_key">숫자패드 키패드 다이얼패드 1234 gboard</string>
     <string name="search_kw_learnedcorrections">학습된 수정, 내 수정, 오타 쌍, 가르친 수정, 자동 수정 학습, 실수, 습관</string>
     <string name="search_kw_licenses">오픈 소스, 저작자 표시, 크레딧</string>
@@ -5847,7 +5837,7 @@
     <string name="search_kw_translate_engine">오프라인 개인 인터넷 비행기 로컬 기기 ml kit 구글 모델 다운로드 클라우드</string>
     <string name="search_kw_translate_models">오프라인 번역 모델 다운로드 삭제 저장소 ml kit 구글</string>
     <string name="search_kw_translate_only_downloaded">오프라인 모델 선택 메뉴 필터 숨기기</string>
-    <string name="search_kw_translate_server">openai 호환 자체 호스팅 로컬 llm ai 모델 ollama llama studio vllm localai 채팅 완성</string>
+    <string name="search_kw_translate_server">openai 호환 자체 호스팅 로컬 llm ai 모델 ollama llama studio vllm localai 채팅 완성 mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">맞춤법 검사, 자동 완성, 예측 텍스트, 글라이드, 스와이프 타이핑, 제스처, 연락처, 실행 취소</string>
     <string name="search_kw_typing_auto_capitalize">자동 대문자 자동 대문자 변환</string>
     <string name="search_kw_typing_auto_close_brackets">괄호 자동 닫기 쌍 괄호 일치 완료</string>
@@ -6818,7 +6808,6 @@
     <string name="theme_parts_strip_subtitle">채우기, 단어 색상 및 크기 제거</string>
     <string name="theme_parts_toolbar_subtitle">도구 채우기, 아이콘, 모양, 테두리</string>
     <string name="theme_pick_hint">키, 도구 또는 스트립을 누르세요</string>
-    <string name="theme_pick_start_desc">스타일을 적용할 키보드 부분을 선택하세요</string>
     <string name="theme_pick_start_subtitle">미리보기에서 키, 도구 또는 제안 스트립을 눌러 스타일을 지정하세요</string>
     <string name="theme_pick_start_title">키보드에서 선택</string>
     <string name="theme_pick_strip_sample_words">안녕하세요,감사합니다,알겠어요</string>
@@ -7643,12 +7632,6 @@
     <string name="tooldetail_ocr_info">인식은 기기 내 ML Kit을 통해 실행됩니다. 사진이나 텍스트가 기기 밖으로 유출되지 않으며 오프라인에서도 작동합니다. 영어와 같은 라틴 문자 텍스트를 읽습니다. ML Kit의 텍스트 인식기는 아직 벵골어를 지원하지 않습니다. 캡처 후 단어를 눌러 키보드가 입력하거나 복사할 내용을 정확하게 선택하세요.</string>
     <string name="tooldetail_ocr_online_group">온라인 텍스트 읽기 도구</string>
     <string name="tooldetail_ocr_online_info">사진은 이미지를 읽을 수 있는 모델(선택한 주소)로 전송되며, 모델이 인식한 텍스트를 작성합니다. 모든 스크립트를 읽을 수 있으며 언어 데이터가 필요하지 않습니다. OpenAI 호환 API를 사용하는 모든 서비스(OpenAI, OpenRouter, Gemini, Mistral 또는 Ollama나 LM Studio를 사용하는 개인 컴퓨터의 모델)가 작동합니다. 스캔할 때마다 사진이 해당 서비스로 전송되며 서비스 이용료가 부과될 수 있습니다.</string>
-    <string name="tooldetail_ocr_online_key_hint">키가 필요 없는 서버인 경우 비워 두세요</string>
-    <string name="tooldetail_ocr_online_key_label">API 키</string>
-    <string name="tooldetail_ocr_online_model_hint">이미지를 읽는 모델, 예: gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">모델</string>
-    <string name="tooldetail_ocr_online_url_hint">예: https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">주소</string>
     <string name="tooldetail_ocr_packs_header">Tesseract 언어</string>
     <string name="tooldetail_ocr_packs_info">Tesseract는 해당 언어의 데이터가 기기에 있어야만 언어를 읽을 수 있습니다. 입력하는 각 언어마다 0.4MB에서 12MB 사이의 데이터를 다운로드해야 합니다. 데이터는 GitHub의 Tesseract 프로젝트 tessdata_fast 세트에서 제공됩니다. 스캐너 자체에서 언어를 다운로드할 수도 있습니다.</string>
     <string name="tooldetail_ocr_packs_none_info">활성화한 언어 중 Tesseract 데이터가 있는 언어가 없습니다. 언어 화면에서 언어를 추가하세요. 그러면 해당 데이터가 여기에 표시됩니다.</string>
@@ -8481,7 +8464,7 @@
     <string name="typing_letter_swipe_select_key_label">키로 밀기</string>
     <string name="typing_letter_swipe_type_words_desc">키 위를 스와이프하여 한 단어를 입력합니다</string>
     <string name="typing_letter_swipe_type_words_label">단어 입력</string>
-    <string name="typing_mistype_tolerance_info">모든 탭은 단순히 누른 키뿐만 아니라 착지한 위치를 기준으로 읽히므로 키 가장자리 근처의 탭도 인접한 키로 읽힐 수 있습니다. 이 설정은 해당 읽기 범위를 결정합니다. 100% 이상이면 인접한 키 안쪽 깊숙이 들어온 탭도 오타로 간주될 가능성이 높으며, 이는 빠르거나 거친 타이핑과 큰 손가락에 적합합니다. 100% 미만이면 누른 키를 더 신뢰하며, 이는 신중한 타이핑에 적합합니다. 이 설정은 제안 줄에 표시되는 단어와 자동 수정 선택에 영향을 줍니다. 기본값은 100%입니다.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">모든 탭은 단순히 누른 키뿐만 아니라 착지한 위치를 기준으로 읽히므로 키 가장자리 근처의 탭도 인접한 키로 읽힐 수 있습니다. 이 설정은 해당 읽기 범위를 결정합니다. 100% 이상이면 인접한 키 안쪽 깊숙이 들어온 탭도 오타로 간주될 가능성이 높으며, 이는 빠르거나 거친 타이핑과 큰 손가락에 적합합니다. 100% 미만이면 누른 키를 더 신뢰하며, 이는 신중한 타이핑에 적합합니다. 이 설정은 제안 줄에 표시되는 단어와 자동 수정 선택에 영향을 줍니다. 기본값은 100%입니다.</string>
     <string name="typing_mistype_tolerance_subtitle">탭이 인접한 키로 얼마나 들어와야 오타로 간주할지 설정</string>
     <string name="typing_mistype_tolerance_title">오타 허용 범위</string>
     <string name="typing_new_word_sightings_info">사전에 없는 단어만 계산됩니다. 사전에 이미 있는 단어는 입력하는 순간 학습됩니다. 단어를 입력한 후 다른 작업을 수행해야만 사용 횟수가 계산되므로, 오타를 수정하는 경우는 계산되지 않습니다. 고유 명사나 은어가 학습되는 데 너무 오래 걸린다면 이 값을 낮추세요. 이전 버전처럼 모든 새 단어를 즉시 저장하려면 1로 설정하세요. 기본값은 3입니다.</string>
@@ -8774,11 +8757,9 @@
     <string name="typing_trail_opacity_title">궤적 불투명도</string>
     <string name="typing_trail_width_subtitle">글라이드 궤적 두께</string>
     <string name="typing_trail_width_title">궤적 너비</string>
-    <string name="typing_two_thumb_info">양쪽 엄지손가락을 함께 사용하세요. 양쪽 엄지 모두 동시에 탭하거나 스와이프할 수 있으며, 모든 탭과 스와이프는 하나의 단어를 구성합니다. 예를 들어, 왼손 엄지로 S를 탭하고, 오른손으로 O에서 M까지 스와이프하고, 왼손으로 E를 탭한 다음, 오른손으로 T H I N G를 스와이프하면 \'something\'이 입력됩니다. 다른 손가락이 스와이프하는 중에 탭을 하면 해당 위치에서 단어가 완성되므로, H E L O를 스와이프하는 중에 L을 탭하면 \'hello\'가 입력됩니다. 백스페이스는 마지막으로 입력된 탭이나 스와이프를 삭제합니다.</string>
     <string name="typing_two_thumb_subtitle">양쪽 엄지손가락으로 동시에 탭하고 스와이프하여 하나의 단어를 만듭니다</string>
     <string name="typing_two_thumb_title">양손 엄지 타이핑</string>
     <string name="typing_two_thumb_word_end_all_up_label">모두 엄지척</string>
-    <string name="typing_two_thumb_word_end_info">스페이스바를 사용하면 탭하고 스와이프하는 동안 단어가 열린 상태로 유지되며, 키보드가 각 동작 후에 단어를 다시 읽습니다. 스페이스바나 문장 부호를 탭하여 입력하세요. 엄지손가락을 모두 떼면 일반적인 글라이드 입력처럼 엄지손가락이 키보드에 닿지 않는 즉시 단어가 스페이스와 함께 입력되므로, 단어를 공유하려면 엄지손가락이 겹쳐야 합니다.</string>
     <string name="typing_two_thumb_word_end_space_label">공백</string>
     <string name="typing_two_thumb_word_end_subtitle">작성 중인 단어를 입력하는 방법</string>
     <string name="typing_two_thumb_word_end_title">양손 엄지 단어 완성</string>

@@ -1156,7 +1156,7 @@
     <string name="clipboard_key_row_info">Bandika kiungo na ubonyeze ingiza (enter) ili kukitembelea, au bandika nakala zaidi ukitumia nafasi au mstari mpya katikati yao, bila kurudi kwenye kibodi. ABC hurudi kwenye herufi. Ikiwa ulibadilisha mpangilio wa paneli, mpangilio huu hautafanya kazi: ongeza funguo katika kihariri cha mpangilio badala yake. Mstari hautaonekana wakati ubao wa kunakili umewekwa juu ya funguo. Kipengele hiki kimezimwa kwa chaguo-msingi.</string>
     <string name="clipboard_key_row_subtitle">Safu ya funguo kando ya sehemu ya chini ya paneli ya ubao wa kunakili</string>
     <string name="clipboard_key_row_title">Funguo za ABC, nafasi na ingiza</string>
-    <string name="clipboard_line_spacing_info">Kwa 100% mistari ya klipu hukaa karibu kama fonti inavyoruhusu. Iongeze ili kuitenganisha. Chaguomsingi ni 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Kwa 100% mistari ya klipu hukaa karibu kama fonti inavyoruhusu. Iongeze ili kuitenganisha. Chaguomsingi ni 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Nafasi kati ya mistari ya maandishi ya klipu</string>
     <string name="clipboard_line_spacing_title">Nafasi kati ya mistari</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2404,9 +2404,7 @@
     <string name="import_sticker_editor_border_white_option">Nyeupe</string>
     <string name="import_sticker_editor_border_width_label">Upana wa mpaka</string>
     <string name="import_sticker_editor_brush_size_label">Ukubwa wa brashi</string>
-    <string name="import_sticker_editor_caption">Kibodi huhifadhi kibandiko cha 512 kwa 512. Sogeza na ubanie picha ili kuchagua sehemu ya kuhifadhi, kisha ondoa mandharinyuma na uongeze mpaka. Programu huhifadhi picha hii kwenye simu, ili uweze kuhariri kibandiko tena baadaye.</string>
     <string name="import_sticker_editor_crop_action">Punguza</string>
-    <string name="import_sticker_editor_crop_hint">Buruta ili kusogeza picha. Finya ili kuifanya iwe kubwa.</string>
     <string name="import_sticker_editor_cutout_action">Ondoa mandharinyuma</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Pakua kiondoa mandharinyuma kwanza. Ni upakuaji wa MB 5.</string>
     <string name="import_sticker_editor_cutout_download_progress">Programu inapakua kiondoa mandharinyuma…</string>
@@ -3528,7 +3526,6 @@
     <string name="layout_editor_alternate_columns_default">Kutoka kwa mipangilio</string>
     <string name="layout_editor_alternate_columns_subtitle">Ni mbadala ngapi ufunguo huu huweka kwenye safu</string>
     <string name="layout_editor_alternate_columns_title">Safu wima kwenye kidukizo</string>
-    <string name="layout_editor_alternate_hint_badge">kidokezo</string>
     <string name="layout_editor_alternates_field_hint">Tenganisha viingilio kwa nafasi, ili mbadala isiwe nafasi. Viingilio vya zaidi ya herufi moja, kama vile .com, ni sahihi. Programu pia huchora ya kwanza kwenye kona ya kitufe.</string>
     <string name="layout_editor_alternates_field_label">Mbadala kwa kubonyeza na kushikilia</string>
     <string name="layout_editor_apply_action">Tumia</string>
@@ -3624,7 +3621,6 @@
     <string name="layout_editor_field_row_title">Kipengele</string>
     <string name="layout_editor_fill_row_action">Jaza safu (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Safu ya namba tayari inaonyesha tarakimu, kwa hivyo kibodi huonyesha safu hii badala ya safu ya kwanza ya safu hii.</string>
-    <string name="layout_editor_fill_row_off_caption">Wakati Safu ya namba imewashwa, kibodi huonyesha safu hii badala ya safu ya kwanza ya safu hii, kwa sababu safu ya namba tayari inaonyesha tarakimu. Safu ya namba imezimwa sasa.</string>
     <string name="layout_editor_fill_row_title">Safu badala ya tarakimu</string>
     <string name="layout_editor_fit_row_action">Linganisha safu na gridi (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Hakuna kutelezesha kwa njia hii. Gonga ili kuchagua kitendo.</string>
@@ -3799,8 +3795,6 @@
     <string name="layout_editor_new_secondary_title">Anzisha mpangilio wa pili</string>
     <string name="layout_editor_not_live_caption">Mabadiliko yako hapa hayaathiri uandishi hadi uwashe mpangilio chini ya Lugha.</string>
     <string name="layout_editor_number_row_caption">Kibodi huonyesha safu hii juu ya safu hii. Gusa kitufe ili kukibadilisha. Shikilia kitufe na ukiburute ili kukisogeza.</string>
-    <string name="layout_editor_number_row_hidden_caption">Kibodi huonyesha safu hii juu ya safu hii wakati Safu ya namba katika alama imewashwa kwenye Mpangilio na ukubwa. Imezimwa sasa.</string>
-    <string name="layout_editor_number_row_off_caption">Kibodi huonyesha safu hii juu ya safu hii wakati Safu ya namba imewashwa kwenye Mpangilio na ukubwa. Safu ya namba imezimwa sasa.</string>
     <string name="layout_editor_number_row_title">Safu ya namba</string>
     <string name="layout_editor_panel_inherited_caption">Mpangilio huu unatumia paneli iliyoshirikiwa ya %1$s. Kubadilisha chochote hapa kutatengeneza nakala kwa ajili ya mpangilio huu pekee. Paneli iliyoshirikiwa iko chini ya Mipangilio ya vitufe, Mipangilio ya paneli.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Urithi mandhari ya mpangilio</string>
@@ -4003,11 +3997,8 @@
     <string name="layout_split_spacebar_title">Gawanya kibonye cha nafasi</string>
     <string name="layout_split_subtitle">Gawanya funguo katika nusu ya kushoto na nusu ya kulia</string>
     <string name="layout_split_title">Kibodi iliyogawanyika</string>
-    <string name="layout_summon_button_info">Wakati kibodi imefungwa, kitufe kidogo cha duara huelea juu ya kila programu. Kiguse na kibodi itafunguka, hata kwenye skrini isiyo na sehemu ya maandishi, na itabaki wazi hapo hadi utakapofunga. Vifunguo kisha hufikia programu kama mibofyo ya vitufe, sawa na ile ya Weka kibodi kwenye skrini. Buruta kitufe ili kukisogeza; hukaa upande wa karibu zaidi. Bonyeza na ushikilie ili kukificha hadi kibodi ifunguke tena. Inahitaji ruhusa ya Android ya Kuonyesha juu ya programu zingine.</string>
     <string name="layout_summon_button_permission_subtitle">Kitufe hakiwezi kuonekana hadi Android ikiruhusu</string>
     <string name="layout_summon_button_permission_title">Ruhusu kuonyesha juu ya programu zingine</string>
-    <string name="layout_summon_button_subtitle">Kitufe juu ya programu nyingine kinachofungua kibodi, kikiwa na au bila sehemu ya maandishi</string>
-    <string name="layout_summon_button_title">Kitufe cha kibodi kinachoelea</string>
     <string name="layout_swap_comma_globe_info">Funguo mbili kila upande wa upau wa nafasi hubadilishana nafasi. Ikiwa mojawapo ni ufunguo wa emoji, huhamia kwenye nafasi ya nje na koma hubaki karibu na upau wa nafasi. Zima hii ili kupata mpangilio wa kawaida.</string>
     <string name="layout_swap_comma_globe_subtitle">Weka koma karibu na upau wa nafasi</string>
     <string name="layout_swap_comma_globe_title">Badilishana vitufe vya koma na 🌐</string>
@@ -5827,7 +5818,6 @@
     <string name="search_kw_layout_show_globe">ficha ondoa lugha ya dunia</string>
     <string name="search_kw_layout_size_position">badilisha ukubwa punguza finya kukuza</string>
     <string name="search_kw_layout_split">kibao cha ergonomic cha kidole gumba</string>
-    <string name="search_kw_layout_summon_button">onyesho la mapovu ya kuitisha wadukuzi wasio na uwanja</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad keypad dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">masahihisho yaliyojifunzwa, marekebisho yangu, jozi za makosa ya chapa, marekebisho yaliyofundishwa, kujifunza kusahihisha kiotomatiki, makosa madogo, mazoea</string>
     <string name="search_kw_licenses">chanzo huria, utoaji sifa, mikopo</string>
@@ -5866,7 +5856,7 @@
     <string name="search_kw_translate_engine">nje ya mtandao binafsi intaneti ndege kifaa cha ndani ml kit google modeli pakua wingu</string>
     <string name="search_kw_translate_models">pakua modeli ya tafsiri ya nje ya mtandao futa hifadhi ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ficha menyu ya kichujio cha kuteua modeli ya nje ya mtandao</string>
-    <string name="search_kw_translate_server">openai inayooana inayojiendesha mwenyewe inayopangishwa llm ya ndani ai modeli ollama llama studio vllm localai mazungumzo ya gumzo</string>
+    <string name="search_kw_translate_server">openai inayooana inayojiendesha mwenyewe inayopangishwa llm ya ndani ai modeli ollama llama studio vllm localai mazungumzo ya gumzo mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">kikagua tahajia, kukamilisha kiotomatiki, maandishi ya ubashiri, kutelezesha kidole, kuandika kwa kutelezesha, ishara, anwani, tengua</string>
     <string name="search_kw_typing_auto_capitalize">autocaps autocapitalize autocapitalisation</string>
     <string name="search_kw_typing_auto_close_brackets">funga kiotomatiki mabano jozi yanayoendana kikamilifu</string>
@@ -6838,7 +6828,6 @@
     <string name="theme_parts_strip_subtitle">Ondoa ujazo, rangi za maneno na saizi</string>
     <string name="theme_parts_toolbar_subtitle">Jaza zana, ikoni, umbo, mpaka</string>
     <string name="theme_pick_hint">Bonyeza ufunguo, zana au utepe</string>
-    <string name="theme_pick_start_desc">Chagua sehemu ya kibodi ili kuipamba</string>
     <string name="theme_pick_start_subtitle">Bonyeza kitufe, zana au utepe wa mapendekezo kwenye hakikisho ili kulipamba</string>
     <string name="theme_pick_start_title">Chagua kwenye kibodi</string>
     <string name="theme_pick_strip_sample_words">Habari,Asante,Sawa</string>
@@ -7665,12 +7654,6 @@
     <string name="tooldetail_ocr_info">Utambuzi unafanyika kwenye kifaa chako kwa kutumia ML Kit. Hakuna picha wala maandishi yanayotoka kwenye kifaa chako, na inafanya kazi bila intaneti. Inasoma maandishi ya herufi za Kilatini, kwa mfano Kiingereza. Kitambuzi cha maandishi cha ML Kit hakijasaidia Kibengali bado. Baada ya kunasa, bonyeza maneno ili kuchagua hasa kile ambacho kibodi inaandika au kunakili.</string>
     <string name="tooldetail_ocr_online_group">Msomaji wa maandishi mtandaoni</string>
     <string name="tooldetail_ocr_online_info">Picha huenda kwa modeli inayoweza kusoma picha, kwenye anwani unayochagua, na modeli huandika maandishi inayoona. Inasoma hati yoyote na haihitaji data ya lugha. Huduma yoyote iliyo na API inayooana na OpenAI inafanya kazi: OpenAI, OpenRouter, Gemini, Mistral, au modeli kwenye kompyuta yako mwenyewe na Ollama au LM Studio. Kila skani hutuma picha kwenye huduma hiyo, na huduma inaweza kutoza kwa ajili hiyo.</string>
-    <string name="tooldetail_ocr_online_key_hint">Acha wazi kwa seva isiyohitaji ufunguo</string>
-    <string name="tooldetail_ocr_online_key_label">Ufunguo wa API</string>
-    <string name="tooldetail_ocr_online_model_hint">Muundo unaosoma picha, kwa mfano gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Mfano</string>
-    <string name="tooldetail_ocr_online_url_hint">Kwa mfano https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Anwani</string>
     <string name="tooldetail_ocr_packs_header">Lugha za Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract husoma lugha tu baada ya data ya lugha hiyo kuwa kwenye kifaa chako. Kuna upakuaji mmoja kwa kila lugha unayochapa, kuanzia MB 0.4 hadi MB 12. Data hiyo inatoka kwenye seti ya tessdata_fast ya mradi wa Tesseract kwenye GitHub. Unaweza pia kupakua lugha kutoka kwa kichanganuzi chenyewe.</string>
     <string name="tooldetail_ocr_packs_none_info">Hakuna lugha yoyote uliyowasha iliyo na data ya Tesseract. Ongeza lugha kwenye skrini ya Lugha. Data yake itaonekana hapa.</string>
@@ -8507,7 +8490,7 @@
     <string name="typing_letter_swipe_select_key_label">Telezesha kwenye ufunguo</string>
     <string name="typing_letter_swipe_type_words_desc">Kutelezesha kidole kwenye funguo huandika neno moja</string>
     <string name="typing_letter_swipe_type_words_label">Andika maneno</string>
-    <string name="typing_mistype_tolerance_info">Kila mguso husomwa dhidi ya mahali ulipotua, sio tu dhidi ya ufunguo uliogonga, kwa hivyo mguso karibu na ukingo wa ufunguo bado unaweza kusomwa kama ufunguo ulio karibu nao. Hii huweka jinsi usomaji huo ulivyo mkarimu. Zaidi ya 100%, mguso ndani ya ufunguo wa jirani bado ni kuteleza kunakowezekana, ambayo inafaa kuandika haraka au kwa haraka na vidole vikubwa. Chini ya 100%, ufunguo uliogonga unaaminika zaidi, ambayo inafaa kuandika kwa uangalifu. Inabadilisha maneno ambayo utepe hutoa na kile kusahihisha kiotomatiki huchagua. Chaguo-msingi ni 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Kila mguso husomwa dhidi ya mahali ulipotua, sio tu dhidi ya ufunguo uliogonga, kwa hivyo mguso karibu na ukingo wa ufunguo bado unaweza kusomwa kama ufunguo ulio karibu nao. Hii huweka jinsi usomaji huo ulivyo mkarimu. Zaidi ya 100%, mguso ndani ya ufunguo wa jirani bado ni kuteleza kunakowezekana, ambayo inafaa kuandika haraka au kwa haraka na vidole vikubwa. Chini ya 100%, ufunguo uliogonga unaaminika zaidi, ambayo inafaa kuandika kwa uangalifu. Inabadilisha maneno ambayo utepe hutoa na kile kusahihisha kiotomatiki huchagua. Chaguo-msingi ni 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Umbali ambao mguso unaweza kutua kwenye ufunguo wa jirani na bado ukahesabiwa kama kuteleza</string>
     <string name="typing_mistype_tolerance_title">Uvumilivu wa makosa ya kuandika</string>
     <string name="typing_new_word_sightings_info">Maneno ambayo hayajulikani na kamusi yoyote ndiyo huhesabiwa. Neno ambalo tayari liko kwenye kamusi linahitaji matumizi moja, si kadhaa, kwa sababu hakuna shaka kuhusu tahajia yake. Kwa vyovyote vile, matumizi huhesabiwa tu pindi unapohama na kuliacha neno hilo, kwa hivyo neno unalorudi na kurekebisha, au kutelezesha kidole kulikotoa neno lisilo sahihi, hakuhesabiwi kamwe. Hakuna kinachohifadhiwa wakati bado unaandika: maneno uliyoyaacha huongezwa unapofunga kibodi, kutuma ujumbe, au kuhamia sehemu nyingine. Punguza thamani hii ikiwa majina yako na misimu inachukua muda mrefu sana kukubalika. Iweke iwe 1 ili kuhifadhi kila neno jipya baada ya matumizi moja. Mpangilio huu ni 3 kwa chaguomsingi.</string>
@@ -8801,11 +8784,9 @@
     <string name="typing_trail_opacity_title">Uwazi wa njia</string>
     <string name="typing_trail_width_subtitle">Unene wa njia ya kutelezesha</string>
     <string name="typing_trail_width_title">Upana wa njia</string>
-    <string name="typing_two_thumb_info">Tumia gumba zote mbili pamoja. Kila gumba kinaweza kugonga au kutelezesha, kwa wakati mmoja na kingine, na kila mguso na kutelezesha huongeza kwenye neno lilelile. Kwa mfano, gonga S kwa gumba la kushoto, telezesha O hadi M kwa la kulia, gonga E kwa la kushoto, kisha telezesha T H I N G kwa la kulia, na utapata kitu. Mguso unaotua wakati gumba lingine bado linatelezesha huenda kwenye neno wakati huo, kwa hivyo kutelezesha juu ya H E L O na mguso kwenye L hutoa hello. Backspace huondoa mguso au kutelezesha kwa mwisho kutoka kwa neno.</string>
     <string name="typing_two_thumb_subtitle">Gusa na utelezeshe kwa vidole gumba vyote viwili kwa wakati mmoja ili kuunda neno moja</string>
     <string name="typing_two_thumb_title">Kuandika kwa gumba mbili</string>
     <string name="typing_two_thumb_word_end_all_up_label">Gumba zote juu</string>
-    <string name="typing_two_thumb_word_end_info">Kwa nafasi, neno linabaki wazi unapogonga na kutelezesha, na kibodi inalisoma tena baada ya kila moja. Gonga nafasi au alama za uakifishaji ili kuliandika. Kwa vidole gumba vyote juu, neno huandikwa na nafasi mara tu kidole gumba kisipogusa kibodi, kama kutelezesha kwa kawaida, kwa hivyo vidole gumba vyako lazima viingiliane ili kushiriki neno.</string>
     <string name="typing_two_thumb_word_end_space_label">Nafasi</string>
     <string name="typing_two_thumb_word_end_subtitle">Inachoandika neno unalolijenga</string>
     <string name="typing_two_thumb_word_end_title">Maliza neno la vidole viwili</string>

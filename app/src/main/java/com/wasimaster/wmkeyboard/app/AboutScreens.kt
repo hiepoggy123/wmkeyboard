@@ -638,7 +638,7 @@ private val dataPackAttributions: List<Attribution> = buildList {
         "Unicode License v3", "unicode-3.0.txt",
         "https://www.unicode.org/",
     ))
-    // The two below are downloaded by full-edition features only, so a lite
+    // The three below are downloaded by full-edition features only, so a lite
     // build does not list what it cannot fetch.
     if (com.wasimaster.wmkeyboard.core.stickers.SubjectCutout.supported) {
         add(Attribution(
@@ -647,6 +647,15 @@ private val dataPackAttributions: List<Attribution> = buildList {
             "Copyright the U\u00b2-Net authors (Xuebin Qin et al., 2020); rembg's u2netp.onnx, converted with onnx2tf",
             "Apache-2.0", "apache-2.0.txt",
             "https://github.com/xuebinqin/U-2-Net",
+        ))
+    }
+    if (BuildConfig.ENABLE_WHISPER) {
+        add(Attribution(
+            "PaddleOCR PP-OCRv5 models",
+            R.string.about_pack_paddle_used,
+            "Copyright PaddlePaddle Authors; LiteRT conversion by iFleey (PPOCRv5-Android)",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/PaddlePaddle/PaddleOCR",
         ))
     }
     if (BuildConfig.ENABLE_LOCAL_LLM) {
@@ -714,6 +723,12 @@ private val serviceAttributions: List<Attribution> = listOf(
         "Wiktionary & kaikki.org", R.string.about_service_wiktionary_used, "",
         "CC BY-SA 4.0 and GFDL", null,
         "https://en.wiktionary.org/wiki/Wiktionary:Copyrights",
+    ),
+    // Downloaded, not called: the Dictionary tool's offline dictionary (#665).
+    Attribution(
+        "Open English WordNet", R.string.about_service_oewn_used, "",
+        "CC BY 4.0", null,
+        "https://en-word.net/",
     ),
     Attribution(
         "Datamuse", R.string.about_service_synonyms_used, "",
@@ -839,6 +854,7 @@ internal fun AboutSettings(
     repository: SettingsRepository,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
+    onOpenSupporters: () -> Unit = {},
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
@@ -1080,6 +1096,14 @@ internal fun AboutSettings(
     ) {
         item { TelegramRow { uriHandler.openUri(Support.TELEGRAM_URL) } }
         item { SocialStrip() }
+        item {
+            NavRow(
+                R.string.about_supporters_title,
+                stringResource(R.string.about_supporters_subtitle),
+                route = "supporters",
+                onClick = onOpenSupporters,
+            )
+        }
     }
 
     SettingsGroup(stringResource(R.string.about_documentation_title)) {

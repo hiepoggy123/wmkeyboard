@@ -1156,7 +1156,7 @@
     <string name="clipboard_key_row_info">Pega un enlace y presiona entrar para ir a él, o pega más clips con un espacio o una nueva línea entre ellos, sin volver al teclado. ABC vuelve a las letras. Si cambiaste el diseño del panel, esta configuración no hace nada: añade las teclas en el editor de diseño en su lugar. La fila no se muestra mientras el portapapeles está apilado sobre las teclas. Esta configuración está desactivada de forma predeterminada.</string>
     <string name="clipboard_key_row_subtitle">Una fila de teclas a lo largo de la parte inferior del panel del portapapeles</string>
     <string name="clipboard_key_row_title">Teclas ABC, espacio e intro</string>
-    <string name="clipboard_line_spacing_info">Al 100%, las líneas de un clip están tan juntas como permite la fuente. Auméntalo para separarlas. El valor predeterminado es 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Al 100%, las líneas de un clip están tan juntas como permite la fuente. Auméntalo para separarlas. El valor predeterminado es 130%.</string>
     <string name="clipboard_line_spacing_subtitle">El espacio entre las líneas del texto de un clip</string>
     <string name="clipboard_line_spacing_title">Interlineado</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Blanco</string>
     <string name="import_sticker_editor_border_width_label">Ancho del borde</string>
     <string name="import_sticker_editor_brush_size_label">Tamaño del pincel</string>
-    <string name="import_sticker_editor_caption">El teclado guarda un sticker de 512 por 512. Mueve y pellizca la imagen para seleccionar la parte que quieres conservar, luego elimina el fondo y añade un borde. La aplicación mantiene esta imagen en el teléfono, para que puedas editar el sticker de nuevo más tarde.</string>
     <string name="import_sticker_editor_crop_action">Recortar</string>
-    <string name="import_sticker_editor_crop_hint">Arrastra para mover la imagen. Pellizca para ampliarla.</string>
     <string name="import_sticker_editor_cutout_action">Eliminar el fondo</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Obtén primero el eliminador de fondos. Es una descarga de 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">La aplicación está obteniendo el eliminador de fondo…</string>
@@ -3520,7 +3518,6 @@
     <string name="layout_editor_alternate_columns_default">Desde la configuración</string>
     <string name="layout_editor_alternate_columns_subtitle">Cuántos alternativos pone esta tecla en una fila</string>
     <string name="layout_editor_alternate_columns_title">Columnas en la ventana emergente</string>
-    <string name="layout_editor_alternate_hint_badge">sugerencia</string>
     <string name="layout_editor_alternates_field_hint">Separa las entradas con espacios, de modo que un alternativo no pueda ser un espacio. Las entradas de más de un carácter, como .com, son correctas. La aplicación también dibuja la primera en la esquina de la tecla.</string>
     <string name="layout_editor_alternates_field_label">Alternativas para mantener presionado</string>
     <string name="layout_editor_apply_action">Aplicar</string>
@@ -3616,7 +3613,6 @@
     <string name="layout_editor_field_row_title">Componente</string>
     <string name="layout_editor_fill_row_action">Rellenar la fila (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">La fila de números ya muestra los dígitos, por lo que el teclado muestra esta fila en lugar de la primera fila de esta capa.</string>
-    <string name="layout_editor_fill_row_off_caption">Cuando la Fila de números está activada, el teclado muestra esta fila en lugar de la primera fila de esta capa, porque la fila de números ya muestra los dígitos. La Fila de números está desactivada ahora.</string>
     <string name="layout_editor_fill_row_title">Fila en lugar de los dígitos</string>
     <string name="layout_editor_fit_row_action">Ajustar la fila a la cuadrícula (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Sin deslizamiento en esta dirección. Toca para elegir una acción.</string>
@@ -3791,8 +3787,6 @@
     <string name="layout_editor_new_secondary_title">Iniciar un diseño secundario</string>
     <string name="layout_editor_not_live_caption">Los cambios realizados aquí no afectarán a la escritura hasta que active el diseño en Idiomas.</string>
     <string name="layout_editor_number_row_caption">El teclado muestra esta fila sobre esta capa. Toca una tecla para cambiarla. Mantén presionada una tecla y arrástrala para moverla.</string>
-    <string name="layout_editor_number_row_hidden_caption">El teclado muestra esta fila sobre esta capa cuando la opción Fila de números en símbolos está activada en Diseño y tamaño. Actualmente está desactivada.</string>
-    <string name="layout_editor_number_row_off_caption">El teclado muestra esta fila sobre esta capa cuando la Fila de números está activada en Diseño y tamaño. La Fila de números está desactivada ahora.</string>
     <string name="layout_editor_number_row_title">Fila de números</string>
     <string name="layout_editor_panel_inherited_caption">Este diseño utiliza el panel compartido %1$s. Cualquier cambio aquí creará una copia solo para este diseño. El panel compartido se encuentra en Diseños de teclas, Diseños de panel.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Heredar el tema del diseño</string>
@@ -3995,11 +3989,8 @@
     <string name="layout_split_spacebar_title">Dividir la barra espaciadora</string>
     <string name="layout_split_subtitle">Dividir las teclas en una mitad izquierda y una derecha</string>
     <string name="layout_split_title">Teclado dividido</string>
-    <string name="layout_summon_button_info">Mientras el teclado está cerrado, un pequeño botón redondo flota sobre todas las aplicaciones. Tócalo y el teclado se abrirá, incluso en una pantalla sin campo de texto, y permanecerá abierto hasta que lo cierres. Las teclas se enviarán a la aplicación como pulsaciones, igual que con la opción Mantener teclado en pantalla. Arrastra el botón para moverlo; se ajustará al borde más cercano. Mantén pulsado para ocultarlo hasta la próxima vez que se abra el teclado. Requiere el permiso de Android \"Mostrar sobre otras aplicaciones\".</string>
     <string name="layout_summon_button_permission_subtitle">El botón no puede aparecer hasta que Android lo permita</string>
     <string name="layout_summon_button_permission_title">Permitir mostrar sobre otras aplicaciones</string>
-    <string name="layout_summon_button_subtitle">Un botón sobre otras aplicaciones que abre el teclado, con o sin campo de texto</string>
-    <string name="layout_summon_button_title">Botón de teclado flotante</string>
     <string name="layout_swap_comma_globe_info">Las dos teclas a cada lado de la barra espaciadora intercambian su posición. Si una de ellas es la tecla de emojis, se mueve a la posición exterior y la coma permanece junto a la barra espaciadora. Desactiva esto para volver al orden habitual.</string>
     <string name="layout_swap_comma_globe_subtitle">Poner la coma junto a la barra espaciadora</string>
     <string name="layout_swap_comma_globe_title">Intercambiar las teclas de coma y 🌐</string>
@@ -5819,7 +5810,6 @@
     <string name="search_kw_layout_show_globe">ocultar eliminar globo de idioma</string>
     <string name="search_kw_layout_size_position">cambiar tamaño encoger compacto agrandar</string>
     <string name="search_kw_layout_split">pulgar ergonómico tableta</string>
-    <string name="search_kw_layout_summon_button">superposición de burbuja mostrar campo de invocación hackers sin campo</string>
     <string name="search_kw_layout_symbols_numpad_key">teclado numérico teclado de marcación 1234 gboard</string>
     <string name="search_kw_learnedcorrections">correcciones aprendidas, mis correcciones, pares de errores tipográficos, correcciones enseñadas, aprendizaje de autocorrección, errores, hábitos</string>
     <string name="search_kw_licenses">código abierto, atribución, créditos</string>
@@ -5858,7 +5848,7 @@
     <string name="search_kw_translate_engine">sin conexión privado internet avión dispositivo local ml kit google descarga de modelo nube</string>
     <string name="search_kw_translate_models">descarga de modelo de traducción sin conexión eliminar almacenamiento ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ocultar menú de selección de modelo sin conexión del filtro corto</string>
-    <string name="search_kw_translate_server">openai compatible autohospedado alojado local llm ai modelo ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible autohospedado alojado local llm ai modelo ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">corrector ortográfico, autocompletar, texto predictivo, deslizamiento, escritura por deslizamiento, gestos, contactos, deshacer</string>
     <string name="search_kw_typing_auto_capitalize">mayúsculas automáticas autocapitalización</string>
     <string name="search_kw_typing_auto_close_brackets">cierre automático de paréntesis llaves coincidencia de paréntesis completar</string>
@@ -6830,7 +6820,6 @@
     <string name="theme_parts_strip_subtitle">Eliminar relleno, colores de palabra y tamaño</string>
     <string name="theme_parts_toolbar_subtitle">Rellenos de herramientas, iconos, forma, borde</string>
     <string name="theme_pick_hint">Pulsa una tecla, una herramienta o la barra</string>
-    <string name="theme_pick_start_desc">Elige una parte del teclado para darle estilo</string>
     <string name="theme_pick_start_subtitle">Pulsa una tecla, una herramienta o la barra de sugerencias en la vista previa para darle estilo</string>
     <string name="theme_pick_start_title">Elegir en el teclado</string>
     <string name="theme_pick_strip_sample_words">Hola,Gracias,De acuerdo</string>
@@ -7655,12 +7644,6 @@
     <string name="tooldetail_ocr_info">El reconocimiento se ejecuta en su dispositivo con ML Kit. Ninguna foto ni texto sale de su dispositivo, y funciona sin conexión. Lee texto en escritura latina, por ejemplo, inglés. El reconocedor de texto de ML Kit aún no admite bengalí. Después de una captura, presione las palabras para seleccionar exactamente lo que el teclado escribe o copia.</string>
     <string name="tooldetail_ocr_online_group">Lector de texto en línea</string>
     <string name="tooldetail_ocr_online_info">La foto se envía a un modelo que puede leer imágenes, en una dirección que elijas, y el modelo escribe el texto que ve. Lee cualquier script y no necesita datos de idioma. Cualquier servicio con una API compatible con OpenAI funciona: OpenAI, OpenRouter, Gemini, Mistral o un modelo en tu propia computadora con Ollama o LM Studio. Cada escaneo envía la foto a ese servicio, y el servicio puede cobrar por ello.</string>
-    <string name="tooldetail_ocr_online_key_hint">Dejar en blanco para un servidor que no solicite clave</string>
-    <string name="tooldetail_ocr_online_key_label">Clave de API</string>
-    <string name="tooldetail_ocr_online_model_hint">Un modelo que lee imágenes, por ejemplo gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modelo</string>
-    <string name="tooldetail_ocr_online_url_hint">Por ejemplo https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Dirección</string>
     <string name="tooldetail_ocr_packs_header">Idiomas de Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract lee un idioma solo después de que los datos de ese idioma estén en tu dispositivo. Hay una descarga para cada idioma en el que escribes, de 0.4 MB a 12 MB. Los datos provienen del conjunto tessdata_fast del proyecto Tesseract en GitHub. También puedes descargar un idioma desde el propio escáner.</string>
     <string name="tooldetail_ocr_packs_none_info">Ninguno de los idiomas que activaste tiene datos de Tesseract. Añade un idioma en la pantalla de Idiomas. Sus datos aparecerán aquí.</string>
@@ -8494,7 +8477,7 @@
     <string name="typing_letter_swipe_select_key_label">Deslizar hacia una tecla</string>
     <string name="typing_letter_swipe_type_words_desc">Un deslizamiento a través de las teclas escribe una palabra</string>
     <string name="typing_letter_swipe_type_words_label">Escribir palabras</string>
-    <string name="typing_mistype_tolerance_info">Cada toque se lee en función de dónde aterrizó, no solo de la tecla que golpeó, por lo que un toque cerca del borde de una tecla aún puede leerse como la tecla de al lado. Esto establece qué tan generosa es esa lectura. Por encima del 100%, un toque bien dentro de una tecla vecina sigue siendo un desliz probable, lo que se adapta a una escritura rápida o agitada y dedos grandes. Por debajo del 100%, se confía más en la tecla que golpeaste, lo que se adapta a una escritura cuidadosa. Cambia qué palabras ofrece la barra y qué elige el autocorrector. El valor predeterminado es 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Cada toque se lee en función de dónde aterrizó, no solo de la tecla que golpeó, por lo que un toque cerca del borde de una tecla aún puede leerse como la tecla de al lado. Esto establece qué tan generosa es esa lectura. Por encima del 100%, un toque bien dentro de una tecla vecina sigue siendo un desliz probable, lo que se adapta a una escritura rápida o agitada y dedos grandes. Por debajo del 100%, se confía más en la tecla que golpeaste, lo que se adapta a una escritura cuidadosa. Cambia qué palabras ofrece la barra y qué elige el autocorrector. El valor predeterminado es 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Qué tan lejos dentro de una tecla vecina puede caer un toque y aun así contar como un error</string>
     <string name="typing_mistype_tolerance_title">Tolerancia a errores de escritura</string>
     <string name="typing_new_word_sightings_info">Solo se cuentan las palabras que ningún diccionario conoce. Una palabra que ya está en un diccionario se aprende en el momento en que la escribe. Un uso solo cuenta una vez que ha seguido adelante y ha dejado la palabra sola, por lo que un error tipográfico que vuelve a corregir nunca se cuenta. Reduzca esto si sus propios nombres y jerga tardan demasiado en aprenderse. Ajústelo a 1 para guardar cada palabra nueva inmediatamente, que es lo que hacían las versiones anteriores. Esta configuración es 3 por defecto.</string>
@@ -8788,11 +8771,9 @@
     <string name="typing_trail_opacity_title">Opacidad del rastro</string>
     <string name="typing_trail_width_subtitle">Grosor del trazo de deslizamiento</string>
     <string name="typing_trail_width_title">Ancho del rastro</string>
-    <string name="typing_two_thumb_info">Usa ambos pulgares a la vez. Cada pulgar puede tocar o deslizar al mismo tiempo que el otro, y cada toque y deslizamiento se añade a la misma palabra. Por ejemplo, toca la S con el pulgar izquierdo, desliza de la O a la M con el derecho, toca la E con el izquierdo, luego desliza T H I N G con el derecho, y obtendrás algo. Un toque que ocurre mientras el otro pulgar sigue deslizando se inserta en la palabra en ese punto, así que un deslizamiento sobre H E L O y un toque en L dan hello. Retroceso elimina el último toque o deslizamiento de la palabra.</string>
     <string name="typing_two_thumb_subtitle">Toca y desliza con ambos pulgares a la vez para formar una palabra</string>
     <string name="typing_two_thumb_title">Escritura con dos pulgares</string>
     <string name="typing_two_thumb_word_end_all_up_label">Todos los pulgares arriba</string>
-    <string name="typing_two_thumb_word_end_info">Con el espacio, la palabra permanece abierta mientras tocas y deslizas, y el teclado la vuelve a leer después de cada uno. Toca el espacio o la puntuación para escribirla. Con todos los pulgares arriba, la palabra se escribe con un espacio tan pronto como ningún pulgar toca el teclado, como el deslizamiento ordinario, por lo que tus pulgares tienen que superponerse para compartir una palabra.</string>
     <string name="typing_two_thumb_word_end_space_label">Espacio</string>
     <string name="typing_two_thumb_word_end_subtitle">Lo que escribe la palabra que estás formando</string>
     <string name="typing_two_thumb_word_end_title">Terminar una palabra con dos pulgares</string>

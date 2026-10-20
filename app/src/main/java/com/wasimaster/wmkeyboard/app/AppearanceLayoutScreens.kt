@@ -2,7 +2,6 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import com.wasimaster.wmkeyboard.core.accessibility.ScreenContextService
 import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
 import com.wasimaster.wmkeyboard.core.settings.ArrowKey
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -13,9 +12,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.wasimaster.wmkeyboard.ime.KeyboardControls
-import androidx.compose.runtime.LaunchedEffect
-import android.provider.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -662,6 +658,7 @@ internal fun AppearanceToolboxSettings(
     val orderMoved = settings.watch { it.toolboxOrder != SettingsDefaults.toolboxOrder }
     val toolboxLayout = settings.watch { it.toolbox.layout }
     val paginate = settings.watch { it.toolbox.paginate }
+    val searchButtonOn = settings.watch { it.toolbox.searchButton }
     val toolboxMoved = settings.watch { s ->
         val d = SettingsDefaults
         s.toolbox != d.toolbox || s.toolboxColumns != d.toolboxColumns
@@ -775,6 +772,15 @@ internal fun AppearanceToolboxSettings(
                 default = SettingsDefaults.toolbox.searchButton,
             ) { scope.launch { repository.setToolboxSearchButton(it) } }
         }
+        item(visible = searchButtonOn) {
+            ToggleSetting(
+                R.string.appearance_toolbox_search_at_end_title,
+                stringResource(R.string.appearance_toolbox_search_at_end_subtitle),
+                settings.watch { it.toolbox.searchAtEnd },
+                info = stringResource(R.string.appearance_toolbox_search_at_end_info),
+                default = SettingsDefaults.toolbox.searchAtEnd,
+            ) { scope.launch { repository.setToolboxSearchAtEnd(it) } }
+        }
         // Drawn only once something has actually moved, like the group reset on
         // Layout & size. The order of the tools has its own reset above.
         item(visible = toolboxMoved) {
@@ -812,16 +818,9 @@ internal fun LayoutSettings(
     // What decides which rows the groups hold; each row reads its own value.
     val numberRow = settings.watch { it.numberRow }
     val symbolsReturn = settings.watch { it.layoutBehavior.symbolsReturnToLetters }
-    // The keyboard's shape as the rows below set it, pinned so it stays in
-    // view while they change (#43).
-    RegisterPinned {
-        MiniKeyboardPreview(
-            numberRow = settings.watch { it.numberRow },
-            globeAsEmoji = settings.watch { it.globeAsEmoji },
-            showGlobeKey = settings.watch { it.showGlobeKey },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    }
+    // No pinned sketch of the keyboard here any more (issue #769): it took a
+    // band of the screen and drew a board that was not the user's, and the
+    // keyboard test button on every screen (#412) shows the real one.
     // The grids themselves, first: which layout the keyboard draws is a bigger
     // question than how tall its keys are, and every row below this one is an
     // adjustment to whatever is chosen here. The whole group came off the
@@ -1643,20 +1642,6 @@ internal fun LayoutOneHandedSettings(
     val split = settings.watch { it.splitKeyboard }
     // Either orientation floating (#584) shows the panel's own rows.
     val floating = settings.watch { it.floatingFor(false) || it.floatingFor(true) }
-    // The floating keyboard button (#374) and the grant it cannot draw without.
-    val summonButton = settings.watch { it.summonButton.enabled }
-    // The floating AI button (#697), the same grant, and the screen reading
-    // that gives its chat something to be about.
-    val aiButton = settings.watch { it.summonButton.aiButton }
-    val overlayGranted = rememberGrantState { Settings.canDrawOverlays(it) }
-    val askOverlay = rememberDisclosedSpecialAccess(SpecialAccess.OVERLAY)
-    val screenReading = rememberGrantState { ScreenContextService.isEnabled(it) }
-    val askScreenReading = rememberDisclosedSpecialAccess(SpecialAccess.SCREEN_CONTENT)
-    // The keyboard only re-checks the grant when it next closes; coming back
-    // from the system screen with it is worth showing the button at once.
-    LaunchedEffect(summonButton, aiButton, overlayGranted) {
-        KeyboardControls.host?.syncSummonButton()
-    }
     SettingsGroup(
         stringResource(R.string.layout_one_handed_group_title),
         info = stringResource(R.string.layout_one_handed_caption),
@@ -1857,44 +1842,6 @@ internal fun LayoutOneHandedSettings(
                 info = stringResource(R.string.layout_persistent_info),
                 default = SettingsDefaults.persistentKeyboard,
             ) { scope.launch { repository.setPersistentKeyboard(it) } }
-        }
-        item {
-            ToggleSetting(
-                R.string.layout_summon_button_title,
-                stringResource(R.string.layout_summon_button_subtitle),
-                summonButton,
-                info = stringResource(R.string.layout_summon_button_info),
-                default = SettingsDefaults.summonButton.enabled,
-            ) { on ->
-                scope.launch { repository.setSummonButton(on) }
-                // The disclosure, then Android's own switch. The setting is
-                // kept either way, so granting later is all it takes.
-                if (on && !overlayGranted) askOverlay()
-            }
-        }
-        item {
-            ToggleSetting(
-                R.string.layout_ai_button_title,
-                stringResource(R.string.layout_ai_button_subtitle),
-                aiButton,
-                info = stringResource(R.string.layout_ai_button_info),
-                default = SettingsDefaults.summonButton.aiButton,
-            ) { on ->
-                scope.launch { repository.setAiButton(on) }
-                if (on && !overlayGranted) askOverlay()
-            }
-        }
-        item(visible = aiButton && overlayGranted && !screenReading && ChannelFeatures.SCREEN_CONTEXT) {
-            NavRow(
-                R.string.layout_ai_button_screen_title,
-                subtitle = stringResource(R.string.layout_ai_button_screen_subtitle),
-            ) { askScreenReading() }
-        }
-        item(visible = (summonButton || aiButton) && !overlayGranted) {
-            NavRow(
-                R.string.layout_summon_button_permission_title,
-                subtitle = stringResource(R.string.layout_summon_button_permission_subtitle),
-            ) { askOverlay() }
         }
     }
 }

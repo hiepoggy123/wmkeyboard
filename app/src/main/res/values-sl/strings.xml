@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Prilepite povezavo in pritisnite enter, da jo odprete, ali prilepite več izrezkov s presledkom ali novo vrstico med njimi, ne da bi se vrnili na tipkovnico. ABC se vrne na črke. Če ste spremenili postavitev plošče, ta nastavitev ne naredi ničesar: namesto tega dodajte tipke v urejevalniku postavitve. Vrstica ni prikazana, medtem ko je odložišče zloženo nad tipkami. Ta nastavitev je privzeto izklopljena.</string>
     <string name="clipboard_key_row_subtitle">Vrstica tipk vzdolž dna plošče odložišča</string>
     <string name="clipboard_key_row_title">Tipke ABC, presledek in vnos</string>
-    <string name="clipboard_line_spacing_info">Pri 100 % so vrstice izrezka tako blizu, kot dovoljuje pisava. Povečajte vrednost, da jih razmaknete. Privzeta vrednost je 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Pri 100 % so vrstice izrezka tako blizu, kot dovoljuje pisava. Povečajte vrednost, da jih razmaknete. Privzeta vrednost je 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Razmik med vrsticami besedila izrezka</string>
     <string name="clipboard_line_spacing_title">Razmik med vrsticami</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">Bela</string>
     <string name="import_sticker_editor_border_width_label">Širina obrobe</string>
     <string name="import_sticker_editor_brush_size_label">Velikost čopiča</string>
-    <string name="import_sticker_editor_caption">Tipkovnica shrani nalepko velikosti 512 x 512. Premaknite in povečajte sliko, da izberete del, ki ga želite obdržati, nato odstranite ozadje in dodajte obrobo. Aplikacija hrani to sliko v telefonu, tako da lahko nalepko pozneje znova uredite.</string>
     <string name="import_sticker_editor_crop_action">Obreži</string>
-    <string name="import_sticker_editor_crop_hint">Povlecite za premikanje slike. Povečajte s ščipanjem.</string>
     <string name="import_sticker_editor_cutout_action">Odstrani ozadje</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Najprej pridobite odstranjevalec ozadja. Prenos meri 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Aplikacija pridobiva orodje za odstranjevanje ozadja...</string>
@@ -3521,7 +3519,6 @@
     <string name="layout_editor_alternate_columns_default">Iz nastavitev</string>
     <string name="layout_editor_alternate_columns_subtitle">Koliko alternativ ta tipka postavi v vrstico</string>
     <string name="layout_editor_alternate_columns_title">Stolpci v pojavnem oknu</string>
-    <string name="layout_editor_alternate_hint_badge">namig</string>
     <string name="layout_editor_alternates_field_hint">Vnose ločite s presledki, tako da nadomestni znak ne more biti presledek. Vnosi z več kot enim znakom, kot je .com, so pravilni. Aplikacija prvega tudi nariše v kotu tipke.</string>
     <string name="layout_editor_alternates_field_label">Alternative za dolg pritisk</string>
     <string name="layout_editor_apply_action">Uporabi</string>
@@ -3617,7 +3614,6 @@
     <string name="layout_editor_field_row_title">Komponenta</string>
     <string name="layout_editor_fill_row_action">Zapolni vrstico (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Številčna vrstica že prikazuje števke, zato tipkovnica prikaže to vrstico namesto prve vrstice te plasti.</string>
-    <string name="layout_editor_fill_row_off_caption">Ko je vklopljena Številčna vrstica, tipkovnica prikaže to vrstico namesto prve vrstice te plasti, ker številčna vrstica že prikazuje števke. Številčna vrstica je trenutno izklopljena.</string>
     <string name="layout_editor_fill_row_title">Vrstica namesto števk</string>
     <string name="layout_editor_fit_row_action">Prilagodi vrstico mreži (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Brez potega v to smer. Tapnite za izbiro dejanja.</string>
@@ -3792,8 +3788,6 @@
     <string name="layout_editor_new_secondary_title">Začni sekundarno postavitev</string>
     <string name="layout_editor_not_live_caption">Vaše spremembe tukaj ne vplivajo na tipkanje, dokler ne vklopite postavitve v razdelku Jeziki.</string>
     <string name="layout_editor_number_row_caption">Tipkovnica prikaže to vrstico nad to plastjo. Tapnite tipko, da jo spremenite. Pridržite tipko in jo povlecite, da jo premaknete.</string>
-    <string name="layout_editor_number_row_hidden_caption">Tipkovnica prikaže to vrstico nad to plastjo, ko je v razdelku Postavitev in velikost vklopljena možnost Številčna vrstica v simbolih. Trenutno je izklopljena.</string>
-    <string name="layout_editor_number_row_off_caption">Tipkovnica prikaže to vrstico nad to plastjo, ko je v razdelku Postavitev in velikost vklopljena možnost Številčna vrstica. Številčna vrstica je trenutno izklopljena.</string>
     <string name="layout_editor_number_row_title">Številčna vrstica</string>
     <string name="layout_editor_panel_inherited_caption">Ta postavitev uporablja skupno ploščo %1$s. Sprememba česar koli tukaj ustvari kopijo samo za to postavitev. Skupna plošča je pod Postavitve tipk, Postavitve plošč.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Podeduj temo postavitve</string>
@@ -3996,11 +3990,8 @@
     <string name="layout_split_spacebar_title">Razdeli preslednico</string>
     <string name="layout_split_subtitle">Razdeli tipke na levo in desno polovico</string>
     <string name="layout_split_title">Razdeljena tipkovnica</string>
-    <string name="layout_summon_button_info">Ko je tipkovnica zaprta, majhen okrogel gumb lebdi nad vsako aplikacijo. Tapnite ga in tipkovnica se odpre, tudi na zaslonu brez besedilnega polja, in ostane odprta, dokler je ne zaprete. Tipke nato pošiljajo znake v aplikacijo kot pritiski tipk, enako kot pri možnosti »Obdrži tipkovnico na zaslonu«. Povlecite gumb, da ga premaknete; zasidra se ob bližnji rob. Pritisnite in pridržite ga, da ga skrijete do naslednjega odprtja tipkovnice. Zahteva dovoljenje Androida za prikaz nad drugimi aplikacijami.</string>
     <string name="layout_summon_button_permission_subtitle">Gumb se ne more prikazati, dokler ga Android ne dovoli</string>
     <string name="layout_summon_button_permission_title">Dovoli prikaz nad drugimi aplikacijami</string>
-    <string name="layout_summon_button_subtitle">Gumb nad drugimi aplikacijami, ki odpre tipkovnico, s poljem za besedilo ali brez njega</string>
-    <string name="layout_summon_button_title">Gumb za lebdečo tipkovnico</string>
     <string name="layout_swap_comma_globe_info">Tipki na obeh straneh preslednice zamenjata mesti. Če je ena od njiju tipka za emojije, se premakne na zunanji položaj, vejica pa ostane ob preslednici. Izklopite to, da dobite običajni vrstni red.</string>
     <string name="layout_swap_comma_globe_subtitle">Postavite vejico poleg preslednice</string>
     <string name="layout_swap_comma_globe_title">Zamenjaj tipki za vejico in 🌐</string>
@@ -5819,7 +5810,6 @@
     <string name="search_kw_layout_show_globe">skrij odstrani jezik globusa</string>
     <string name="search_kw_layout_size_position">spremeni velikost skrči kompaktno povečaj</string>
     <string name="search_kw_layout_split">ergonomska tablica za palce</string>
-    <string name="search_kw_layout_summon_button">mehurček prekrivanje prikaži priklic brez polja hekerji</string>
     <string name="search_kw_layout_symbols_numpad_key">številska tipkovnica tipkovnica številčnica 1234 gboard</string>
     <string name="search_kw_learnedcorrections">naučeni popravki, moji popravki, pari tipkarskih napak, naučeni popravki, učenje samodejnega popravljanja, spodrsljaji, navade</string>
     <string name="search_kw_licenses">odprta koda, navedba avtorstva, zasluge</string>
@@ -5858,7 +5848,7 @@
     <string name="search_kw_translate_engine">brez povezave zasebno internet letalo lokalna naprava ml kit google prenos modela oblak</string>
     <string name="search_kw_translate_models">prenos modela za prevajanje brez povezave izbris shramba ml kit google</string>
     <string name="search_kw_translate_only_downloaded">skrij filter meni za izbiro modela brez povezave seznam jezikov kratek</string>
-    <string name="search_kw_translate_server">openai združljiv samogostujoč lokalni llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai združljiv samogostujoč lokalni llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">preverjanje črkovanja, samodejno dokončanje, predvidevanje besedila, drsenje, drsno tipkanje, kretnje, stiki, razveljavi</string>
     <string name="search_kw_typing_auto_capitalize">samodejna velika začetnica samodejno pisanje z veliko začetnico</string>
     <string name="search_kw_typing_auto_close_brackets">samodejno zapiranje parov oklepajev ujemanje oklepajev dokončanje zapiranja</string>
@@ -6829,7 +6819,6 @@
     <string name="theme_parts_strip_subtitle">Polnilo traku, barve besed in velikost</string>
     <string name="theme_parts_toolbar_subtitle">Polnila orodij, ikone, oblika, obroba</string>
     <string name="theme_pick_hint">Pritisnite tipko, orodje ali trak</string>
-    <string name="theme_pick_start_desc">Izberite del tipkovnice za oblikovanje</string>
     <string name="theme_pick_start_subtitle">Pritisnite tipko, orodje ali vrstico s predlogi na predogledu, da ga oblikujete</string>
     <string name="theme_pick_start_title">Izberite na tipkovnici</string>
     <string name="theme_pick_strip_sample_words">Pozdravljeni,Hvala,V redu</string>
@@ -7655,12 +7644,6 @@
     <string name="tooldetail_ocr_info">Prepoznavanje poteka v vaši napravi z ML Kit. Nobena fotografija in nobeno besedilo ne zapusti vaše naprave in deluje brez povezave. Bere besedilo v latinični pisavi, na primer angleščino. Prepoznavalnik besedila ML Kit še ne podpira bengalščine. Po zajemu pritisnite besede, da izberete točno to, kar tipkovnica vtipka ali kopira.</string>
     <string name="tooldetail_ocr_online_group">Spletni bralnik besedila</string>
     <string name="tooldetail_ocr_online_info">Fotografija gre do modela, ki zna brati slike, na naslovu, ki ga izberete, in model zapiše besedilo, ki ga vidi. Bere katero koli pisavo in ne potrebuje jezikovnih podatkov. Deluje katera koli storitev z API-jem, združljivim z OpenAI: OpenAI, OpenRouter, Gemini, Mistral ali model na vašem računalniku z Ollama ali LM Studio. Vsako skeniranje pošlje fotografijo tej storitvi in storitev lahko to zaračuna.</string>
-    <string name="tooldetail_ocr_online_key_hint">Pustite prazno za strežnik, ki ne zahteva ključa</string>
-    <string name="tooldetail_ocr_online_key_label">Ključ API</string>
-    <string name="tooldetail_ocr_online_model_hint">Model, ki bere slike, na primer gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_url_hint">Na primer https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Naslov</string>
     <string name="tooldetail_ocr_packs_header">Jeziki Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract bere jezik šele, ko so podatki za ta jezik v vaši napravi. Za vsak jezik, v katerem tipkate, je potreben en prenos, od 0,4 MB do 12 MB. Podatki prihajajo iz nabora tessdata_fast projekta Tesseract na GitHubu. Jezik lahko prenesete tudi iz samega optičnega bralnika.</string>
     <string name="tooldetail_ocr_packs_none_info">Noben od jezikov, ki ste jih vklopili, nima podatkov Tesseract. Dodajte jezik na zaslonu Jeziki. Njegovi podatki se bodo nato prikazali tukaj.</string>
@@ -8793,11 +8776,9 @@
     <string name="typing_trail_opacity_title">Motnost sledi</string>
     <string name="typing_trail_width_subtitle">Debelina sledi drsenja</string>
     <string name="typing_trail_width_title">Širina sledi</string>
-    <string name="typing_two_thumb_info">Uporabite oba palca hkrati. Vsak palec lahko tapne ali podrsne, hkrati z drugim, in vsak tap ali podrs prispeva k isti besedi. Na primer, tapnite S z levim palcem, podrsnite O do M z desnim, tapnite E z levim, nato podrsnite T H I N G z desnim in dobili boste nekaj. Tap, ki se zgodi, medtem ko drugi palec še drsi, se v besedo vpiše na tisti točki, zato podrs čez H E L O in tap na L dasta hello. Vračalka odstrani zadnji tap ali podrs iz besede.</string>
     <string name="typing_two_thumb_subtitle">Tapnite in povlecite z obema palcema hkrati, da sestavite besedo</string>
     <string name="typing_two_thumb_title">Tipkanje z dvema palcema</string>
     <string name="typing_two_thumb_word_end_all_up_label">Vsi palci gor</string>
-    <string name="typing_two_thumb_word_end_info">S presledkom beseda ostane odprta, medtem ko tapkate in vlečete, tipkovnica pa jo po vsakem dejanju znova prebere. Tapnite presledek ali ločilo, da ga vnesete. Ko dvignete vse palce, se beseda vpiše s presledkom takoj, ko noben palec ne zaznava tipkovnice, kot pri običajnem drsenju, zato se morata palca prekrivati, da si delita besedo.</string>
     <string name="typing_two_thumb_word_end_space_label">Presledek</string>
     <string name="typing_two_thumb_word_end_subtitle">Kaj natipka besedo, ki jo sestavljate</string>
     <string name="typing_two_thumb_word_end_title">Dokončaj besedo z dvema palcema</string>

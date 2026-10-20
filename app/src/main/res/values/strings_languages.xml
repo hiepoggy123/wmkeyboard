@@ -131,6 +131,13 @@
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_conjunct_backspace_info">Backspace usually deletes one code point at a time. This sometimes leaves half-formed clusters on the screen. With this setting on, one press deletes the whole cluster while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>. Other languages keep their own setting.</string>
 
+    <string name="languages_autocorrect_group">Autocorrect</string>
+    <string name="languages_autocorrect_title">Autocorrect this language</string>
+    <string name="languages_autocorrect_subtitle">Fix typos when you press space</string>
+    <string name="languages_autocorrect_global_off_subtitle">Autocorrect is off for all languages in Typing</string>
+    <!-- %1$s is the English name of the language, for example "Bengali". -->
+    <string name="languages_autocorrect_info">Turn this off to keep each word you type in <xliff:g id="language" example="Bengali">%1$s</xliff:g> as you typed it, while other languages are still corrected. The suggestion strip still shows its suggestions, and you can tap one. The autocorrect switch in Typing turns autocorrect off for all languages.</string>
+
     <string name="languages_spelling_map_title">Spellings</string>
     <string name="languages_spelling_map_row_title">Use known spellings</string>
     <string name="languages_spelling_map_row_subtitle">Type "tmr" to get তোমার, and "table" to get টেবিল</string>
@@ -212,6 +219,10 @@
     <string name="languages_phonetic_strip_fixed_subtitle">What you typed first, the <xliff:g id="language" example="Bengali">%1$s</xliff:g> word next, then suggestions</string>
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_phonetic_strip_fixed_info">Usually the first word on the strip is the word that the space bar will write, so the words move as you type.\n\nWith this on, the first two words always stay in the same place. On the left is what you typed, in English letters. Next to it is the <xliff:g id="language" example="Bengali">%1$s</xliff:g> that the phonetic rules make from it, letter for letter. The suggestions come after them. Tap the left word to write in English, or the word next to it to write the exact <xliff:g id="language" example="Bengali">%1$s</xliff:g> reading.\n\nThe space bar does not change: it writes the same word as before. That word shows in bold, and in the autocorrect word color if you set one. The strip does not put a word in the middle on this layout, so that the left word is always first.</string>
+    <!-- Khipro layouts: a strip chip with the keys exactly as pressed (#772). -->
+    <string name="languages_raw_keys_chip_title">Show the keys you pressed</string>
+    <string name="languages_raw_keys_chip_subtitle">prshn/ next to প্রশ্ন on the strip</string>
+    <string name="languages_raw_keys_chip_info">Khipro keys such as f and / change the letters before them, so the word on the strip does not always show which keys you pressed.\n\nWith this on, the second word on the strip is the keys exactly as you pressed them, modifiers included. Tap it to write those keys as they are, in English letters. The space bar does not change: it writes the Bengali word.\n\nWith this off, the keys show only when they are all letters and English is mixed in on the layout, for English words that the dictionary does not know.</string>
     <string name="languages_phonetic_strip_source_title">Suggestions after them</string>
     <string name="languages_phonetic_strip_source_subtitle">Which language fills the rest of the strip</string>
     <string name="languages_phonetic_strip_source_smart_label">Smart</string>

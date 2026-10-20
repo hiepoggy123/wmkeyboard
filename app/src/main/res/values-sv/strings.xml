@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Klistra in en länk och tryck på retur för att gå till den, eller klistra in fler klipp med ett mellanslag eller en ny rad mellan dem, utan att gå tillbaka till tangentbordet. ABC går tillbaka till bokstäverna. Om du ändrade panelens layout gör den här inställningen ingenting: lägg till tangenterna i layoutredigeraren istället. Raden visas inte medan urklipp ligger staplat över tangenterna. Den här inställningen är avstängd som standard.</string>
     <string name="clipboard_key_row_subtitle">En rad tangenter längs nederkanten av urklippspanelen</string>
     <string name="clipboard_key_row_title">ABC-, mellanslags- och returtangenter</string>
-    <string name="clipboard_line_spacing_info">Vid 100 % sitter raderna i ett klipp så tätt som teckensnittet tillåter. Höj värdet för att sprida ut dem. Standardvärdet är 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Vid 100 % sitter raderna i ett klipp så tätt som teckensnittet tillåter. Höj värdet för att sprida ut dem. Standardvärdet är 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Avståndet mellan raderna i en urklippstext</string>
     <string name="clipboard_line_spacing_title">Radavstånd</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">Vit</string>
     <string name="import_sticker_editor_border_width_label">Kantbredd</string>
     <string name="import_sticker_editor_brush_size_label">Penselstorlek</string>
-    <string name="import_sticker_editor_caption">Tangentbordet sparar en 512x512-dekal. Flytta och nyp i bilden för att välja den del som ska behållas, ta sedan bort bakgrunden och lägg till en kantlinje. Appen behåller bilden på telefonen så att du kan redigera dekalen igen senare.</string>
     <string name="import_sticker_editor_crop_action">Beskär</string>
-    <string name="import_sticker_editor_crop_hint">Dra för att flytta bilden. Nyp för att göra den större.</string>
     <string name="import_sticker_editor_cutout_action">Ta bort bakgrunden</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Hämta bakgrundsborttagaren först. Det är en nedladdning på 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Appen hämtar bakgrundsborttagaren…</string>
@@ -3520,7 +3518,6 @@
     <string name="layout_editor_alternate_columns_default">Från inställningar</string>
     <string name="layout_editor_alternate_columns_subtitle">Hur många alternativ den här tangenten placerar på en rad</string>
     <string name="layout_editor_alternate_columns_title">Kolumner i popup-fönstret</string>
-    <string name="layout_editor_alternate_hint_badge">tips</string>
     <string name="layout_editor_alternates_field_hint">Separera posterna med mellanslag, så att ett alternativ inte kan vara ett mellanslag. Poster med mer än ett tecken, som .com, är korrekta. Appen ritar också den första i hörnet av tangenten.</string>
     <string name="layout_editor_alternates_field_label">Alternativ för tryck och håll</string>
     <string name="layout_editor_apply_action">Verkställ</string>
@@ -3616,7 +3613,6 @@
     <string name="layout_editor_field_row_title">Komponent</string>
     <string name="layout_editor_fill_row_action">Fyll raden (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Sifferraden visar redan siffrorna, så tangentbordet visar den här raden istället för den första raden i det här lagret.</string>
-    <string name="layout_editor_fill_row_off_caption">När sifferraden är aktiverad visar tangentbordet den här raden istället för den första raden i det här lagret, eftersom sifferraden redan visar siffrorna. Sifferraden är avstängd nu.</string>
     <string name="layout_editor_fill_row_title">Rad istället för siffrorna</string>
     <string name="layout_editor_fit_row_action">Anpassa raden till rutnätet (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Inget svep åt detta håll. Tryck för att välja en åtgärd.</string>
@@ -3791,8 +3787,6 @@
     <string name="layout_editor_new_secondary_title">Starta en sekundär layout</string>
     <string name="layout_editor_not_live_caption">Dina ändringar här påverkar inte skrivandet förrän du aktiverar layouten under Språk.</string>
     <string name="layout_editor_number_row_caption">Tangentbordet visar den här raden ovanför det här lagret. Tryck på en tangent för att ändra den. Håll ned en tangent och dra den för att flytta den.</string>
-    <string name="layout_editor_number_row_hidden_caption">Tangentbordet visar den här raden ovanför det här lagret när sifferraden i symboler är aktiverad under Layout och storlek. Den är avstängd nu.</string>
-    <string name="layout_editor_number_row_off_caption">Tangentbordet visar den här raden ovanför det här lagret när sifferraden är aktiverad under Layout och storlek. Sifferraden är avstängd nu.</string>
     <string name="layout_editor_number_row_title">Sifferrad</string>
     <string name="layout_editor_panel_inherited_caption">Den här layouten använder den delade %1$s-panelen. Att ändra något här skapar en kopia endast för den här layouten. Den delade panelen finns under Tangentlayouter, Panellayouter.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Ärv layoutens tema</string>
@@ -3995,11 +3989,8 @@
     <string name="layout_split_spacebar_title">Dela mellanslagstangenten</string>
     <string name="layout_split_subtitle">Dela upp tangenterna i en vänsterhalva och en högerhalva</string>
     <string name="layout_split_title">Delat tangentbord</string>
-    <string name="layout_summon_button_info">När tangentbordet är stängt flyter en liten rund knapp över varje app. Tryck på den så öppnas tangentbordet, även på en skärm utan textfält, och förblir öppet där tills du stänger det. Tangenttryckningar når sedan appen som tangenttryckningar, precis som med \"Behåll tangentbordet på skärmen\". Dra i knappen för att flytta den; den lägger sig mot närmaste sida. Tryck och håll ned den för att dölja den tills tangentbordet öppnas nästa gång. Kräver Androids behörighet \"Visa över andra appar\".</string>
     <string name="layout_summon_button_permission_subtitle">Knappen kan inte visas förrän Android tillåter det</string>
     <string name="layout_summon_button_permission_title">Tillåt visning ovanpå andra appar</string>
-    <string name="layout_summon_button_subtitle">En knapp över andra appar som öppnar tangentbordet, med eller utan ett textfält</string>
-    <string name="layout_summon_button_title">Knapp för flytande tangentbord</string>
     <string name="layout_swap_comma_globe_info">De två tangenterna på vardera sida om mellanslagstangenten byter plats. Om en av dem är en emojitangent flyttas den till den yttre positionen och kommatecknet stannar kvar bredvid mellanslagstangenten. Stäng av detta för att få den vanliga ordningen.</string>
     <string name="layout_swap_comma_globe_subtitle">Placera kommatecknet bredvid mellanslagstangenten</string>
     <string name="layout_swap_comma_globe_title">Byt plats på komma- och 🌐-tangenterna</string>
@@ -5819,7 +5810,6 @@
     <string name="search_kw_layout_show_globe">dölj ta bort jordglob språk</string>
     <string name="search_kw_layout_size_position">ändra storlek krymp kompakt växa</string>
     <string name="search_kw_layout_split">ergonomisk tumlayout för surfplatta</string>
-    <string name="search_kw_layout_summon_button">bubbelöverlägg visa summon fältlösa hackers</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad knappsats sifferplatta 1234 gboard</string>
     <string name="search_kw_learnedcorrections">inlärda rättelser, mina korrigeringar, stavfelspar, inlärda rättelser, autokorrigeringsinlärning, slarvfel, vanor</string>
     <string name="search_kw_licenses">öppen källkod, erkännande, krediter</string>
@@ -5858,7 +5848,7 @@
     <string name="search_kw_translate_engine">offline privat internet flygplansläge lokal enhet ml kit google model nedladdning moln</string>
     <string name="search_kw_translate_models">offline översättningsmodell ladda ner ta bort lagring ml kit google</string>
     <string name="search_kw_translate_only_downloaded">dölj filter för offline-modellväljare menyspråklista kort</string>
-    <string name="search_kw_translate_server">openai kompatibel självhostad hostad lokal llm ai modell ollama llama studio vllm localai chattkompletteringar</string>
+    <string name="search_kw_translate_server">openai kompatibel självhostad hostad lokal llm ai modell ollama llama studio vllm localai chattkompletteringar mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">stavningskontroll, autokomplettering, förutseende text, glidskrift, svepskrift, gester, kontakter, ångra</string>
     <string name="search_kw_typing_auto_capitalize">autokapitalisering autostor bokstav</string>
     <string name="search_kw_typing_auto_close_brackets">autostäng par parenteser klammerparenteser parentesmatchning komplett stängning</string>
@@ -6831,7 +6821,6 @@
     <string name="theme_parts_strip_subtitle">Fältfyllning, ordfärger och storlek</string>
     <string name="theme_parts_toolbar_subtitle">Verktygsfyllningar, ikoner, form, kant</string>
     <string name="theme_pick_hint">Tryck på en tangent, ett verktyg eller listen</string>
-    <string name="theme_pick_start_desc">Välj en del av tangentbordet att styla</string>
     <string name="theme_pick_start_subtitle">Tryck på en tangent, ett verktyg eller förslagsfältet i förhandsgranskningen för att styla det</string>
     <string name="theme_pick_start_title">Välj på tangentbordet</string>
     <string name="theme_pick_strip_sample_words">Hej,Tack,Okej</string>
@@ -7658,12 +7647,6 @@
     <string name="tooldetail_ocr_info">Igenkänning körs på din enhet med ML Kit. Inget foto och ingen text lämnar din enhet, och det fungerar offline. Den läser text med latinska tecken, till exempel engelska. Textigenkännaren i ML Kit stöder ännu inte bengali. Efter en tagning, tryck på ord för att välja exakt vad tangentbordet skriver eller kopierar.</string>
     <string name="tooldetail_ocr_online_group">Textläsare online</string>
     <string name="tooldetail_ocr_online_info">Fotot skickas till en modell som kan läsa bilder, på en adress du väljer, och modellen skriver ut texten den ser. Den läser alla skript och behöver ingen språkdata. Alla tjänster med ett OpenAI-kompatibelt API fungerar: OpenAI, OpenRouter, Gemini, Mistral eller en modell på din egen dator med Ollama eller LM Studio. Varje skanning skickar fotot till den tjänsten, och tjänsten kan ta betalt för det.</string>
-    <string name="tooldetail_ocr_online_key_hint">Lämna tomt för en server som inte kräver någon nyckel</string>
-    <string name="tooldetail_ocr_online_key_label">API-nyckel</string>
-    <string name="tooldetail_ocr_online_model_hint">En modell som läser bilder, till exempel gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modell</string>
-    <string name="tooldetail_ocr_online_url_hint">Till exempel https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adress</string>
     <string name="tooldetail_ocr_packs_header">Tesseract-språk</string>
     <string name="tooldetail_ocr_packs_info">Tesseract läser ett språk först efter att data för språket finns på din enhet. Det finns en nedladdning för varje språk du skriver på, från 0,4 MB till 12 MB. Datan kommer från tessdata_fast-uppsättningen i Tesseract-projektet på GitHub. Du kan också ladda ner ett språk direkt från skannern.</string>
     <string name="tooldetail_ocr_packs_none_info">Inget av språken du aktiverat har Tesseract-data. Lägg till ett språk på skärmen Språk. Dess data visas sedan här.</string>
@@ -8797,11 +8780,9 @@
     <string name="typing_trail_opacity_title">Spårets opacitet</string>
     <string name="typing_trail_width_subtitle">Tjocklek på glidspåret</string>
     <string name="typing_trail_width_title">Spårbredd</string>
-    <string name="typing_two_thumb_info">Använd båda tummarna samtidigt. Varje tumme kan trycka eller svepa, samtidigt som den andra, och varje tryckning och svep läggs till i samma ord. Till exempel, tryck på S med vänster tumme, svep O till M med höger, tryck på E med vänster, svep sedan T H I N G med höger, så får du något. Ett tryck som landar medan den andra tummen fortfarande sveper hamnar i ordet vid den punkten, så ett svep över H E L O och ett tryck på L ger hello. Backsteg tar bort den senaste tryckningen eller svepet från ordet.</string>
     <string name="typing_two_thumb_subtitle">Tryck och svep med båda tummarna samtidigt för att bygga ett ord</string>
     <string name="typing_two_thumb_title">Skriva med två tummar</string>
     <string name="typing_two_thumb_word_end_all_up_label">Tummen upp för allt</string>
-    <string name="typing_two_thumb_word_end_info">Med mellanslag förblir ordet öppet medan du trycker och sveper, och tangentbordet läser det igen efter varje tryck. Tryck på mellanslag eller skiljetecken för att skriva det. När du lyfter båda tummarna skrivs ordet med ett mellanslag så fort ingen tumme rör vid tangentbordet, precis som vid vanlig svepskrivning, så dina tummar måste överlappa för att dela på ett ord.</string>
     <string name="typing_two_thumb_word_end_space_label">Blanksteg</string>
     <string name="typing_two_thumb_word_end_subtitle">Vad som skriver ordet du bygger</string>
     <string name="typing_two_thumb_word_end_title">Avsluta ett tvåtumsord</string>

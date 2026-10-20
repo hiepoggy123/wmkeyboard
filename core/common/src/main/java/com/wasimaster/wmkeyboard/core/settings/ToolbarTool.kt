@@ -117,6 +117,12 @@ enum class ToolbarTool {
     // before the first unlock, but the panel itself waits for the unlock like
     // the other tools that keep files.
     CLOCK,
+    // The user's Home Assistant from the keyboard: rooms of tiles for lights,
+    // switches, covers, climate, media, locks, scenes and sensors, live over
+    // its WebSocket, plus a typed Assist command bar. Talks only to the
+    // server the user signed in to. Needs the token, which is in
+    // credential-encrypted storage, so not before the first unlock.
+    HOME_ASSISTANT,
     // The phone's photos and videos inside the keyboard, Telegram's attach
     // sheet: albums, multi-select, a viewer, an editor, and a send that hands
     // the app only a copy of what was picked (#708). Play builds open
@@ -125,6 +131,21 @@ enum class ToolbarTool {
     // The next language, as the 🌐 key switches it (issue #667): for a bottom
     // row with no globe key, or one whose globe sits where a comma is meant.
     LANGUAGE,
+    // The clipboard opened straight into its search (#612). Action-only: for
+    // a flick, a key or a hold, never a toolbar tile; see [ActionOnlyTools].
+    CLIPBOARD_SEARCH,
+    // The row of the latest copies on the suggestion strip (#612), up until a
+    // key is typed. Action-only, like [CLIPBOARD_SEARCH]: bound to the Copy
+    // tool's hold, it is the last few copies one press away.
+    RECENT_COPIES,
+    // A piece of text written out many times: "ha" fifty times, a numbered
+    // list of one line, "no" with its last letter stretched. Opened by its
+    // chip when the same thing has just been typed a few times in a row.
+    TEXT_REPEAT,
+    // Files to other people (#729): encrypted on the phone and uploaded to a Send
+    // instance as a link with an expiry, a download limit and a password, or
+    // straight to a device nearby over Wi-Fi. Receives both kinds too.
+    SEND_FILES,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -200,6 +221,9 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     // Reads and edits only the field. Its search history is credential-
     // protected and simply reads empty before the first unlock.
     ToolbarTool.FIND_REPLACE,
+    // Writes into the field only; its recent texts are credential-protected
+    // and read empty before the first unlock, like Find and replace's history.
+    ToolbarTool.TEXT_REPEAT,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Copy and cut only touch the field the user is already typing in. Paste is
@@ -233,6 +257,7 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
     ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.LANGUAGE,
+    ToolbarTool.RECENT_COPIES,
     -> false
     // The cursor moves nudge the caret and nothing else, and the clipboard trio
     // acts on the selection in place.
@@ -263,12 +288,23 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 val OptInOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.LEARN_FROM_TEXT)
 
 /**
+ * Tools that are only ever something a gesture does: a flick arm, a key or its
+ * long press, a toolbar button's hold, the floating button. They never sit on
+ * the toolbar or in the toolbox, have no page on the Tools screen and are
+ * never "enabled": the pickers for those bindings are where they live. The
+ * bindings run through paths that skip the enabled-tools test, so they fire
+ * regardless.
+ */
+val ActionOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES)
+
+/**
  * The "Everything" preset, and the enabled-tools default before setup swaps
- * it for a persona's set: every tool except [OptInOnlyTools]. Onboarding
+ * it for a persona's set: every tool except [OptInOnlyTools] and [ActionOnlyTools]
+ * (declared above it, since top-level initialisation runs in file order). Onboarding
  * compares the stored set against this one to tell an untouched default from
  * a user's own choice.
  */
-val EverythingTools: List<ToolbarTool> = ToolbarTool.entries.filterNot { it in OptInOnlyTools }
+val EverythingTools: List<ToolbarTool> = ToolbarTool.entries.filterNot { it in OptInOnlyTools || it in ActionOnlyTools }
 
 /**
  * The onboarding starting selection for the "keep it simple" persona: what a
@@ -308,8 +344,10 @@ val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
     ToolbarTool.MODES,
     ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY,
-    ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION,
-    ToolbarTool.MEDIA_CONTROL, ToolbarTool.KDE_CONNECT, ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.PASSWORD_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER,
+    ToolbarTool.LOCATION,
+    ToolbarTool.MEDIA_CONTROL, ToolbarTool.KDE_CONNECT, ToolbarTool.HOME_ASSISTANT, ToolbarTool.SEND_FILES,
+    ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
 )
 
 /**
@@ -334,7 +372,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.LANGUAGE,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
-    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
+    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push
     // every other tool a full row down in the toolbox.
@@ -345,6 +383,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE,
     ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
+    ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES,
 )
 
 /**

@@ -1151,7 +1151,7 @@
     <string name="clipboard_key_row_info">リンクを貼り付けてEnterキーを押すとそのページに移動します。また、キーボードに戻ることなく、スペースや改行で区切って複数のクリップを貼り付けることもできます。「ABC」で文字入力に戻ります。パネルレイアウトを変更した場合、この設定は機能しません。代わりにレイアウトエディタでキーを追加してください。クリップボードがキーの上に重なっている間、この行は表示されません。この設定はデフォルトでオフになっています。</string>
     <string name="clipboard_key_row_subtitle">クリップボードパネルの下部に沿ったキーの列</string>
     <string name="clipboard_key_row_title">ABC、スペース、Enterキー</string>
-    <string name="clipboard_line_spacing_info">100%に設定すると、クリップの行間はフォントが許容する最小の間隔になります。数値を上げると行間が広がります。デフォルトは130%です。</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100%に設定すると、クリップの行間はフォントが許容する最小の間隔になります。数値を上げると行間が広がります。デフォルトは130%です。</string>
     <string name="clipboard_line_spacing_subtitle">クリップのテキストの行間</string>
     <string name="clipboard_line_spacing_title">行間</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2396,9 +2396,7 @@
     <string name="import_sticker_editor_border_white_option">白</string>
     <string name="import_sticker_editor_border_width_label">枠線の幅</string>
     <string name="import_sticker_editor_brush_size_label">ブラシサイズ</string>
-    <string name="import_sticker_editor_caption">キーボードは512x512のステッカーを保存します。画像を移動・ピンチして残す部分を選択し、背景を削除して枠線を追加してください。アプリはこの画像をスマートフォン内に保持するため、後でステッカーを再編集できます。</string>
     <string name="import_sticker_editor_crop_action">切り抜き</string>
-    <string name="import_sticker_editor_crop_hint">ドラッグして画像を移動します。ピンチ操作で拡大します。</string>
     <string name="import_sticker_editor_cutout_action">背景を削除</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">先に背景削除ツールを取得してください。5MBのダウンロードが必要です。</string>
     <string name="import_sticker_editor_cutout_download_progress">アプリが背景削除ツールを取得しています…</string>
@@ -3513,7 +3511,6 @@
     <string name="layout_editor_alternate_columns_default">設定に従う</string>
     <string name="layout_editor_alternate_columns_subtitle">このキーが1行に配置する代替キーの数</string>
     <string name="layout_editor_alternate_columns_title">ポップアップ内の列数</string>
-    <string name="layout_editor_alternate_hint_badge">ヒント</string>
     <string name="layout_editor_alternates_field_hint">各項目をスペースで区切ってください（スペース自体は代替文字にできません）。.comのように2文字以上の項目も可能です。最初の項目はキーの隅に表示されます。</string>
     <string name="layout_editor_alternates_field_label">長押し時の代替キー</string>
     <string name="layout_editor_apply_action">適用</string>
@@ -3609,7 +3606,6 @@
     <string name="layout_editor_field_row_title">コンポーネント</string>
     <string name="layout_editor_fill_row_action">行を埋める (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">数字行にはすでに数字が表示されているため、キーボードはこのレイヤーの最初の行の代わりにこの行を表示します。</string>
-    <string name="layout_editor_fill_row_off_caption">数字行がオンの場合、数字行にはすでに数字が表示されているため、キーボードはこのレイヤーの最初の行の代わりにこの行を表示します。現在、数字行はオフになっています。</string>
     <string name="layout_editor_fill_row_title">数字の代わりの行</string>
     <string name="layout_editor_fit_row_action">行をグリッドに合わせる (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">この方向へのフリックはありません。タップしてアクションを選択してください。</string>
@@ -3784,8 +3780,6 @@
     <string name="layout_editor_new_secondary_title">セカンダリレイアウトを開始</string>
     <string name="layout_editor_not_live_caption">ここでの変更は、「言語」設定でレイアウトを有効にするまで入力には反映されません。</string>
     <string name="layout_editor_number_row_caption">キーボードはこのレイヤーの上にこの行を表示します。キーをタップして変更し、キーを長押ししてドラッグすると移動できます。</string>
-    <string name="layout_editor_number_row_hidden_caption">「レイアウトとサイズ」で「記号の数字行」がオンになっている場合、キーボードはこのレイヤーの上にこの行を表示します。現在はオフになっています。</string>
-    <string name="layout_editor_number_row_off_caption">「レイアウトとサイズ」で「数字行」がオンになっている場合、キーボードはこのレイヤーの上にこの行を表示します。現在、数字行はオフになっています。</string>
     <string name="layout_editor_number_row_title">数字行</string>
     <string name="layout_editor_panel_inherited_caption">このレイアウトは共有パネル %1$s を使用しています。ここで変更を行うと、このレイアウト専用のコピーが作成されます。共有パネルは「キーレイアウト」&gt;「パネルレイアウト」にあります。</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">レイアウトのテーマを継承</string>
@@ -3988,11 +3982,8 @@
     <string name="layout_split_spacebar_title">スペースバーを分割</string>
     <string name="layout_split_subtitle">キーを左右に分割します</string>
     <string name="layout_split_title">分割キーボード</string>
-    <string name="layout_summon_button_info">キーボードが閉じている間、小さな丸いボタンがすべてのアプリの上に浮かびます。それをタップすると、テキストフィールドがない画面でもキーボードが開き、閉じるまでそこに留まります。キーは「キーボードを画面に保持」と同じように、キー入力としてアプリに送信されます。ボタンをドラッグして移動すると、近い方の端に固定されます。長押しすると、次にキーボードが開くまで非表示になります。Androidの「他のアプリの上に表示」権限が必要です。</string>
     <string name="layout_summon_button_permission_subtitle">Androidの許可が得られるまでボタンは表示されません</string>
     <string name="layout_summon_button_permission_title">他のアプリの上に重ねて表示することを許可</string>
-    <string name="layout_summon_button_subtitle">他のアプリの上に表示され、テキストフィールドの有無にかかわらずキーボードを開くボタン</string>
-    <string name="layout_summon_button_title">フローティングキーボードボタン</string>
     <string name="layout_swap_comma_globe_info">スペースキーの両側にある 2 つのキーを入れ替えます。そのうちの 1 つが絵文字キーの場合、外側の位置に移動し、カンマはスペースキーの隣に残ります。通常の順序に戻すには、これをオフにしてください。</string>
     <string name="layout_swap_comma_globe_subtitle">カンマをスペースバーの隣に配置します</string>
     <string name="layout_swap_comma_globe_title">カンマキーと🌐キーを入れ替える</string>
@@ -5811,7 +5802,6 @@
     <string name="search_kw_layout_show_globe">地球儀言語アイコンを非表示にする</string>
     <string name="search_kw_layout_size_position">サイズ変更 縮小 コンパクト 拡大</string>
     <string name="search_kw_layout_split">親指 人間工学 タブレット</string>
-    <string name="search_kw_layout_summon_button">バブルオーバーレイでフィールドレスハッカーを呼び出す</string>
     <string name="search_kw_layout_symbols_numpad_key">テンキー キーパッド ダイヤルパッド 1234 gboard</string>
     <string name="search_kw_learnedcorrections">学習した修正, 自分の修正, タイプミス, 教えた修正, 自動修正の学習, 入力ミス, 癖</string>
     <string name="search_kw_licenses">オープンソース, 帰属表示, クレジット</string>
@@ -5850,7 +5840,7 @@
     <string name="search_kw_translate_engine">オフライン プライベート インターネット 機内モード ローカルデバイス ML Kit Google モデル ダウンロード クラウド</string>
     <string name="search_kw_translate_models">オフライン翻訳モデル ダウンロード 削除 ストレージ ML Kit Google</string>
     <string name="search_kw_translate_only_downloaded">オフラインモデル選択メニューのフィルターを非表示にする</string>
-    <string name="search_kw_translate_server">openai 互換 セルフホスト ホスト型 ローカル llm ai モデル ollama llama studio vllm localai チャット補完</string>
+    <string name="search_kw_translate_server">openai 互換 セルフホスト ホスト型 ローカル llm ai モデル ollama llama studio vllm localai チャット補完 mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">スペルチェック, 自動補完, 予測入力, グライド入力, スワイプ入力, ジェスチャー, 連絡先, 取り消し</string>
     <string name="search_kw_typing_auto_capitalize">自動大文字 自動キャピタライズ</string>
     <string name="search_kw_typing_auto_close_brackets">自動閉じ括弧 ペア 括弧 補完</string>
@@ -6821,7 +6811,6 @@
     <string name="theme_parts_strip_subtitle">塗りつぶし、単語の色、サイズを削除</string>
     <string name="theme_parts_toolbar_subtitle">ツールの塗りつぶし、アイコン、形状、境界線</string>
     <string name="theme_pick_hint">キー、ツール、またはストリップを押してください</string>
-    <string name="theme_pick_start_desc">スタイルを設定するキーボードのパーツを選択してください</string>
     <string name="theme_pick_start_subtitle">プレビュー上のキー、ツール、または候補ストリップを押してスタイルを設定します</string>
     <string name="theme_pick_start_title">キーボード上で選択</string>
     <string name="theme_pick_strip_sample_words">こんにちは,ありがとう,OK</string>
@@ -7647,12 +7636,6 @@
     <string name="tooldetail_ocr_info">認識はML Kitを使用してデバイス上で実行されます。写真やテキストがデバイスから送信されることはなく、オフラインで動作します。英語などのラテン文字テキストを読み取ります。ML Kitのテキスト認識機能は、現時点ではベンガル語をサポートしていません。キャプチャ後、単語を押してキーボードで入力またはコピーする内容を選択してください。</string>
     <string name="tooldetail_ocr_online_group">オンラインテキストリーダー</string>
     <string name="tooldetail_ocr_online_info">写真は画像読み取り可能なモデル（選択したアドレス）に送信され、モデルが認識したテキストを書き出します。あらゆるスクリプトを読み取ることができ、言語データは不要です。OpenAI互換APIを持つサービス（OpenAI、OpenRouter、Gemini、Mistral、またはOllamaやLM Studioを使用したローカルモデルなど）が利用可能です。スキャンごとに写真がそのサービスに送信され、サービス側で料金が発生する場合があります。</string>
-    <string name="tooldetail_ocr_online_key_hint">キーを必要としないサーバーの場合は空白のままにしてください</string>
-    <string name="tooldetail_ocr_online_key_label">APIキー</string>
-    <string name="tooldetail_ocr_online_model_hint">画像を読み取るモデル（例: gpt-4o-mini）</string>
-    <string name="tooldetail_ocr_online_model_label">モデル</string>
-    <string name="tooldetail_ocr_online_url_hint">例: https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">アドレス</string>
     <string name="tooldetail_ocr_packs_header">Tesseract言語</string>
     <string name="tooldetail_ocr_packs_info">Tesseractは、その言語のデータがデバイス上にある場合にのみ言語を読み取ることができます。入力する言語ごとに0.4MBから12MBのダウンロードが必要です。データはGitHubのTesseractプロジェクトのtessdata_fastセットから提供されます。スキャナー自体から言語をダウンロードすることもできます。</string>
     <string name="tooldetail_ocr_packs_none_info">有効にした言語にはTesseractデータが含まれていません。「言語」画面で言語を追加してください。追加すると、ここにデータが表示されます。</string>
@@ -8488,7 +8471,7 @@
     <string name="typing_letter_swipe_select_key_label">キーまでスライド</string>
     <string name="typing_letter_swipe_type_words_desc">キーをスワイプして1単語を入力</string>
     <string name="typing_letter_swipe_type_words_label">単語を入力</string>
-    <string name="typing_mistype_tolerance_info">タップ位置は、押したキーだけでなく、その周囲のキーとの関係でも判定されるため、キーの端をタップしても隣のキーとして認識されることがあります。この設定で、その判定の許容範囲を調整します。100%より大きくすると、隣接するキーの内側をタップしても誤入力とみなされやすくなり、素早い入力や大きな指での入力に適しています。100%より小さくすると、実際に押したキーがより重視され、慎重な入力に適しています。この設定は、候補バーに表示される単語や自動修正の選択に影響します。デフォルトは100%です。</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">タップ位置は、押したキーだけでなく、その周囲のキーとの関係でも判定されるため、キーの端をタップしても隣のキーとして認識されることがあります。この設定で、その判定の許容範囲を調整します。100%より大きくすると、隣接するキーの内側をタップしても誤入力とみなされやすくなり、素早い入力や大きな指での入力に適しています。100%より小さくすると、実際に押したキーがより重視され、慎重な入力に適しています。この設定は、候補バーに表示される単語や自動修正の選択に影響します。デフォルトは100%です。</string>
     <string name="typing_mistype_tolerance_subtitle">隣接するキーをタップした際、どの程度までなら誤入力として許容するか</string>
     <string name="typing_mistype_tolerance_title">打ち間違いの許容範囲</string>
     <string name="typing_new_word_sightings_info">辞書に存在しない単語のみがカウントされます。辞書にある単語は、入力した瞬間に学習されます。単語の使用は、その単語から離れて入力を続けた場合にのみカウントされるため、戻って修正した誤字はカウントされません。独自の固有名詞やスラングがなかなか学習されない場合は、この値を下げてください。1に設定すると、古いバージョンと同様に、すべての新しい単語が即座に保存されます。この設定のデフォルト値は3です。</string>
@@ -8782,11 +8765,9 @@
     <string name="typing_trail_opacity_title">軌跡の不透明度</string>
     <string name="typing_trail_width_subtitle">スライド軌跡の太さ</string>
     <string name="typing_trail_width_title">トレイルの幅</string>
-    <string name="typing_two_thumb_info">両方の親指を同時に使用します。各親指でタップやスワイプができ、同時に操作してもすべてのタップとスワイプが同じ単語に追加されます。例えば、左の親指でSをタップし、右でOからMへスワイプし、左でEをタップし、右でT H I N Gとスワイプすると、単語が完成します。もう一方の親指がスワイプしている最中にタップすると、その時点の単語に反映されます。例えば、H E L OとスワイプしながらLをタップすると「hello」になります。バックスペースは、単語から最後のタップまたはスワイプを削除します。</string>
     <string name="typing_two_thumb_subtitle">両手の親指で同時にタップ＆スワイプして単語を入力</string>
     <string name="typing_two_thumb_title">両手親指入力</string>
     <string name="typing_two_thumb_word_end_all_up_label">両手の親指を上げる</string>
-    <string name="typing_two_thumb_word_end_info">スペースキーを使うと、タップやスワイプをしている間も単語入力が継続され、キーボードは入力のたびに読み直します。スペースまたは句読点をタップして入力してください。両方の親指を離すと、通常のグライド入力と同様に、キーボードに親指が触れていない瞬間にスペース付きで単語が確定されます。そのため、単語を共有するには親指を重ねる必要があります。</string>
     <string name="typing_two_thumb_word_end_space_label">スペース</string>
     <string name="typing_two_thumb_word_end_subtitle">入力中の単語を確定させる操作</string>
     <string name="typing_two_thumb_word_end_title">両親指入力の単語を完了する</string>

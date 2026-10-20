@@ -537,6 +537,11 @@ private val builtInLabels: Map<String, ToolLabels> = mapOf(
         R.string.ime_ai_tool_weather_running,
         R.string.ime_ai_tool_weather_done,
     ),
+    AiTools.WM_DOCS to ToolLabels(
+        R.string.ime_ai_tool_name_wm_docs,
+        R.string.ime_ai_tool_wm_docs_running,
+        R.string.ime_ai_tool_wm_docs_done,
+    ),
     AiTools.WIKIPEDIA to ToolLabels(
         R.string.ime_ai_tool_name_wikipedia,
         R.string.ime_ai_tool_wikipedia_running,
@@ -581,6 +586,16 @@ private val builtInLabels: Map<String, ToolLabels> = mapOf(
         R.string.ime_ai_tool_name_current_location,
         R.string.ime_ai_chat_tool_builtin_running,
         R.string.ime_ai_chat_tool_builtin_done,
+    ),
+    AiTools.HOME_ASSISTANT to ToolLabels(
+        R.string.ime_ai_tool_name_home_assistant,
+        R.string.ime_ai_tool_home_assistant_running,
+        R.string.ime_ai_tool_home_assistant_done,
+    ),
+    AiTools.HOME_ASSISTANT_STATES to ToolLabels(
+        R.string.ime_ai_tool_name_home_assistant_states,
+        R.string.ime_ai_tool_home_assistant_states_running,
+        R.string.ime_ai_tool_home_assistant_states_done,
     ),
     AiTools.ADD_CALENDAR_EVENT to ToolLabels(
         R.string.ime_ai_tool_name_add_calendar_event,

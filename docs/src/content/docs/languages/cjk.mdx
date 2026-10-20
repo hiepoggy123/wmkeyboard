@@ -201,7 +201,7 @@ Chinese, Japanese and Korean each also ship a **Handwriting** layout, for the ch
 
 Japanese ships three typing layouts, all feeding the same composer, plus the handwriting one above:
 
-- **Romaji**: type romanized Japanese on a standard QWERTY layout. Keystrokes transduce to hiragana as you type, handling doubled consonants as っ, disambiguating ん, and recognizing yōon combinations like きゃ. The long-vowel mark ー has its own key at the end of the middle row, as on other Japanese keyboards, and a hyphen typed inside a word reads as ー too, so `ka-do` converts to カード. Between words a hyphen stays a hyphen.
+- **Romaji**: type romanized Japanese on a standard QWERTY layout. Keystrokes transduce to hiragana as you type, handling doubled consonants as っ, disambiguating ん, and recognizing yōon combinations like きゃ. The long-vowel mark ー has its own key at the end of the middle row, as on other Japanese keyboards, and a hyphen typed inside a word reads as ー too, so `ka-do` converts to カード. Between words a hyphen stays a hyphen. Each letter carries a digit or symbol on long-press, shown in its corner as on the English layout, with ¥ on `d` and % on `f` as Japanese keyboards place them.
 - **Flick**: a 12-key pad with kana glyphs directly on the keys. Flick a key in a direction to reach its row-mates (あ flicks left/up/right/down to い/う/え/お).
 - **Kana JIS**: each key emits a kana glyph directly, matching the physical JIS Japanese keyboard layout.
 
@@ -211,7 +211,7 @@ Japanese ships three typing layouts, all feeding the same composer, plus the han
 
 The Flick pad is an ordinary layout, so you can change it in the [layout editor](/languages/custom-layouts/). Each key's sheet has a 3×3 pad with a cell for every flick direction, the four corners included, and a [Shift field for each](/languages/custom-layouts/#editing-a-key) so the same pad can type katakana while Shift is on. The editor's preview draws a key's flicks around its edges, so you can see and move every kana on the pad, and the keyboard draws them on the keys the same way unless [Show flick arms on keys](/typing/gestures/#flick-keys) is off. Any key of a Japanese layout can also be told to **become 小゛゜ after a kana**: while the last kana you typed has a small, ゛ or ゜ form, that key shows 小゛゜ and changes it, and once the word is done it goes back to its own job. Give that job to the globe or emoji key and the separate <KeyCap>小゛゜</KeyCap> key can go, which is how phone kana pads save the space. Either key cycles katakana as readily as hiragana, so a pad built on アイウエオ keys reaches ェ from エ and バ or パ from ハ.
 
-All three read the same kana or romaji into `JapaneseComposer`, which converts kana readings to kanji/word candidates using a Mozc-derived dictionary. If nothing in the dictionary matches (or before you've downloaded the pack at all), the reading still commits as plain hiragana, katakana, or half-width katakana, so every Japanese layout works as a bare kana keyboard with zero setup.
+All three read the same kana or romaji into `JapaneseComposer`, which converts kana readings to kanji/word candidates using a Mozc-derived dictionary. If nothing in the dictionary matches (or before you've downloaded the pack at all), the reading still commits as plain hiragana, katakana, or half-width katakana, so every Japanese layout works as a bare kana keyboard with zero setup. A phrase the dictionary lists only in kana still gets its kanji reading offered: `またあした` puts また明日 on the strip next to the plain kana, so you don't have to convert また and 明日 one at a time.
 
 ### Kana without marks
 
@@ -378,6 +378,17 @@ Tone numbers and tone marks are dropped and ü is spelt `v`, the same as in the 
 A word your list adds appears under its reading. A word the pack already has keeps its place in the pack's ranking, unless your list gives counts of its own (Rime's do), in which case it can move up but never down. Your [picks](#learning-from-your-picks) reorder both the same way. A list works on its own too: with no pack downloaded, the candidates come from your lists, and the missing-pack chip stops asking. **Use only my word lists** leaves the pack out once you have imported a list with something in it; with nothing imported it has no effect here, so it can't leave the language unable to type a character.
 
 A list goes live the next time you open a text field, and only the table for its own language is reloaded.
+
+#### Dictionaries made for fcitx5, Rime or Sogou
+
+Most Chinese dictionary projects on GitHub are built for the desktop input methods, and many ship two files per release: a `.dict` for fcitx5 and a `.dict.yaml` for Rime. Take the `.dict.yaml`. It is the Rime format from the list above, so it imports as it is: pick **Chinese**, open **Custom dictionaries** and import the file.
+
+The other formats are compiled, and the keyboard can't read them:
+
+- **fcitx5's `.dict`** is libime's binary dictionary. Look for the Rime file in the same release, or convert the project's source text instead.
+- **Sogou's `.scel` cell dictionaries** (细胞词库) are binary too. [imewlconverter](https://github.com/studyzy/imewlconverter) (深蓝词库转换) turns them into Rime's format: choose 搜狗细胞词库 scel as the input and Rime 中州韵 as the output, then import what it writes.
+
+Each file can be at most 32 MB. That rules out the whole-corpus builds, such as [fcitx5-pinyin-sougou-dict](https://github.com/blackteahamburger/fcitx5-pinyin-sougou-dict), whose `sougou.dict.yaml` is over 400 MB: the import refuses it, and splitting it wouldn't help, because the keyboard reads every list into memory when it builds the Chinese table. That project's release also carries `sougou_dict.tar.gz`, the raw Sogou cell dictionaries it was built from. Convert the topics you actually type, such as computing, place names or medicine, and import those. A few thematic lists of a few megabytes each give most of the benefit and load fast.
 
 ## Details & edge cases
 

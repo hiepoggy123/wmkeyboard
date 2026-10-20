@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Liitä linkki ja paina enter siirtyäksesi siihen, tai liitä lisää leikkeitä välilyönnillä tai rivinvaihdolla niiden välissä palaamatta näppäimistöön. ABC palaa kirjaimiin. Jos muutit paneelin asettelua, tämä asetus ei tee mitään: lisää näppäimet sen sijaan asettelueditorissa. Riviä ei näytetä, kun leikepöytä on pinottu näppäinten päälle. Tämä asetus on oletuksena pois päältä.</string>
     <string name="clipboard_key_row_subtitle">Näppäinrivi leikepöytäpaneelin alareunassa</string>
     <string name="clipboard_key_row_title">ABC-, välilyönti- ja enter-näppäimet</string>
-    <string name="clipboard_line_spacing_info">100 %:n kohdalla leikkeen rivit ovat niin lähellä kuin fontti sallii. Nosta arvoa levittääksesi niitä. Oletus on 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100 %:n kohdalla leikkeen rivit ovat niin lähellä kuin fontti sallii. Nosta arvoa levittääksesi niitä. Oletus on 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Leikkeen tekstin riviväli</string>
     <string name="clipboard_line_spacing_title">Riviväli</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">Valkoinen</string>
     <string name="import_sticker_editor_border_width_label">Reunan leveys</string>
     <string name="import_sticker_editor_brush_size_label">Siveltimen koko</string>
-    <string name="import_sticker_editor_caption">Näppäimistö tallentaa 512x512-kokoisen tarran. Siirrä ja nipistä kuvaa valitaksesi säilytettävän osan, poista sitten tausta ja lisää reunus. Sovellus säilyttää tämän kuvan puhelimessa, joten voit muokata tarraa myöhemmin uudelleen.</string>
     <string name="import_sticker_editor_crop_action">Rajaa</string>
-    <string name="import_sticker_editor_crop_hint">Siirrä kuvaa vetämällä. Suurenna nipistämällä.</string>
     <string name="import_sticker_editor_cutout_action">Poista tausta</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Hanki ensin taustan poistaja. Se on 5 Mt:n lataus.</string>
     <string name="import_sticker_editor_cutout_download_progress">Sovellus lataa taustanpoistotyökalua…</string>
@@ -3513,7 +3511,6 @@
     <string name="layout_editor_alternate_columns_default">Asetuksista</string>
     <string name="layout_editor_alternate_columns_subtitle">Kuinka monta vaihtoehtoa tämä näppäin asettaa riville</string>
     <string name="layout_editor_alternate_columns_title">Sarakkeet ponnahdusikkunassa</string>
-    <string name="layout_editor_alternate_hint_badge">vihje</string>
     <string name="layout_editor_alternates_field_hint">Erota merkinnät välilyönneillä, joten vaihtoehto ei voi olla välilyönti. Yli yhden merkin mittaiset merkinnät, kuten .com, ovat oikein. Sovellus piirtää myös ensimmäisen näppäimen kulmaan.</string>
     <string name="layout_editor_alternates_field_label">Vaihtoehdot painallukselle ja pidolle</string>
     <string name="layout_editor_apply_action">Käytä</string>
@@ -3609,7 +3606,6 @@
     <string name="layout_editor_field_row_title">Komponentti</string>
     <string name="layout_editor_fill_row_action">Täytä rivi (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Numerorivi näyttää jo numerot, joten näppäimistö näyttää tämän rivin tämän tason ensimmäisen rivin tilalla.</string>
-    <string name="layout_editor_fill_row_off_caption">Kun numerorivi on päällä, näppäimistö näyttää tämän rivin tämän tason ensimmäisen rivin tilalla, koska numerorivi näyttää jo numerot. Numerorivi on nyt pois päältä.</string>
     <string name="layout_editor_fill_row_title">Rivi numeroiden tilalla</string>
     <string name="layout_editor_fit_row_action">Sovita rivi ruudukkoon (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Ei pyyhkäisytoimintoa tähän suuntaan. Valitse toiminto napauttamalla.</string>
@@ -3784,8 +3780,6 @@
     <string name="layout_editor_new_secondary_title">Aloita toissijainen asettelu</string>
     <string name="layout_editor_not_live_caption">Täällä tekemäsi muutokset eivät vaikuta kirjoittamiseen, ennen kuin otat asettelun käyttöön Kielten alla.</string>
     <string name="layout_editor_number_row_caption">Näppäimistö näyttää tämän rivin tämän tason yläpuolella. Muuta näppäintä napauttamalla sitä. Siirrä näppäintä pitämällä sitä painettuna ja vetämällä.</string>
-    <string name="layout_editor_number_row_hidden_caption">Näppäimistö näyttää tämän rivin tämän tason yläpuolella, kun symbolien numerorivi on päällä kohdassa Asettelu ja koko. Se on nyt pois päältä.</string>
-    <string name="layout_editor_number_row_off_caption">Näppäimistö näyttää tämän rivin tämän tason yläpuolella, kun numerorivi on päällä kohdassa Asettelu ja koko. Numerorivi on nyt pois päältä.</string>
     <string name="layout_editor_number_row_title">Numerorivi</string>
     <string name="layout_editor_panel_inherited_caption">Tämä asettelu käyttää jaettua %1$s-paneelia. Minkä tahansa muuttaminen tässä luo kopion vain tätä asettelua varten. Jaettu paneeli löytyy kohdasta Näppäinasettelut, Paneeliasettelut.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Peri asettelun teema</string>
@@ -3988,11 +3982,8 @@
     <string name="layout_split_spacebar_title">Jaa välilyönti</string>
     <string name="layout_split_subtitle">Jaa näppäimet vasempaan ja oikeaan puoliskoon</string>
     <string name="layout_split_title">Jaettu näppäimistö</string>
-    <string name="layout_summon_button_info">Kun näppäimistö on suljettu, pieni pyöreä painike kelluu jokaisen sovelluksen päällä. Napauta sitä, niin näppäimistö avautuu, jopa näytöllä, jossa ei ole tekstikenttää, ja pysyy auki, kunnes suljet sen. Näppäinpainallukset välittyvät sovellukseen samalla tavalla kuin \"Pidä näppäimistö näytöllä\" -asetuksella. Vedä painiketta siirtääksesi sitä; se asettuu lähemmän reunan viereen. Paina ja pidä painettuna piilottaaksesi sen, kunnes näppäimistö seuraavan kerran avautuu. Vaatii Androidin \"Näytä muiden sovellusten päällä\" -oikeuden.</string>
     <string name="layout_summon_button_permission_subtitle">Painike ei voi näkyä ennen kuin Android sallii sen</string>
     <string name="layout_summon_button_permission_title">Salli näkyminen muiden sovellusten päällä</string>
-    <string name="layout_summon_button_subtitle">Muiden sovellusten päällä oleva painike, joka avaa näppäimistön tekstikentän kanssa tai ilman</string>
-    <string name="layout_summon_button_title">Kelluva näppäimistöpainike</string>
     <string name="layout_swap_comma_globe_info">Välilyöntinäppäimen molemmin puolin olevat kaksi näppäintä vaihtavat paikkaa. Jos toinen niistä on emojinäppäin, se siirtyy ulompaan asentoon ja pilkku pysyy välilyöntinäppäimen vieressä. Kytke tämä pois päältä palauttaaksesi tavallisen järjestyksen.</string>
     <string name="layout_swap_comma_globe_subtitle">Aseta pilkku välilyöntinäppäimen viereen</string>
     <string name="layout_swap_comma_globe_title">Vaihda pilkku- ja 🌐-näppäinten paikkaa</string>
@@ -5811,7 +5802,6 @@
     <string name="search_kw_layout_show_globe">piilota poista maapallo-kieli</string>
     <string name="search_kw_layout_size_position">muuta kokoa kutista tiivistä laajenna</string>
     <string name="search_kw_layout_split">peukalo ergonominen tabletti</string>
-    <string name="search_kw_layout_summon_button">kuplapeitto näytä kutsu kentätön hakkerit</string>
     <string name="search_kw_layout_symbols_numpad_key">numeronäppäimistö näppäimistö valintanäppäimistö 1234 gboard</string>
     <string name="search_kw_learnedcorrections">opitut korjaukset, omat korjaukset, kirjoitusvirheparit, opetetut korjaukset, automaattisen korjauksen oppiminen, lipsahdukset, tavat</string>
     <string name="search_kw_licenses">avoin lähdekoodi, nimeäminen, tekijätiedot</string>
@@ -5850,7 +5840,7 @@
     <string name="search_kw_translate_engine">offline yksityinen internet lentokonetila paikallinen laite ml kit google mallin lataus pilvi</string>
     <string name="search_kw_translate_models">offline-käännösmallin lataus poista tallennustila ml kit google</string>
     <string name="search_kw_translate_only_downloaded">piilota suodattimen offline-mallin valintavalikko lyhyt</string>
-    <string name="search_kw_translate_server">openai yhteensopiva itsehostattu paikallinen llm tekoälymalli ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai yhteensopiva itsehostattu paikallinen llm tekoälymalli ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">oikoluku, automaattinen täydennys, ennustava tekstinsyöttö, liukukirjoitus, pyyhkäisykirjoitus, eleet, yhteystiedot, kumoa</string>
     <string name="search_kw_typing_auto_capitalize">automaattinen iso alkukirjain automaattinen suuraakkostus</string>
     <string name="search_kw_typing_auto_close_brackets">automaattinen sulkujen sulkeminen sulkeiden täsmäytys</string>
@@ -6821,7 +6811,6 @@
     <string name="theme_parts_strip_subtitle">Poista täyttö, sanavärit ja koko</string>
     <string name="theme_parts_toolbar_subtitle">Työkalujen täytöt, kuvakkeet, muoto, reunus</string>
     <string name="theme_pick_hint">Paina näppäintä, työkalua tai palkkia</string>
-    <string name="theme_pick_start_desc">Valitse näppäimistön osa, jota haluat muokata</string>
     <string name="theme_pick_start_subtitle">Paina näppäintä, työkalua tai ehdotuspalkkia esikatselussa muotoillaksesi sen</string>
     <string name="theme_pick_start_title">Valitse näppäimistöltä</string>
     <string name="theme_pick_strip_sample_words">Hei,Kiitos,Okei</string>
@@ -7646,12 +7635,6 @@
     <string name="tooldetail_ocr_info">Tunnistus suoritetaan laitteellasi ML Kitin avulla. Yksikään valokuva tai teksti ei poistu laitteeltasi, ja se toimii offline-tilassa. Se lukee latinalaisin aakkosin kirjoitettua tekstiä, kuten englantia. ML Kitin tekstintunnistin ei vielä tue bengalia. Kun olet ottanut kuvan, paina sanoja valitaksesi tarkalleen, mitä näppäimistö kirjoittaa tai kopioi.</string>
     <string name="tooldetail_ocr_online_group">Verkkopohjainen tekstinlukija</string>
     <string name="tooldetail_ocr_online_info">Valokuva lähetetään kuvia lukevalle mallille valitsemaasi osoitteeseen, ja malli kirjoittaa näkemänsä tekstin. Se lukee mitä tahansa kirjoitusjärjestelmää eikä tarvitse kielidataa. Mikä tahansa palvelu, jossa on OpenAI-yhteensopiva rajapinta, toimii: OpenAI, OpenRouter, Gemini, Mistral tai oma mallisi tietokoneellasi Ollaman tai LM Studion kautta. Jokainen skannaus lähettää valokuvan kyseiseen palveluun, ja palvelu saattaa veloittaa siitä.</string>
-    <string name="tooldetail_ocr_online_key_hint">Jätä tyhjäksi palvelimelle, joka ei vaadi avainta</string>
-    <string name="tooldetail_ocr_online_key_label">API-avain</string>
-    <string name="tooldetail_ocr_online_model_hint">Malli, joka lukee kuvia, esimerkiksi gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Malli</string>
-    <string name="tooldetail_ocr_online_url_hint">Esimerkiksi https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Osoite</string>
     <string name="tooldetail_ocr_packs_header">Tesseract-kielet</string>
     <string name="tooldetail_ocr_packs_info">Tesseract lukee kieltä vasta, kun kyseisen kielen tiedot ovat laitteellasi. Jokaiselle kielelle, jolla kirjoitat, on yksi lataus, kooltaan 0,4–12 Mt. Tiedot tulevat Tesseract-projektin tessdata_fast-joukosta GitHubissa. Voit myös ladata kielen itse skannerista.</string>
     <string name="tooldetail_ocr_packs_none_info">Yhdelläkään käyttöön ottamallasi kielellä ei ole Tesseract-tietoja. Lisää kieli Kieliasetukset-näytöltä. Sen jälkeen tiedot näkyvät täällä.</string>
@@ -8487,7 +8470,7 @@
     <string name="typing_letter_swipe_select_key_label">Liu\'uta näppäimeen</string>
     <string name="typing_letter_swipe_type_words_desc">Pyyhkäisy näppäinten yli kirjoittaa yhden sanan</string>
     <string name="typing_letter_swipe_type_words_label">Kirjoita sanoja</string>
-    <string name="typing_mistype_tolerance_info">Jokainen napautus luetaan sen perusteella, mihin se osui, ei vain sen perusteella, mitä näppäintä se kosketti, joten näppäimen reunan lähelle tehty napautus voidaan silti lukea viereiseksi näppäimeksi. Tämä asettaa sen, kuinka salliva tämä lukutapa on. Yli 100 %:n asetuksella naapurinäppäimen sisäpuolelle tehty napautus on edelleen todennäköinen virhe, mikä sopii nopeaan tai kiireiseen kirjoittamiseen ja suurille sormille. Alle 100 %:n asetuksella osumaan luotetaan enemmän, mikä sopii huolelliseen kirjoittamiseen. Se muuttaa sitä, mitä sanoja ehdotuspalkki tarjoaa ja mitä automaattinen korjaus valitsee. Oletusarvo on 100 %.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Jokainen napautus luetaan sen perusteella, mihin se osui, ei vain sen perusteella, mitä näppäintä se kosketti, joten näppäimen reunan lähelle tehty napautus voidaan silti lukea viereiseksi näppäimeksi. Tämä asettaa sen, kuinka salliva tämä lukutapa on. Yli 100 %:n asetuksella naapurinäppäimen sisäpuolelle tehty napautus on edelleen todennäköinen virhe, mikä sopii nopeaan tai kiireiseen kirjoittamiseen ja suurille sormille. Alle 100 %:n asetuksella osumaan luotetaan enemmän, mikä sopii huolelliseen kirjoittamiseen. Se muuttaa sitä, mitä sanoja ehdotuspalkki tarjoaa ja mitä automaattinen korjaus valitsee. Oletusarvo on 100 %.</string>
     <string name="typing_mistype_tolerance_subtitle">Kuinka kauas viereisestä näppäimestä painallus voi osua ja silti lasketaan virhepainallukseksi</string>
     <string name="typing_mistype_tolerance_title">Kirjoitusvirheiden sietokyky</string>
     <string name="typing_new_word_sightings_info">Vain sanat, joita sanakirja ei tunne, lasketaan. Sanakirjassa jo oleva sana tarvitsee yhden käyttökerran, ei useita, koska sen oikeinkirjoituksesta ei ole epäselvyyttä. Joka tapauksessa käyttökerta lasketaan vasta, kun olet siirtynyt eteenpäin ja jättänyt sanan rauhaan, joten sanaa, jonka korjaat jälkikäteen, tai pyyhkäisyä, joka muuttui vääräksi sanaksi, ei koskaan lasketa. Mitään ei tallenneta kirjoittaessasi: jättämäsi sanat lisätään, kun suljet näppäimistön, lähetät viestin tai siirryt toiseen kenttään. Pienennä tätä, jos omien nimiesi ja slangin vakiintuminen kestää liian kauan. Aseta arvoksi 1, jos haluat tallentaa jokaisen uuden sanan yhden käyttökerran jälkeen. Tämän asetuksen oletusarvo on 3.</string>
@@ -8781,11 +8764,9 @@
     <string name="typing_trail_opacity_title">Jäljen peittävyys</string>
     <string name="typing_trail_width_subtitle">Liukujäljen paksuus</string>
     <string name="typing_trail_width_title">Jäljen leveys</string>
-    <string name="typing_two_thumb_info">Käytä molempia peukaloita yhdessä. Kumpikin peukalo voi napauttaa tai pyyhkäistä samanaikaisesti toisen kanssa, ja jokainen napautus ja pyyhkäisy lisää sanaan merkkejä. Esimerkiksi: napauta S vasemmalla peukalolla, pyyhkäise O:sta M:ään oikealla, napauta E vasemmalla, pyyhkäise sitten T H I N G oikealla, niin saat sanan. Napautus, joka osuu toisen peukalon pyyhkäistessä, lisätään sanaan siinä kohdassa, joten pyyhkäisy H E L O:n yli ja napautus L:n kohdalla antaa sanan hello. Askelpalautin poistaa sanasta viimeisimmän napautuksen tai pyyhkäisyn.</string>
     <string name="typing_two_thumb_subtitle">Napauta ja pyyhkäise molemmilla peukaloilla samanaikaisesti muodostaaksesi yhden sanan</string>
     <string name="typing_two_thumb_title">Kahden peukalon kirjoitus</string>
     <string name="typing_two_thumb_word_end_all_up_label">Kaikki peukalot ylhäällä</string>
-    <string name="typing_two_thumb_word_end_info">Välilyönnin avulla sana pysyy auki, kun napautat ja pyyhkäiset, ja näppäimistö lukee sen uudelleen jokaisen jälkeen. Napauta välilyöntiä tai välimerkkiä kirjoittaaksesi sen. Kun kaikki peukalot ovat ylhäällä, sana kirjoitetaan välilyönnillä heti, kun mikään peukalo ei kosketa näppäimistöä, kuten tavallisessa pyyhkäisykirjoituksessa, joten peukaloiden on oltava päällekkäin sanan jakamiseksi.</string>
     <string name="typing_two_thumb_word_end_space_label">Välilyönti</string>
     <string name="typing_two_thumb_word_end_subtitle">Mikä kirjoittaa muodostamasi sanan</string>
     <string name="typing_two_thumb_word_end_title">Viimeistele kahden peukalon sana</string>

@@ -1,6 +1,10 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.core.settings.fiatRateProviders
+import com.wasimaster.wmkeyboard.core.settings.cryptoRateProviders
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
+import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import android.content.Intent
 import android.os.UserManager
 import android.provider.CalendarContract
@@ -17,6 +21,7 @@ import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.notes.NoteStore
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -136,6 +141,7 @@ class AiToolRunner(
         AiTools.CURRENT_LOCATION -> LocationAccess.declared(context)
         AiTools.OPEN_APP -> host?.canOpenApps == true
         AiTools.SEND_TO_PC -> host?.canSendToPc == true && settings.kdeConnect.enabled
+        AiTools.HOME_ASSISTANT, AiTools.HOME_ASSISTANT_STATES -> host?.canControlHome == true
         // Only with a picture in the chat, and the reader only for a model
         // that cannot look at the picture itself.
         AiTools.READ_IMAGE_TEXT -> host.let { it != null && it.imageCount > 0 && it.canReadImageText && !it.modelSeesImages }
@@ -273,6 +279,7 @@ class AiToolRunner(
 
     /** One of the keyboard's own tools, already allowed to run. */
     private fun runBuiltIn(call: AiToolCall): AiToolResult = when (call.name) {
+        AiTools.WM_DOCS -> wmDocs(call)
         AiTools.IMAGE_SEARCH -> imageSearch(call)
         AiTools.WEATHER -> weather(call)
         AiTools.WIKIPEDIA -> wikipedia(call)
@@ -291,6 +298,8 @@ class AiToolRunner(
         AiTools.OPEN_APP -> openApp(call)
         AiTools.MEDIA_CONTROL -> mediaControl(call)
         AiTools.SEND_TO_PC -> sendToPc(call)
+        AiTools.HOME_ASSISTANT -> homeAssistant(call)
+        AiTools.HOME_ASSISTANT_STATES -> homeAssistantStates(call)
         AiTools.READ_IMAGE_TEXT -> readImageText(call)
         AiTools.REVERSE_IMAGE_SEARCH -> reverseImageSearch(call)
         else -> refused(
@@ -323,36 +332,24 @@ class AiToolRunner(
 
     private fun search(call: AiToolCall): AiToolResult {
         val query = call.argument("query") ?: return missing(call, "query")
-        val backend = ToolApiKeys.searchBackend(settings) ?: return refused(
-            call,
-            context.getString(R.string.ftools_ai_tool_no_search),
-            context.getString(R.string.ftools_ai_tool_reason_no_search),
-        )
-        val safe = settings.webSearch.safe
-        val page = when (backend) {
-            SearchBackend.SEARXNG -> SearxClient.webSearch(
-                query, settings.selfHosted.searxUrl, SEARCH_RESULTS, safe,
-                source = NetSource.AI_TOOLS,
-            )
-            SearchBackend.TAVILY -> TavilySearchClient.webSearch(
-                query,
-                ToolApiKeys.tavily(settings),
-                SEARCH_RESULTS,
-                safe,
-                advanced = settings.webSearch.tavilyAdvanced,
-                // Asked for whether or not the panel shows answer boxes: this
-                // one is read by a model, not drawn, and it is the cheapest
-                // summary of the page Tavily will ever give us.
-                answer = true,
-                source = NetSource.AI_TOOLS,
-            )
-            SearchBackend.BRAVE -> WebSearchPage(
-                BraveSearchClient.webSearch(
-                    query, ToolApiKeys.brave(settings), SEARCH_RESULTS, safe,
-                    source = NetSource.AI_TOOLS,
-                ),
+        if (ToolApiKeys.searchBackend(settings) == null) {
+            return refused(
+                call,
+                context.getString(R.string.ftools_ai_tool_no_search),
+                context.getString(R.string.ftools_ai_tool_reason_no_search),
             )
         }
+        val page = SearchProviders.web(
+            settings,
+            query,
+            SEARCH_RESULTS,
+            settings.webSearch.safe,
+            // Asked for whether or not the panel shows answer boxes: this one
+            // is read by a model, not drawn, and it is the cheapest summary of
+            // the page Tavily will ever give us.
+            answer = true,
+            source = NetSource.AI_TOOLS,
+        )
         return AiToolResult(
             call = call,
             content = formatSearch(page, context.getString(R.string.ftools_ai_tool_no_results)),
@@ -377,20 +374,33 @@ class AiToolRunner(
         )
     }
 
+    /**
+     * The keyboard's own documentation, searched on its site. An on-device
+     * model gets fewer sections: each is replayed into every later round, and
+     * its context is the smallest.
+     */
+    private fun wmDocs(call: AiToolCall): AiToolResult {
+        val query = call.argument("query") ?: return missing(call, "query")
+        val limit = if (settings.ai.provider == AiProvider.ON_DEVICE) ON_DEVICE_DOCS_RESULTS else WmDocs.DEFAULT_RESULTS
+        val hits = WmDocs.search(query, limit, NetSource.AI_TOOLS)
+        return AiToolResult(
+            call = call,
+            content = WmDocs.format(query, hits),
+            sources = hits.map { AiToolSource(it.label, it.url) },
+        )
+    }
+
     /** The search tool's own backend, asked for pictures instead of pages. */
     private fun imageSearch(call: AiToolCall): AiToolResult {
         val query = call.argument("query") ?: return missing(call, "query")
-        val backend = ToolApiKeys.searchBackend(settings) ?: return refused(
-            call,
-            context.getString(R.string.ftools_ai_tool_no_search),
-            context.getString(R.string.ftools_ai_tool_reason_no_search),
-        )
-        val safe = settings.webSearch.safe
-        val images = when (backend) {
-            SearchBackend.SEARXNG -> SearxClient.imageSearch(query, settings.selfHosted.searxUrl, SEARCH_RESULTS, safe)
-            SearchBackend.TAVILY -> TavilySearchClient.imageSearch(query, ToolApiKeys.tavily(settings), SEARCH_RESULTS, safe)
-            SearchBackend.BRAVE -> BraveSearchClient.imageSearch(query, ToolApiKeys.brave(settings), SEARCH_RESULTS, safe)
+        if (ToolApiKeys.searchBackend(settings) == null) {
+            return refused(
+                call,
+                context.getString(R.string.ftools_ai_tool_no_search),
+                context.getString(R.string.ftools_ai_tool_reason_no_search),
+            )
         }
+        val images = SearchProviders.images(settings, query, SEARCH_RESULTS, settings.webSearch.safe)
         return AiToolResult(
             call = call,
             content = formatImages(images, context.getString(R.string.ftools_ai_tool_no_results)),
@@ -454,7 +464,7 @@ class AiToolRunner(
      */
     private fun defineWord(call: AiToolCall): AiToolResult {
         val word = call.argument("word") ?: return missing(call, "word")
-        val sources = settings.dictionarySources.filter { it.enabled }.map { it.source }
+        val sources = settings.resolveProviders(ProviderTool.DICTIONARY).mapNotNull { DictionarySource.of(it.typeId) }
         if (sources.isEmpty()) {
             return refused(
                 call,
@@ -473,12 +483,12 @@ class AiToolRunner(
             } else {
                 null
             }
-            DictionaryLookup.resolve(word, sources, DictionaryLookup.fetcher { index })
+            DictionaryLookup.resolve(word, sources, DictionaryLookup.fetcher({ index }))
         }
         return when (result) {
             is DictionaryLookup.Result.Found -> AiToolResult(call, formatDefinitions(result.entries))
             DictionaryLookup.Result.NotFound -> notFound(call, word)
-            DictionaryLookup.Result.Failed -> refused(
+            DictionaryLookup.Result.Failed, DictionaryLookup.Result.NotOnDevice -> refused(
                 call,
                 context.getString(R.string.ftools_ai_tool_failed, context.getString(R.string.ftools_ai_tool_reason_dictionary_offline)),
                 context.getString(R.string.ftools_ai_tool_reason_dictionary_offline),
@@ -499,7 +509,10 @@ class AiToolRunner(
             languageCode(asked) ?: return unknownLanguage(call, asked)
         } ?: TranslateClient.AUTO
         val clipped = text.take(TranslateClient.MAX_CHARS)
-        val onDevice = host?.takeIf { it.canTranslateOnDevice }
+        // On the device only while the translate list keeps its on-device row on.
+        val onDevice = host?.takeIf {
+            it.canTranslateOnDevice && TranslateProviders.rows(settings, TranslateEngine.ON_DEVICE).isNotEmpty()
+        }
         val engine = if (onDevice != null) settings.translate.engine else TranslateEngine.ONLINE
         val translation = when (engine) {
             TranslateEngine.ONLINE -> OnlineTranslate.translate(settings, clipped, target, source)
@@ -536,7 +549,7 @@ class AiToolRunner(
         val from = currencyCode(call.argument("from") ?: return missing(call, "from"))
         val to = currencyCode(call.argument("to") ?: return missing(call, "to"))
         val sources = settings.rateSources
-        val fiat = fiatRates(sources.fiatProviders, settings.currencyCacheHours)
+        val fiat = fiatRates(settings.fiatRateProviders().ifEmpty { throw NoRateProviderException() }, settings.currencyCacheHours)
         val coins = setOf(from, to).filter { code ->
             code !in fiat.rates && CryptoCatalog.coins.any { it.code == code }
         }.toSet()
@@ -544,7 +557,7 @@ class AiToolRunner(
             fiat
         } else {
             // Units per US dollar, like the fiat table, so the two fold together.
-            val raw = CurrencyClient.fetchCryptoRates(sources.cryptoProviders, coins)
+            val raw = CurrencyClient.fetchCryptoRates(settings.cryptoRateProviders().ifEmpty { throw NoRateProviderException() }, coins)
             fiat.copy(rates = fiat.rates + raw.filterKeys { it !in fiat.rates }, crypto = raw.keys)
         }
         for (code in listOf(from, to)) {
@@ -867,6 +880,28 @@ class AiToolRunner(
         )
     }
 
+    /** One sentence to the user's Home Assistant, through its Assist; what it said back is the result. */
+    private fun homeAssistant(call: AiToolCall): AiToolResult {
+        val request = call.argument("request") ?: return missing(call, "request")
+        val home = host ?: return refusedWith(call, R.string.ftools_ai_tool_home_failed, R.string.ftools_ai_tool_reason_home_failed, "")
+        return home.homeControl(request).fold(
+            onSuccess = { speech -> AiToolResult(call, speech.ifBlank { "Done." }) },
+            onFailure = { failure ->
+                refusedWith(call, R.string.ftools_ai_tool_home_failed, R.string.ftools_ai_tool_reason_home_failed, failure.message.orEmpty())
+            },
+        )
+    }
+
+    private fun homeAssistantStates(call: AiToolCall): AiToolResult {
+        val home = host ?: return refusedWith(call, R.string.ftools_ai_tool_home_failed, R.string.ftools_ai_tool_reason_home_failed, "")
+        return home.homeStates(call.argument("query")).fold(
+            onSuccess = { AiToolResult(call, it) },
+            onFailure = { failure ->
+                refusedWith(call, R.string.ftools_ai_tool_home_failed, R.string.ftools_ai_tool_reason_home_failed, failure.message.orEmpty())
+            },
+        )
+    }
+
     /**
      * The picture a call names, counted from 1. A model with one picture in
      * front of it often leaves the number out, which can only mean that one.
@@ -938,6 +973,9 @@ class AiToolRunner(
          * same run, so a page of twenty would crowd out the answer.
          */
         private const val SEARCH_RESULTS = 5
+
+        /** Documentation sections for an on-device model; see [wmDocs]. */
+        private const val ON_DEVICE_DOCS_RESULTS = 2
 
         private const val CURRENCY_DIGITS = 2
         private const val RATE_DIGITS = 6

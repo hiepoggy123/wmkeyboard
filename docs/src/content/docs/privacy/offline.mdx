@@ -25,8 +25,9 @@ Each screen that downloads something has an import row with two buttons:
 | Chinese, Japanese and Cantonese conversion tables | The same Language pack row | Inside the language pack, or the loose `.tsv` |
 | Offline voice models <Flavor edition="full" /> | <SettingsPath path="Voice typing" />, below the model catalog | The model's `.tflite` and its `filters_vocab_*.bin` |
 | Handwriting models <Flavor edition="full" /> | <SettingsPath path="Tools / Handwriting / Recognition models" />, below the models | The model's two or three `.zip` files from `dl.google.com` |
-| Text recognition data <Flavor edition="full" /> | <SettingsPath path="Tools / Text scan (OCR) / Tesseract languages" />, below the languages | `<language>.traineddata` |
+| Text recognition data <Flavor edition="full" /> | <SettingsPath path="Tools / Text scan (OCR) / Language data" />, below the languages | `<language>.traineddata`, or PaddleOCR's `ocr_det_fp16.tflite`, `ocr_rec_fp16.tflite` and `keys_v5.txt` for Chinese and Japanese |
 | GIF packs | <SettingsPath path="Tools / GIFs / Offline GIF packs" /> | A CleverKeys GIF pack zip |
+| Offline dictionaries for the Dictionary tool | <SettingsPath path="Tools / Dictionary / Offline dictionaries" /> | `wiktionary.wmdict.gz` or `oewn.wmdict.gz` |
 | Anything above, plus AI models and the background remover | <SettingsPath path="About / Storage / Import downloaded files" /> | Any of these |
 
 The Storage row takes every kind of file, so it is the one to use for a folder of mixed downloads. It is also the only way in for an on-device AI model other than the AI model screen's own import, and for the sticker editor's background remover (`u2netp.tflite`).
@@ -37,7 +38,7 @@ Files are recognised by name, which is the name they are published under. Renami
 
 ## Language packs
 
-A language pack is one zip holding everything a language downloads: its word lists, its word-pair data, its emoji names, and for Chinese, Japanese and Cantonese their conversion tables. There is one per folder of the [data repository](https://github.com/wasi-master/wmkeyboard-data), named `wmkb-lang-<code>.zip`, on its [language packs release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/language-packs). **Get the files** on a language's screen links its own pack directly. The packs are rebuilt whenever the data changes.
+A language pack is one zip holding everything a language downloads: its word lists, its word-pair data, its emoji names, and for Chinese, Japanese and Cantonese their conversion tables. There is one per folder of the [data repository](https://github.com/wasi-master/wmkeyboard-data), named `wmkb-lang-<code>.zip`, on its [language packs release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/language-packs). **Get the files** on a language's screen links its own pack directly. The packs are rebuilt whenever the data changes. A pack, or one of its files on its own, can also be opened straight from a file manager or a chat app: WM Keyboard asks before installing it, then shows the same report.
 
 Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both, along with desktop Avro's dictionary (`bn_avro_dictionary.txt.gz`) for the Avro candidate list and the Khipro spellings (`bn_khipro_glide.txt.gz`) that glide typing on Khipro reads. The packs of Bangla, Assamese, Hindi, Urdu, Persian, Arabic and the eight Indic phonetic languages also carry the phonetic index built over the word list (`<code>_phonetic_v1r1.wmpi.gz`), which the phonetic layout reads instead of folding the list on the phone. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has three: AOSP **United States**, AOSP **United Kingdom** and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
 
@@ -61,7 +62,7 @@ One thing on the full edition has no file to import:
 
 - **On-device translation.** Google's ML Kit downloads and keeps its language models itself, and offers no way to install one from a file.
 
-Everything reaching an online service (web and image search, GIFs from KLIPY or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On a build with no internet permission those say that the build cannot connect, rather than waiting for a network that will never come.
+Everything reaching an online service (web and image search, GIFs from KLIPY or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On a build with no internet permission those say that the build cannot connect, rather than waiting for a network that will never come. The Dictionary tool is the exception once an [offline dictionary](/tools/search/#offline-dictionaries) is imported: it then defines English words from the phone.
 
 ## Details & edge cases
 

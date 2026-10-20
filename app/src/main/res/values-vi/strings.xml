@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Dán liên kết và nhấn enter để truy cập, hoặc dán thêm các đoạn clip với dấu cách hoặc dòng mới giữa chúng mà không cần quay lại bàn phím. ABC quay lại các chữ cái. Nếu bạn đã thay đổi bố cục bảng, cài đặt này sẽ không có tác dụng: hãy thêm các phím trong trình chỉnh sửa bố cục. Hàng này không được hiển thị khi bảng tạm được xếp chồng lên các phím. Cài đặt này bị tắt theo mặc định.</string>
     <string name="clipboard_key_row_subtitle">Một hàng phím dọc theo phía dưới của bảng tạm</string>
     <string name="clipboard_key_row_title">Các phím ABC, dấu cách và enter</string>
-    <string name="clipboard_line_spacing_info">Ở mức 100%, các dòng của một đoạn clip nằm sát nhau nhất có thể theo phông chữ. Tăng mức này để giãn cách chúng. Mặc định là 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Ở mức 100%, các dòng của một đoạn clip nằm sát nhau nhất có thể theo phông chữ. Tăng mức này để giãn cách chúng. Mặc định là 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Khoảng cách giữa các dòng văn bản của đoạn clip</string>
     <string name="clipboard_line_spacing_title">Khoảng cách dòng</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">Trắng</string>
     <string name="import_sticker_editor_border_width_label">Độ rộng đường viền</string>
     <string name="import_sticker_editor_brush_size_label">Kích thước cọ</string>
-    <string name="import_sticker_editor_caption">Bàn phím lưu một nhãn dán kích thước 512x512. Di chuyển và thu phóng hình ảnh để chọn phần muốn giữ lại, sau đó xóa nền và thêm đường viền. Ứng dụng giữ hình ảnh này trên điện thoại để bạn có thể chỉnh sửa nhãn dán sau này.</string>
     <string name="import_sticker_editor_crop_action">Cắt</string>
-    <string name="import_sticker_editor_crop_hint">Kéo để di chuyển hình ảnh. Chụm để phóng to.</string>
     <string name="import_sticker_editor_cutout_action">Xóa nền</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Tải xuống công cụ xóa nền trước. Đây là bản tải xuống 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Ứng dụng đang tải trình xóa nền…</string>
@@ -3513,7 +3511,6 @@
     <string name="layout_editor_alternate_columns_default">Từ cài đặt</string>
     <string name="layout_editor_alternate_columns_subtitle">Số lượng từ thay thế mà phím này đặt trên một hàng</string>
     <string name="layout_editor_alternate_columns_title">Các cột trong cửa sổ bật lên</string>
-    <string name="layout_editor_alternate_hint_badge">gợi ý</string>
     <string name="layout_editor_alternates_field_hint">Phân tách các mục bằng dấu cách, vì vậy một mục thay thế không thể là dấu cách. Các mục có nhiều hơn một ký tự, chẳng hạn như .com, là hợp lệ. Ứng dụng cũng sẽ hiển thị mục đầu tiên ở góc của phím.</string>
     <string name="layout_editor_alternates_field_label">Các lựa chọn thay thế cho nhấn và giữ</string>
     <string name="layout_editor_apply_action">Áp dụng</string>
@@ -3609,7 +3606,6 @@
     <string name="layout_editor_field_row_title">Thành phần</string>
     <string name="layout_editor_fill_row_action">Lấp đầy hàng (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Hàng số đã hiển thị các chữ số, vì vậy bàn phím hiển thị hàng này thay cho hàng đầu tiên của lớp này.</string>
-    <string name="layout_editor_fill_row_off_caption">Khi Hàng số được bật, bàn phím hiển thị hàng này thay cho hàng đầu tiên của lớp này, vì hàng số đã hiển thị các chữ số. Hàng số hiện đang tắt.</string>
     <string name="layout_editor_fill_row_title">Hàng thay thế cho các chữ số</string>
     <string name="layout_editor_fit_row_action">Khớp hàng với lưới (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Không có thao tác vuốt theo hướng này. Chạm để chọn một hành động.</string>
@@ -3784,8 +3780,6 @@
     <string name="layout_editor_new_secondary_title">Bắt đầu một bố cục phụ</string>
     <string name="layout_editor_not_live_caption">Các thay đổi của bạn tại đây sẽ không ảnh hưởng đến việc nhập liệu cho đến khi bạn bật bố cục trong phần Ngôn ngữ.</string>
     <string name="layout_editor_number_row_caption">Bàn phím hiển thị hàng này phía trên lớp này. Chạm vào một phím để thay đổi phím đó. Giữ một phím và kéo để di chuyển phím đó.</string>
-    <string name="layout_editor_number_row_hidden_caption">Bàn phím hiển thị hàng này phía trên lớp này khi Hàng số trong ký hiệu được bật trong Bố cục và kích thước. Hiện tại nó đang tắt.</string>
-    <string name="layout_editor_number_row_off_caption">Bàn phím hiển thị hàng này phía trên lớp này khi Hàng số được bật trong Bố cục và kích thước. Hàng số hiện đang tắt.</string>
     <string name="layout_editor_number_row_title">Hàng số</string>
     <string name="layout_editor_panel_inherited_caption">Bố cục này sử dụng bảng %1$s được chia sẻ. Việc thay đổi bất kỳ thứ gì ở đây sẽ tạo một bản sao chỉ dành cho bố cục này. Bảng được chia sẻ nằm trong phần Bố cục phím, Bố cục bảng.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Kế thừa chủ đề của bố cục</string>
@@ -3988,11 +3982,8 @@
     <string name="layout_split_spacebar_title">Chia thanh dấu cách</string>
     <string name="layout_split_subtitle">Chia các phím thành nửa trái và nửa phải</string>
     <string name="layout_split_title">Bàn phím tách rời</string>
-    <string name="layout_summon_button_info">Trong khi bàn phím đóng, một nút tròn nhỏ sẽ nổi trên mọi ứng dụng. Chạm vào nút đó và bàn phím sẽ mở ra, ngay cả trên màn hình không có trường văn bản, và vẫn mở ở đó cho đến khi bạn đóng nó. Các phím sau đó sẽ gửi đến ứng dụng dưới dạng nhấn phím, giống như với Giữ bàn phím trên màn hình. Kéo nút để di chuyển; nó sẽ tự động nằm sát cạnh gần hơn. Nhấn và giữ nút để ẩn nó cho đến khi bàn phím mở lần tiếp theo. Cần quyền Hiển thị trên các ứng dụng khác của Android.</string>
     <string name="layout_summon_button_permission_subtitle">Nút này không thể xuất hiện cho đến khi Android cho phép</string>
     <string name="layout_summon_button_permission_title">Cho phép hiển thị trên ứng dụng khác</string>
-    <string name="layout_summon_button_subtitle">Một nút nằm trên các ứng dụng khác để mở bàn phím, có hoặc không có trường văn bản</string>
-    <string name="layout_summon_button_title">Nút bàn phím nổi</string>
     <string name="layout_swap_comma_globe_info">Hai phím ở mỗi bên của phím cách sẽ đổi chỗ cho nhau. Nếu một trong số đó là phím emoji, nó sẽ di chuyển ra vị trí ngoài cùng và dấu phẩy sẽ nằm cạnh phím cách. Tắt tùy chọn này để trở về thứ tự thông thường.</string>
     <string name="layout_swap_comma_globe_subtitle">Đặt dấu phẩy cạnh phím cách</string>
     <string name="layout_swap_comma_globe_title">Hoán đổi phím dấu phẩy và phím 🌐</string>
@@ -5811,7 +5802,6 @@
     <string name="search_kw_layout_show_globe">ẩn xóa quả địa cầu ngôn ngữ</string>
     <string name="search_kw_layout_size_position">thay đổi kích thước thu nhỏ nhỏ gọn phóng to</string>
     <string name="search_kw_layout_split">công thái học ngón cái máy tính bảng</string>
-    <string name="search_kw_layout_summon_button">hiện lớp phủ bong bóng gọi trường không có hacker</string>
     <string name="search_kw_layout_symbols_numpad_key">bàn phím số phím số bàn phím quay số 1234 gboard</string>
     <string name="search_kw_learnedcorrections">sửa lỗi đã học, các bản sửa lỗi của tôi, cặp lỗi chính tả, bản sửa lỗi đã dạy, học tự động sửa, lỗi trượt, thói quen</string>
     <string name="search_kw_licenses">mã nguồn mở, ghi công, tín dụng</string>
@@ -5850,7 +5840,7 @@
     <string name="search_kw_translate_engine">ngoại tuyến riêng tư internet máy bay thiết bị cục bộ ml kit google mô hình tải xuống đám mây</string>
     <string name="search_kw_translate_models">tải xuống mô hình dịch ngoại tuyến xóa bộ nhớ ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ẩn bộ lọc menu chọn mô hình ngoại tuyến danh sách ngôn ngữ ngắn</string>
-    <string name="search_kw_translate_server">openai tương thích tự lưu trữ lưu trữ cục bộ llm ai mô hình ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai tương thích tự lưu trữ lưu trữ cục bộ llm ai mô hình ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">kiểm tra chính tả, tự động hoàn thành, văn bản dự đoán, lướt, nhập bằng cách vuốt, cử chỉ, danh bạ, hoàn tác</string>
     <string name="search_kw_typing_auto_capitalize">tự động viết hoa</string>
     <string name="search_kw_typing_auto_close_brackets">tự động đóng dấu ngoặc đơn dấu ngoặc nhọn khớp dấu ngoặc hoàn tất việc đóng</string>
@@ -6821,7 +6811,6 @@
     <string name="theme_parts_strip_subtitle">Loại bỏ màu nền, màu từ và kích thước</string>
     <string name="theme_parts_toolbar_subtitle">Màu nền công cụ, biểu tượng, hình dạng, đường viền</string>
     <string name="theme_pick_hint">Nhấn một phím, một công cụ hoặc thanh công cụ</string>
-    <string name="theme_pick_start_desc">Chọn một phần của bàn phím để tạo kiểu</string>
     <string name="theme_pick_start_subtitle">Nhấn vào một phím, một công cụ hoặc dải gợi ý trên bản xem trước để tạo kiểu cho nó</string>
     <string name="theme_pick_start_title">Chọn trên bàn phím</string>
     <string name="theme_pick_strip_sample_words">Xin chào,Cảm ơn,Được</string>
@@ -7647,12 +7636,6 @@
     <string name="tooldetail_ocr_info">Nhận dạng chạy trên thiết bị của bạn bằng ML Kit. Không có ảnh và văn bản nào rời khỏi thiết bị của bạn và nó hoạt động ngoại tuyến. Nó đọc văn bản bằng chữ Latinh, ví dụ như tiếng Anh. Trình nhận dạng văn bản của ML Kit chưa hỗ trợ tiếng Bengal. Sau khi chụp, hãy nhấn vào các từ để chọn chính xác những gì bàn phím nhập hoặc sao chép.</string>
     <string name="tooldetail_ocr_online_group">Trình đọc văn bản trực tuyến</string>
     <string name="tooldetail_ocr_online_info">Ảnh được gửi đến một mô hình có khả năng đọc hình ảnh tại địa chỉ bạn chọn, và mô hình đó sẽ viết ra văn bản mà nó nhìn thấy. Nó đọc bất kỳ tập lệnh nào và không cần dữ liệu ngôn ngữ. Bất kỳ dịch vụ nào có API tương thích với OpenAI đều hoạt động: OpenAI, OpenRouter, Gemini, Mistral hoặc một mô hình trên máy tính của riêng bạn với Ollama hoặc LM Studio. Mỗi lần quét sẽ gửi ảnh đến dịch vụ đó và dịch vụ có thể tính phí cho việc này.</string>
-    <string name="tooldetail_ocr_online_key_hint">Để trống nếu máy chủ không yêu cầu khóa</string>
-    <string name="tooldetail_ocr_online_key_label">Khóa API</string>
-    <string name="tooldetail_ocr_online_model_hint">Một mô hình đọc hình ảnh, ví dụ gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Mô hình</string>
-    <string name="tooldetail_ocr_online_url_hint">Ví dụ: https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Địa chỉ</string>
     <string name="tooldetail_ocr_packs_header">Ngôn ngữ Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract chỉ đọc một ngôn ngữ sau khi dữ liệu của ngôn ngữ đó có trên thiết bị của bạn. Mỗi ngôn ngữ bạn nhập liệu sẽ cần một lần tải xuống, dung lượng từ 0,4 MB đến 12 MB. Dữ liệu được lấy từ bộ tessdata_fast của dự án Tesseract trên GitHub. Bạn cũng có thể tải xuống ngôn ngữ ngay từ trình quét.</string>
     <string name="tooldetail_ocr_packs_none_info">Không có ngôn ngữ nào bạn đã bật có dữ liệu Tesseract. Hãy thêm ngôn ngữ trên màn hình Ngôn ngữ. Dữ liệu của nó sau đó sẽ hiển thị ở đây.</string>
@@ -8507,7 +8490,7 @@
     <string name="typing_letter_swipe_select_key_label">Trượt đến một phím</string>
     <string name="typing_letter_swipe_type_words_desc">Một lần vuốt qua các phím sẽ đánh vần một từ</string>
     <string name="typing_letter_swipe_type_words_label">Gõ từ</string>
-    <string name="typing_mistype_tolerance_info">Mỗi lần chạm được đọc dựa trên vị trí nó rơi xuống, không chỉ dựa trên phím nó chạm vào, vì vậy một lần chạm gần cạnh phím vẫn có thể được đọc là phím bên cạnh. Điều này thiết lập mức độ rộng rãi của việc đọc đó. Trên 100%, một lần chạm sâu vào phím lân cận vẫn được coi là một lỗi trượt, phù hợp với việc gõ nhanh hoặc bận rộn và ngón tay lớn. Dưới 100%, phím bạn chạm vào được tin tưởng hơn, phù hợp với việc gõ cẩn thận. Nó thay đổi các từ mà thanh gợi ý cung cấp và những gì tính năng tự động sửa lỗi chọn. Mặc định là 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Mỗi lần chạm được đọc dựa trên vị trí nó rơi xuống, không chỉ dựa trên phím nó chạm vào, vì vậy một lần chạm gần cạnh phím vẫn có thể được đọc là phím bên cạnh. Điều này thiết lập mức độ rộng rãi của việc đọc đó. Trên 100%, một lần chạm sâu vào phím lân cận vẫn được coi là một lỗi trượt, phù hợp với việc gõ nhanh hoặc bận rộn và ngón tay lớn. Dưới 100%, phím bạn chạm vào được tin tưởng hơn, phù hợp với việc gõ cẩn thận. Nó thay đổi các từ mà thanh gợi ý cung cấp và những gì tính năng tự động sửa lỗi chọn. Mặc định là 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Khoảng cách chạm vào phím lân cận vẫn được tính là một lần gõ nhầm</string>
     <string name="typing_mistype_tolerance_title">Độ dung sai khi gõ sai</string>
     <string name="typing_new_word_sightings_info">Chỉ những từ không có trong từ điển mới được đếm. Một từ đã có trong từ điển sẽ được học ngay khi bạn nhập nó. Một lần sử dụng chỉ được tính khi bạn đã tiếp tục và để từ đó lại, vì vậy lỗi chính tả mà bạn quay lại sửa sẽ không bao giờ được tính. Hãy giảm giá trị này nếu tên riêng và tiếng lóng của bạn mất quá nhiều thời gian để được ghi nhớ. Đặt thành 1 để lưu ngay mọi từ mới, giống như các phiên bản cũ đã làm. Cài đặt này mặc định là 3.</string>
@@ -8800,11 +8783,9 @@
     <string name="typing_trail_opacity_title">Độ mờ của đường dẫn</string>
     <string name="typing_trail_width_subtitle">Độ dày của đường trượt</string>
     <string name="typing_trail_width_title">Độ rộng vệt kéo</string>
-    <string name="typing_two_thumb_info">Sử dụng cả hai ngón cái cùng lúc. Mỗi ngón cái có thể chạm hoặc vuốt đồng thời với ngón kia, và mọi thao tác chạm và vuốt đều góp phần tạo nên cùng một từ. Ví dụ: chạm S bằng ngón cái trái, vuốt O đến M bằng ngón phải, chạm E bằng ngón trái, sau đó vuốt T H I N G bằng ngón phải, và bạn sẽ có từ something. Một thao tác chạm diễn ra trong khi ngón cái kia vẫn đang vuốt sẽ được thêm vào từ tại vị trí đó, vì vậy vuốt qua H E L O và chạm vào L sẽ cho ra từ hello. Phím xóa lùi sẽ xóa thao tác chạm hoặc vuốt cuối cùng khỏi từ.</string>
     <string name="typing_two_thumb_subtitle">Chạm và vuốt bằng cả hai ngón cái cùng lúc để tạo một từ</string>
     <string name="typing_two_thumb_title">Gõ bằng hai ngón cái</string>
     <string name="typing_two_thumb_word_end_all_up_label">Tất cả ngón cái hướng lên</string>
-    <string name="typing_two_thumb_word_end_info">Với dấu cách, từ vẫn mở trong khi bạn chạm và vuốt, và bàn phím sẽ đọc lại từ đó sau mỗi lần. Chạm vào dấu cách hoặc dấu câu để nhập từ đó. Khi nhấc cả hai ngón cái lên, từ sẽ được nhập kèm dấu cách ngay khi không còn ngón cái nào chạm vào bàn phím, giống như kiểu lướt thông thường, vì vậy các ngón cái của bạn phải chồng lên nhau để chia sẻ một từ.</string>
     <string name="typing_two_thumb_word_end_space_label">Dấu cách</string>
     <string name="typing_two_thumb_word_end_subtitle">Điều gì nhập từ bạn đang xây dựng</string>
     <string name="typing_two_thumb_word_end_title">Hoàn thành một từ bằng hai ngón cái</string>

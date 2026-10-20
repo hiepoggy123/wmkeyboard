@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Вставте посилання та натисніть клавішу введення, щоб перейти за ним, або вставте кілька фрагментів, розділивши їх пробілом або новим рядком, не повертаючись до клавіатури. ABC повертає до букв. Якщо ви змінили розкладку панелі, цей параметр ні на що не вплине: замість цього додайте клавіші в редакторі розкладки. Рядок не відображається, доки буфер обміну розміщено над клавішами. За замовчуванням цей параметр вимкнено.</string>
     <string name="clipboard_key_row_subtitle">Рядок клавіш уздовж нижньої частини панелі буфера обміну</string>
     <string name="clipboard_key_row_title">Клавіші ABC, пробіл та Enter</string>
-    <string name="clipboard_line_spacing_info">При 100% рядки кліпу розташовані так близько, як дозволяє шрифт. Збільште значення, щоб розсунути їх. Стандартне значення — 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">При 100% рядки кліпу розташовані так близько, як дозволяє шрифт. Збільште значення, щоб розсунути їх. Стандартне значення — 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Відстань між рядками тексту в буфері обміну</string>
     <string name="clipboard_line_spacing_title">Міжрядковий інтервал</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">Білий</string>
     <string name="import_sticker_editor_border_width_label">Ширина межі</string>
     <string name="import_sticker_editor_brush_size_label">Розмір пензля</string>
-    <string name="import_sticker_editor_caption">Клавіатура зберігає стікер розміром 512 на 512. Переміщуйте та масштабуйте зображення, щоб вибрати потрібну частину, потім видаліть фон і додайте рамку. Додаток зберігає це зображення на телефоні, щоб ви могли відредагувати стікер пізніше.</string>
     <string name="import_sticker_editor_crop_action">Обрізати</string>
-    <string name="import_sticker_editor_crop_hint">Перетягніть, щоб перемістити зображення. Зведіть пальці, щоб збільшити його.</string>
     <string name="import_sticker_editor_cutout_action">Видалити фон</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Спочатку завантажте засіб видалення фону. Це завантаження розміром 5 МБ.</string>
     <string name="import_sticker_editor_cutout_download_progress">Додаток завантажує засіб видалення фону…</string>
@@ -3514,7 +3512,6 @@
     <string name="layout_editor_alternate_columns_default">З налаштувань</string>
     <string name="layout_editor_alternate_columns_subtitle">Скільки альтернативних символів ця клавіша розміщує в рядку</string>
     <string name="layout_editor_alternate_columns_title">Стовпці у спливаючому вікні</string>
-    <string name="layout_editor_alternate_hint_badge">підказка</string>
     <string name="layout_editor_alternates_field_hint">Розділяйте записи пробілами, тому альтернатива не може бути пробілом. Записи з кількох символів, наприклад .com, є правильними. Програма також малює перший з них у кутку клавіші.</string>
     <string name="layout_editor_alternates_field_label">Альтернативи для натискання й утримання</string>
     <string name="layout_editor_apply_action">Застосувати</string>
@@ -3610,7 +3607,6 @@
     <string name="layout_editor_field_row_title">Компонент</string>
     <string name="layout_editor_fill_row_action">Заповнити рядок (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Рядок цифр уже відображає цифри, тому клавіатура показує цей рядок замість першого рядка цього шару.</string>
-    <string name="layout_editor_fill_row_off_caption">Коли ввімкнено «Рядок цифр», клавіатура показує цей рядок замість першого рядка цього шару, оскільки рядок цифр уже відображає цифри. Зараз рядок цифр вимкнено.</string>
     <string name="layout_editor_fill_row_title">Рядок замість цифр</string>
     <string name="layout_editor_fit_row_action">Підігнати рядок до сітки (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Немає жесту в цьому напрямку. Торкніться, щоб вибрати дію.</string>
@@ -3785,8 +3781,6 @@
     <string name="layout_editor_new_secondary_title">Створити додатковий макет</string>
     <string name="layout_editor_not_live_caption">Зміни, внесені тут, не впливатимуть на введення тексту, поки ви не ввімкнете розкладку в розділі \"Мови\".</string>
     <string name="layout_editor_number_row_caption">Клавіатура показує цей рядок над цим шаром. Торкніться клавіші, щоб змінити її. Утримуйте клавішу та перетягніть її, щоб перемістити.</string>
-    <string name="layout_editor_number_row_hidden_caption">Клавіатура показує цей рядок над цим шаром, коли в налаштуваннях «Розкладка та розмір» увімкнено «Рядок цифр у символах». Зараз він вимкнений.</string>
-    <string name="layout_editor_number_row_off_caption">Клавіатура показує цей рядок над цим шаром, коли в налаштуваннях «Розкладка та розмір» увімкнено «Рядок цифр». Зараз рядок цифр вимкнено.</string>
     <string name="layout_editor_number_row_title">Рядок цифр</string>
     <string name="layout_editor_panel_inherited_caption">Цей макет використовує спільну панель %1$s. Зміна чого-небудь тут створює копію лише для цього макета. Спільна панель знаходиться в розділі Маккети клавіш, Маккети панелей.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Успадкувати тему розкладки</string>
@@ -3989,11 +3983,8 @@
     <string name="layout_split_spacebar_title">Розділити клавішу пробілу</string>
     <string name="layout_split_subtitle">Розділіть клавіші на ліву та праву половини</string>
     <string name="layout_split_title">Розділити клавіатуру</string>
-    <string name="layout_summon_button_info">Поки клавіатура закрита, невелика кругла кнопка плаває поверх кожного додатка. Торкніться її, і клавіатура відкриється, навіть на екрані без текстового поля, і залишатиметься там відкритою, доки ви її не закриєте. Клавіші тоді надсилатимуться в додаток як натискання клавіш, так само як і з опцією \"Тримати клавіатуру на екрані\". Перетягніть кнопку, щоб перемістити її; вона закріпиться біля ближчого краю. Натисніть і утримуйте її, щоб приховати до наступного відкриття клавіатури. Потребує дозволу Android \"Відображення поверх інших додатків\".</string>
     <string name="layout_summon_button_permission_subtitle">Кнопка не може з\'явитися, поки Android не дозволить це</string>
     <string name="layout_summon_button_permission_title">Дозволити відображення поверх інших програм</string>
-    <string name="layout_summon_button_subtitle">Кнопка поверх інших програм, що відкриває клавіатуру, з текстовим полем або без нього</string>
-    <string name="layout_summon_button_title">Плаваюча кнопка клавіатури</string>
     <string name="layout_swap_comma_globe_info">Дві клавіші з кожного боку пробілу міняються місцями. Якщо одна з них — клавіша емодзі, вона переміщується в зовнішню позицію, а кома залишається поруч із пробілом. Вимкніть це, щоб повернути звичайний порядок.</string>
     <string name="layout_swap_comma_globe_subtitle">Розмістити кому поруч із пробілом</string>
     <string name="layout_swap_comma_globe_title">Поміняти місцями клавіші коми та 🌐</string>
@@ -5812,7 +5803,6 @@
     <string name="search_kw_layout_show_globe">приховати видалити мову глобуса</string>
     <string name="search_kw_layout_size_position">зміна розміру стиснення компактний збільшення</string>
     <string name="search_kw_layout_split">ергономічний планшет для великих пальців</string>
-    <string name="search_kw_layout_summon_button">бульбашкове накладання показати поле виклику без полів хакери</string>
     <string name="search_kw_layout_symbols_numpad_key">цифрова клавіатура панель набору 1234 gboard</string>
     <string name="search_kw_learnedcorrections">вивчені виправлення, мої виправлення, пари помилок, навчені виправлення, навчання автокорекції, промахи, звички</string>
     <string name="search_kw_licenses">відкритий код, атрибуція, авторство</string>
@@ -5851,7 +5841,7 @@
     <string name="search_kw_translate_engine">офлайн приватний інтернет літак локальний пристрій ml kit google завантаження моделі хмара</string>
     <string name="search_kw_translate_models">завантаження офлайн-моделі перекладу видалення сховище ml kit google</string>
     <string name="search_kw_translate_only_downloaded">приховати меню вибору офлайн-моделі у фільтрі</string>
-    <string name="search_kw_translate_server">openai сумісний selfhosted хостинг локальний llm ai модель ollama llama studio vllm localai чат завершення</string>
+    <string name="search_kw_translate_server">openai сумісний selfhosted хостинг локальний llm ai модель ollama llama studio vllm localai чат завершення mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">перевірка орфографії, автозаповнення, предиктивне введення, введення ковзанням, введення свайпом, жести, контакти, скасувати</string>
     <string name="search_kw_typing_auto_capitalize">автозаголовні автокапіталізація</string>
     <string name="search_kw_typing_auto_close_brackets">автозакриття дужок парні дужки збіг дужок завершення закриття</string>
@@ -6822,7 +6812,6 @@
     <string name="theme_parts_strip_subtitle">Заповнення панелі, кольори слів і розмір</string>
     <string name="theme_parts_toolbar_subtitle">Заливка інструментів, значки, форма, межі</string>
     <string name="theme_pick_hint">Натисніть клавішу, інструмент або смужку</string>
-    <string name="theme_pick_start_desc">Виберіть частину клавіатури для оформлення</string>
     <string name="theme_pick_start_subtitle">Натисніть клавішу, інструмент або смужку пропозицій у попередньому перегляді, щоб змінити стиль</string>
     <string name="theme_pick_start_title">Вибрати на клавіатурі</string>
     <string name="theme_pick_strip_sample_words">Привіт,Дякую,Добре</string>
@@ -7647,12 +7636,6 @@
     <string name="tooldetail_ocr_info">Розпізнавання виконується на вашому пристрої за допомогою ML Kit. Жодне фото чи текст не залишають ваш пристрій, і це працює офлайн. Він зчитує текст латиницею, наприклад, англійською. Розпізнавач тексту ML Kit поки що не підтримує бенгальську мову. Після захоплення натисніть на слова, щоб вибрати саме те, що клавіатура має надрукувати або скопіювати.</string>
     <string name="tooldetail_ocr_online_group">Онлайн-зчитувач тексту</string>
     <string name="tooldetail_ocr_online_info">Фотографія надсилається до моделі, яка вміє читати зображення, за обраною вами адресою, і модель записує текст, який бачить. Вона читає будь-який шрифт і не потребує мовних даних. Працює будь-який сервіс із API, сумісним з OpenAI: OpenAI, OpenRouter, Gemini, Mistral або модель на вашому комп\'ютері з Ollama чи LM Studio. Кожне сканування надсилає фотографію до цього сервісу, і сервіс може стягувати за це плату.</string>
-    <string name="tooldetail_ocr_online_key_hint">Залиште порожнім для сервера, який не потребує ключа</string>
-    <string name="tooldetail_ocr_online_key_label">Ключ API</string>
-    <string name="tooldetail_ocr_online_model_hint">Модель, яка зчитує зображення, наприклад gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Модель</string>
-    <string name="tooldetail_ocr_online_url_hint">Наприклад, https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Адреса</string>
     <string name="tooldetail_ocr_packs_header">Мови Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract зчитує мову лише після того, як дані для цієї мови з\'являться на вашому пристрої. Для кожної мови, якою ви друкуєте, потрібно завантажити файл розміром від 0,4 МБ до 12 МБ. Дані взяті з набору tessdata_fast проєкту Tesseract на GitHub. Ви також можете завантажити мову безпосередньо зі сканера.</string>
     <string name="tooldetail_ocr_packs_none_info">Жодна з увімкнених вами мов не має даних Tesseract. Додайте мову на екрані «Мови». Після цього її дані з\'являться тут.</string>
@@ -8486,7 +8469,7 @@
     <string name="typing_letter_swipe_select_key_label">Проведіть до клавіші</string>
     <string name="typing_letter_swipe_type_words_desc">Проведення пальцем по клавішах вводить одне слово</string>
     <string name="typing_letter_swipe_type_words_label">Вводити слова</string>
-    <string name="typing_mistype_tolerance_info">Кожен дотик зчитується відносно місця, куди він потрапив, а не лише відносно клавіші, яку він зачепив, тому дотик біля краю клавіші все одно може бути розпізнаний як сусідня клавіша. Це налаштування визначає, наскільки щедрим є це зчитування. Понад 100% — дотик глибоко всередині сусідньої клавіші все ще вважається ймовірною помилкою, що підходить для швидкого або хаотичного друку та великих пальців. Нижче 100% — клавіші, яку ви натиснули, довіряють більше, що підходить для обережного друку. Це змінює слова, які пропонує стрічка, і те, що вибирає автокорекція. За замовчуванням — 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Кожен дотик зчитується відносно місця, куди він потрапив, а не лише відносно клавіші, яку він зачепив, тому дотик біля краю клавіші все одно може бути розпізнаний як сусідня клавіша. Це налаштування визначає, наскільки щедрим є це зчитування. Понад 100% — дотик глибоко всередині сусідньої клавіші все ще вважається ймовірною помилкою, що підходить для швидкого або хаотичного друку та великих пальців. Нижче 100% — клавіші, яку ви натиснули, довіряють більше, що підходить для обережного друку. Це змінює слова, які пропонує стрічка, і те, що вибирає автокорекція. За замовчуванням — 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Наскільки глибоко в сусідню клавішу може потрапити дотик, щоб все ще вважатися помилкою</string>
     <string name="typing_mistype_tolerance_title">Допуск до помилок при друці</string>
     <string name="typing_new_word_sightings_info">Підраховуються лише слова, яких немає в жодному словнику. Слово, що вже є в словнику, вивчається в момент введення. Використання зараховується лише після того, як ви перейшли далі й залишили слово в спокої, тому виправлена одруківка ніколи не враховується. Зменште це значення, якщо ваші власні імена та сленг надто довго не запам\'ятовуються. Встановіть значення 1, щоб одразу зберігати кожне нове слово, як це було в старих версіях. За замовчуванням це значення дорівнює 3.</string>
@@ -8779,11 +8762,9 @@
     <string name="typing_trail_opacity_title">Непрозорість сліду</string>
     <string name="typing_trail_width_subtitle">Товщина сліду ковзання</string>
     <string name="typing_trail_width_title">Ширина сліду</string>
-    <string name="typing_two_thumb_info">Використовуйте обидва великі пальці разом. Кожен палець може торкатися або проводити одночасно з іншим, і кожне торкання чи проведення додається до того самого слова. Наприклад, торкніться S лівим великим пальцем, проведіть від O до M правим, торкніться E лівим, потім проведіть T H I N G правим, і ви отримаєте слово. Торкання, яке відбувається, поки інший палець ще проводить, додається до слова в цій точці, тому проведення по H E L O і торкання L дає hello. Backspace видаляє останнє торкання або проведення зі слова.</string>
     <string name="typing_two_thumb_subtitle">Торкніться і проведіть обома великими пальцями одночасно, щоб створити одне слово</string>
     <string name="typing_two_thumb_title">Набір двома великими пальцями</string>
     <string name="typing_two_thumb_word_end_all_up_label">Усі великі літери</string>
-    <string name="typing_two_thumb_word_end_info">З пробілом слово залишається відкритим, поки ви торкаєтеся та проводите пальцем, і клавіатура знову зчитує його після кожного разу. Торкніться пробілу або розділового знака, щоб ввести його. Якщо ви використовуєте обидва великі пальці, слово вводиться з пробілом, як тільки жоден палець не торкається клавіатури, подібно до звичайного ковзання, тому ваші пальці повинні перекриватися, щоб поділитися словом.</string>
     <string name="typing_two_thumb_word_end_space_label">Пробіл</string>
     <string name="typing_two_thumb_word_end_subtitle">Що вводить слово, яке ви створюєте</string>
     <string name="typing_two_thumb_word_end_title">Завершити слово двома великими пальцями</string>

@@ -22,12 +22,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Assistant
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dns
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolunteerActivism
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Adjust
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DeleteSweep
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Label
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SentimentSatisfied
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
@@ -39,6 +43,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Autorenew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Home
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Handyman
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Hub
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
@@ -78,6 +83,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewAgenda
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tag
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolunteerActivism
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Widgets
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MusicNote
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalSplit
@@ -518,14 +524,19 @@ internal object SettingsRouteIcons {
         "keymaps" to { Icons.Outlined.GridOn },
         "rows" to { Icons.Outlined.ViewAgenda },
         "rows/symbol" to { Icons.Outlined.Tag },
+        "ai" to { Icons.Outlined.AutoAwesome },
         "ai_actions" to { Icons.Outlined.AutoAwesome },
         "ai_history" to { Icons.Outlined.History },
         "ai_chat" to { Icons.AutoMirrored.Outlined.Chat },
+        "settings_assistant" to { Icons.Outlined.Assistant },
         "ai_mcp" to { Icons.Outlined.Hub },
         "ai_tools" to { Icons.Outlined.Handyman },
         "modes" to { Icons.Outlined.Tune },
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emoji/panel" to { Icons.Outlined.GridView },
+        "kaomoji" to { Icons.Outlined.SentimentSatisfied },
+        "kaomoji/faces" to { Icons.Outlined.SentimentSatisfied },
+        "kaomoji/tags" to { Icons.Outlined.Label },
         "emojicategories" to { Icons.Outlined.Sort },
         "emojikeywords" to { Icons.Outlined.EmojiEmotions },
         "clipboard" to { Icons.Outlined.ContentPaste },
@@ -538,6 +549,7 @@ internal object SettingsRouteIcons {
         "vocab/review" to { Icons.Outlined.AutoStories },
         "vocab/browse" to { Icons.Outlined.AutoStories },
         "clock" to { Icons.Outlined.Schedule },
+        "homeassistant/entities" to { Icons.Outlined.Home },
         "notes" to { Icons.Outlined.StickyNote2 },
         "notes/tags" to { Icons.Outlined.Label },
         "notes/trash" to { Icons.Outlined.DeleteSweep },
@@ -557,11 +569,13 @@ internal object SettingsRouteIcons {
         "selection_macros/ai" to { Icons.Outlined.AutoAwesome },
         "selection_macros/zones" to { Icons.Outlined.Public },
         "advanced" to { Icons.Outlined.Tune },
+        FloatingButtonRoute to { Icons.Outlined.Adjust },
         "backup" to { Icons.Outlined.Save },
         "backup/auto" to { Icons.Outlined.Schedule },
         "backup/sync" to { Icons.Outlined.Sync },
         "backup/contents" to { Icons.Outlined.Checklist },
         "about" to { Icons.Outlined.Info },
+        "supporters" to { Icons.Outlined.VolunteerActivism },
         "storage" to { Icons.Outlined.PieChart },
         "statistics" to { Icons.Outlined.QueryStats },
         "licenses" to { Icons.Outlined.Gavel },
@@ -577,6 +591,9 @@ internal object SettingsRouteIcons {
         "musicapps" to { Icons.Outlined.MusicNote },
         "launchercombos" to { Icons.Outlined.VerticalSplit },
         "kdeconnect/devices" to { Icons.Outlined.Devices },
+        "send/instances" to { Icons.Outlined.Dns },
+        "send/history" to { Icons.Outlined.History },
+        "supporters" to { Icons.Outlined.VolunteerActivism },
     )
 
     operator fun get(route: String): ImageVector? = map[route]?.invoke()
@@ -637,6 +654,8 @@ internal fun SettingsSearchScreen(
     settings: LiveSettings,
     onBack: () -> Unit,
     onOpen: (SettingsSearchEntry) -> Unit,
+    /** Opens the Settings assistant (#788) with what is typed so far. */
+    onAsk: ((String) -> Unit)? = null,
 ) {
     // Saveable, so the results are still there when the user backs out of a
     // setting that was not the one they were after (#92).
@@ -749,6 +768,19 @@ internal fun SettingsSearchScreen(
                             Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(CommonR.string.common_back),
                         )
+                    }
+                },
+                actions = {
+                    if (onAsk != null) {
+                        IconButton(onClick = {
+                            keyboard?.hide()
+                            onAsk(query)
+                        }) {
+                            Icon(
+                                Icons.Outlined.Assistant,
+                                contentDescription = stringResource(R.string.settings_assistant_ask),
+                            )
+                        }
                     }
                 },
             )
@@ -1074,7 +1106,7 @@ private const val HIGHLIGHT_MIN_LENGTH = 3
  * magnifier is the fallback for a route with no icon of its own.
  */
 @Composable
-private fun ResultIcon(
+internal fun ResultIcon(
     entry: SettingsSearchEntry,
     settings: LiveSettings,
     modifier: Modifier = Modifier,

@@ -298,7 +298,8 @@ internal fun AiChatScreen(
     // remote providers. Keyed on version so a chat opened right after a
     // download sees the new model.
     val ai = settings.watch { it.ai }
-    val choices = remember(version, ai) { AiChatController.choices(context, ai) }
+    val providers = settings.watch { it.providers }
+    val choices = remember(version, ai, providers) { AiChatController.choices(context, settings.value) }
     var choice by remember(choices) {
         mutableStateOf(AiChatController.initialChoice(store, choices))
     }
@@ -674,7 +675,7 @@ private fun ModelChips(
                         if (option.provider == AiProvider.ON_DEVICE) {
                             AiChatController.localModelLabel(option.localModelId)
                         } else {
-                            stringResource(option.provider.labelRes)
+                            option.name.ifEmpty { stringResource(option.provider.labelRes) }
                         },
                         maxLines = 1,
                     )
@@ -767,9 +768,10 @@ private fun MessageBubble(
                                     codeBackground = ink.copy(alpha = 0.10f),
                                 ),
                                 fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                            ) { block ->
-                                BubbleAction(CommonR.string.common_copy) { copy(block.code) }
-                            }
+                                codeActions = { block ->
+                                    BubbleAction(CommonR.string.common_copy) { copy(block.code) }
+                                },
+                            )
                         }
                     }
                     if (message.attachment.isNotEmpty()) {
@@ -878,10 +880,20 @@ private fun StreamingBubble(run: AiChatController.ChatRun, showThinking: Boolean
                             MaterialTheme.colorScheme.onSurface
                         },
                     )
-                    split.output.isNotBlank() -> Text(
-                        split.output,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    // Drawn as the finished answer will be, so the bold and the
+                    // lists are there while it streams rather than at the end.
+                    split.output.isNotBlank() -> {
+                        val ink = MaterialTheme.colorScheme.onSurfaceVariant
+                        ChatMarkdown(
+                            split.output,
+                            ChatMarkdownColors(
+                                text = ink,
+                                dim = ink.copy(alpha = 0.65f),
+                                codeBackground = ink.copy(alpha = 0.10f),
+                            ),
+                            fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                        )
+                    }
                     // The line above already names the tool and what it is on.
                     toolRunning && !split.thinking -> Unit
                     else -> Row(verticalAlignment = Alignment.CenterVertically) {

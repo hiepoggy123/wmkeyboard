@@ -62,6 +62,34 @@ class DuetWorkspace {
     /** The first sample the swipe's letters after the tap may sit on: its moment, less the window. */
     val tapLo = IntArray(MAX_TOKENS * MAX_TOKENS)
 
+    /** The loop search [GlideBeam] runs too, run here on each swipe in turn; see [LoopScan]. */
+    internal val loopScan = LoopScan()
+
+    /**
+     * The doubled-letter loops the swipes carry, as events: the swipe each
+     * was drawn in and the one key it marks. A loop on no key and a wiggle
+     * are not filed: neither doubles anything.
+     */
+    var loopTok = IntArray(INITIAL_LOOPS); private set
+    var loopKey = IntArray(INITIAL_LOOPS); private set
+    var loopCount = 0; private set
+
+    /** `keyLoop[token * keyCount + key]`: 1 when that swipe loops on that key, else 0. */
+    var keyLoop = FloatArray(MAX_TOKENS * INITIAL_KEYS); private set
+
+    /** Files a loop drawn in swipe [tok] on [key]. */
+    fun addLoop(tok: Int, key: Int) {
+        val e = loopCount
+        if (e == loopTok.size) {
+            loopTok = loopTok.copyOf(e * 2)
+            loopKey = loopKey.copyOf(e * 2)
+        }
+        loopTok[e] = tok
+        loopKey[e] = key
+        loopCount = e + 1
+        keyLoop[tok * keyCount + key] = 1f
+    }
+
     /** Grows the per-key tables for a grid of [keys] keys. */
     fun prepareKeys(keys: Int) {
         keyCount = keys
@@ -70,11 +98,14 @@ class DuetWorkspace {
             near = BooleanArray(flags)
             startKey = BooleanArray(flags)
             endKey = BooleanArray(flags)
+            keyLoop = FloatArray(flags)
         } else {
             near.fill(false, 0, flags)
             startKey.fill(false, 0, flags)
             endKey.fill(false, 0, flags)
+            keyLoop.fill(0f, 0, flags)
         }
+        loopCount = 0
         val costs = MAX_TOKENS * MAX_SAMPLES * keys
         if (cost.size < costs) cost = FloatArray(costs)
     }
@@ -275,13 +306,19 @@ class DuetWorkspace {
         /** Swipes that can be open at once: one per thumb. */
         const val SLOTS = 2
 
-        /** Most samples one swipe is resampled to; short swipes take fewer. */
-        const val MAX_SAMPLES = GlideWorkspace.SAMPLE_POINTS
+        /**
+         * Most samples one swipe is resampled to; short swipes take fewer.
+         * Not [GlideWorkspace.SAMPLE_POINTS]: that went to 64 for long single
+         * strokes, and a duet's swipes are pieces of a word, never measured
+         * at the finer spacing.
+         */
+        const val MAX_SAMPLES = 48
 
         /** Frontier cap: ~1.5 MB of columns once grown into. A backstop, as in [GlideWorkspace]. */
         const val MAX_STATES = 4096
 
         private const val INITIAL = 256
         private const val INITIAL_KEYS = 48
+        private const val INITIAL_LOOPS = 8
     }
 }

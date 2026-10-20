@@ -153,6 +153,14 @@ data class Key(
      */
     val iconHint: String? = null,
     /**
+     * Text drawn as the corner hint in place of the first long-press alternate
+     * (issue #769): what the corner says, kept apart from what a hold types, so
+     * a full stop can show `,?!` in its corner while its popup keeps whatever
+     * order the hold wants. Shown under the same toggles as the character hint,
+     * on any key, the way [iconHint] is; [iconHint] wins when both are set.
+     */
+    val hint: String? = null,
+    /**
      * Draws no corner hint on this key, whatever it would otherwise have shown —
      * the first long-press alternate, or an [iconHint].
      *
@@ -382,6 +390,7 @@ fun Key.asKanaVariantKey(): Key = copy(
     holdAction = null,
     icon = null,
     iconHint = null,
+    hint = null,
     flick = emptyMap(),
     flickShift = emptyMap(),
     flickActions = emptyMap(),
@@ -626,6 +635,11 @@ fun Key.flickKey(direction: FlickDirection): Key? {
         // what the same action does as an alternate.
         is FlickArm.Action -> return Key(label = arm.alternate.label, action = arm.alternate.action)
         is FlickArm.Text -> {
+            // A text arm on a key that does something else (#789): Enter's
+            // flick up typing `?` types it, and is not Enter.
+            if (action != KeyAction.Text && action !is KeyAction.KeymanKey) {
+                return Key(label = arm.text, shiftLabel = flickShift[direction])
+            }
             val target = (action as? KeyAction.KeymanKey)?.flick?.get(direction)
             // The arm's own shift form, never the centre's: under Shift the
             // flick used to type the tap's shiftLabel, whatever arm it took.
@@ -948,7 +962,7 @@ const val MaxRowHeightScale = 2.5f
  * or reserve one either.
  */
 val Key.activeFlick: Map<FlickDirection, String>
-    get() = if (action == KeyAction.Text || action is KeyAction.KeymanKey) flick else emptyMap()
+    get() = if (action == KeyAction.Text || action is KeyAction.KeymanKey || takesFlickActions()) flick else emptyMap()
 
 /** One arm of a key's flick cross: text it types, or an action it runs. */
 sealed interface FlickArm {
@@ -965,12 +979,20 @@ sealed interface FlickArm {
  * Whether [Key.flickActions] work on this key (issue #549).
  *
  * Every key but the ones whose drag or hold is already the gesture: the space
- * bar's swipes and language picker, the delete keys' swipe and repeat, a braille
- * dot's chord, a component's cell, and a key told to repeat while held. A flick
- * arm on one of those would either never be reached or take away what the key
- * is for, so the editor does not offer them and the keyboard does not read them.
+ * bar's swipes and language picker, a braille dot's chord, a component's cell,
+ * and a key told to repeat while held. A flick arm on one of those would either
+ * never be reached or take away what the key is for, so the editor does not
+ * offer them and the keyboard does not read them.
+ *
+ * The delete keys are the exception (issue #769): their hold repeats and their
+ * sideways drag deletes by the word, but a delete only lands on the lift, so a
+ * flick that has left the key before the repeat starts can still be read as
+ * one. Forward delete on a flick of ⌫ is the arm people ask for. The delete
+ * key's own handler gives an armed direction to the arm and leaves the swipe
+ * the directions that have none.
  */
-fun Key.takesFlickActions(): Boolean = action != KeyAction.Space && !holdIsSpokenFor()
+fun Key.takesFlickActions(): Boolean = action != KeyAction.Space &&
+    (!holdIsSpokenFor() || action.deletesBackward() || action.deletesForward())
 
 /**
  * What a flick towards [direction] does: an action arm where the key has one
@@ -986,6 +1008,16 @@ fun Key.flickArm(direction: FlickDirection): FlickArm? {
 /** Whether a flick off this key does anything at all; see [flickArm]. */
 fun Key.hasFlicks(): Boolean =
     activeFlick.isNotEmpty() || (flickActions.isNotEmpty() && takesFlickActions())
+
+/**
+ * Whether this key is all swipes and no tap (issue #410): a text key with no
+ * centre to draw or type, only flick arms. Unexpected Keyboard has these, a key
+ * with corner swipes and no `c`, and the layout editor makes one when the
+ * label is left empty on a key that has arms. A tap on it types nothing; the
+ * swipes are the key.
+ */
+fun Key.isSwipeOnly(): Boolean =
+    action == KeyAction.Text && label.isEmpty() && output.isNullOrEmpty() && hasFlicks()
 
 /**
  * Whether a finger held on this flick arm runs it again and again: the arms

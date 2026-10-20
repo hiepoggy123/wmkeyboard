@@ -1154,7 +1154,7 @@
     <string name="clipboard_key_row_info">Įklijuokite nuorodą ir paspauskite „Enter“, kad ją atidarytumėte, arba įklijuokite daugiau iškarpų su tarpu ar nauja eilute tarp jų, negrįždami į klaviatūrą. „ABC“ grįžta prie raidžių. Jei pakeitėte skydelio išdėstymą, šis nustatymas nieko nedaro: pridėkite klavišus išdėstymo redaktoriuje. Eilutė nerodoma, kai iškarpinė yra virš klavišų. Pagal numatytuosius nustatymus šis nustatymas išjungtas.</string>
     <string name="clipboard_key_row_subtitle">Klavišų eilutė išilgai iškarpinės skydelio apačios</string>
     <string name="clipboard_key_row_title">ABC, tarpo ir įvedimo klavišai</string>
-    <string name="clipboard_line_spacing_info">Esant 100 %, iškarpų eilutės yra kuo arčiau viena kitos, kiek leidžia šriftas. Padidinkite, kad jas atskirtumėte. Numatytasis nustatymas yra 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Esant 100 %, iškarpų eilutės yra kuo arčiau viena kitos, kiek leidžia šriftas. Padidinkite, kad jas atskirtumėte. Numatytasis nustatymas yra 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Tarpas tarp iškarpinės teksto eilučių</string>
     <string name="clipboard_line_spacing_title">Eilučių intervalas</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Balta</string>
     <string name="import_sticker_editor_border_width_label">Kraštinės plotis</string>
     <string name="import_sticker_editor_brush_size_label">Teptuko dydis</string>
-    <string name="import_sticker_editor_caption">Klaviatūra išsaugo 512x512 dydžio lipduką. Perkelkite ir suimkite vaizdą, kad pasirinktumėte norimą palikti dalį, tada pašalinkite foną ir pridėkite rėmelį. Programėlė išsaugo šį vaizdą telefone, todėl vėliau galėsite vėl redaguoti lipduką.</string>
     <string name="import_sticker_editor_crop_action">Apkarpyti</string>
-    <string name="import_sticker_editor_crop_hint">Vilkite, kad perkeltumėte vaizdą. Suimkite, kad padidintumėte.</string>
     <string name="import_sticker_editor_cutout_action">Pašalinti foną</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Pirmiausia atsisiųskite fono šalinimo priemonę. Tai 5 MB atsisiuntimas.</string>
     <string name="import_sticker_editor_cutout_download_progress">Programėlė atsisiunčia fono šalinimo įrankį…</string>
@@ -3517,7 +3515,6 @@
     <string name="layout_editor_alternate_columns_default">Pagal nustatymus</string>
     <string name="layout_editor_alternate_columns_subtitle">Kiek alternatyvų šis klavišas deda į eilutę</string>
     <string name="layout_editor_alternate_columns_title">Stulpeliai iššokančiajame lange</string>
-    <string name="layout_editor_alternate_hint_badge">užuomina</string>
     <string name="layout_editor_alternates_field_hint">Atskirkite įrašus tarpais, todėl alternatyva negali būti tarpas. Daugiau nei vieno simbolio įrašai, pvz., .com, yra teisingi. Programa taip pat nubraižo pirmąjį klavišo kampe.</string>
     <string name="layout_editor_alternates_field_label">Alternatyvos paspaudus ir palaikius</string>
     <string name="layout_editor_apply_action">Taikyti</string>
@@ -3613,7 +3610,6 @@
     <string name="layout_editor_field_row_title">Komponentas</string>
     <string name="layout_editor_fill_row_action">Užpildyti eilutę (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Skaičių eilutėje jau rodomi skaitmenys, todėl klaviatūra rodo šią eilutę pirmojo šio sluoksnio eilutės vietoje.</string>
-    <string name="layout_editor_fill_row_off_caption">Kai skaičių eilutė įjungta, klaviatūra rodo šią eilutę pirmojo šio sluoksnio eilutės vietoje, nes skaičių eilutėje jau rodomi skaitmenys. Skaičių eilutė šiuo metu išjungta.</string>
     <string name="layout_editor_fill_row_title">Eilutė skaitmenų vietoje</string>
     <string name="layout_editor_fit_row_action">Pritaikyti eilutę prie tinklelio (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Jokio brūkštelėjimo šia kryptimi. Bakstelėkite, kad pasirinktumėte veiksmą.</string>
@@ -3788,8 +3784,6 @@
     <string name="layout_editor_new_secondary_title">Pradėti antrinį išdėstymą</string>
     <string name="layout_editor_not_live_caption">Jūsų pakeitimai čia neturės įtakos rašymui, kol neįjungsite išdėstymo skiltyje „Kalbos“.</string>
     <string name="layout_editor_number_row_caption">Klaviatūra rodo šią eilutę virš šio sluoksnio. Bakstelėkite klavišą, kad jį pakeistumėte. Palaikykite klavišą ir vilkite jį, kad perkeltumėte.</string>
-    <string name="layout_editor_number_row_hidden_caption">Klaviatūra rodo šią eilutę virš šio sluoksnio, kai skaičių eilutė simboliuose yra įjungta skiltyje „Išdėstymas ir dydis“. Šiuo metu ji išjungta.</string>
-    <string name="layout_editor_number_row_off_caption">Klaviatūra rodo šią eilutę virš šio sluoksnio, kai skaičių eilutė yra įjungta skiltyje „Išdėstymas ir dydis“. Skaičių eilutė šiuo metu išjungta.</string>
     <string name="layout_editor_number_row_title">Skaičių eilutė</string>
     <string name="layout_editor_panel_inherited_caption">Šis išdėstymas naudoja bendrinamą %1$s skydelį. Bet koks pakeitimas čia sukuria kopiją tik šiam išdėstymui. Bendrinamas skydelis yra skiltyje „Pagrindiniai išdėstymai“, „Skydelių išdėstymai“.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Paveldėti išdėstymo temą</string>
@@ -3992,11 +3986,8 @@
     <string name="layout_split_spacebar_title">Padalyti tarpo klavišą</string>
     <string name="layout_split_subtitle">Padalinkite klavišus į kairę ir dešinę puses</string>
     <string name="layout_split_title">Padalinta klaviatūra</string>
-    <string name="layout_summon_button_info">Kol klaviatūra uždaryta, mažas apvalus mygtukas plūduriuoja virš kiekvienos programos. Bakstelėkite jį ir klaviatūra atsidarys, net jei ekrane nėra teksto lauko, ir liks atidaryta, kol ją uždarysite. Tada klavišai pasiekia programą kaip klavišų paspaudimai, taip pat, kaip ir su „Palikti klaviatūrą ekrane“. Vilkite mygtuką, kad jį perkeltumėte; jis priglunda prie artimesnės pusės. Paspauskite ir palaikykite, kad paslėptumėte jį iki kito klaviatūros atidarymo. Reikalingas „Android“ leidimas „Rodyti virš kitų programų“.</string>
     <string name="layout_summon_button_permission_subtitle">Mygtukas negali pasirodyti, kol „Android“ to neleidžia</string>
     <string name="layout_summon_button_permission_title">Leisti rodyti virš kitų programų</string>
-    <string name="layout_summon_button_subtitle">Mygtukas virš kitų programų, kuris atidaro klaviatūrą su teksto lauku arba be jo</string>
-    <string name="layout_summon_button_title">Plaukiojančios klaviatūros mygtukas</string>
     <string name="layout_swap_comma_globe_info">Du klavišai abiejose tarpo klavišo pusėse sukeičiami vietomis. Jei vienas iš jų yra jaustukų klavišas, jis perkeliamas į išorinę poziciją, o kablelis lieka šalia tarpo klavišo. Išjunkite tai, kad grąžintumėte įprastą tvarką.</string>
     <string name="layout_swap_comma_globe_subtitle">Padėkite kablelį šalia tarpo klavišo</string>
     <string name="layout_swap_comma_globe_title">Sukeisti kablelio ir 🌐 klavišus</string>
@@ -5815,7 +5806,6 @@
     <string name="search_kw_layout_show_globe">slėpti pašalinti gaublio kalbą</string>
     <string name="search_kw_layout_size_position">keisti dydį sutraukti kompaktiškas padidinti</string>
     <string name="search_kw_layout_split">nykščiams ergonomiškas planšetinis kompiuteris</string>
-    <string name="search_kw_layout_summon_button">burbulo perdanga rodyti iškviesti be laukų įsilaužėliai</string>
     <string name="search_kw_layout_symbols_numpad_key">skaičių klaviatūra skaičių blokas rinkiklis 1234 gboard</string>
     <string name="search_kw_learnedcorrections">išmoktos korekcijos, mano pataisymai, rašybos klaidos, išmokyti pataisymai, automatinio taisymo mokymasis, klaidos, įpročiai</string>
     <string name="search_kw_licenses">atvirasis kodas, priskyrimas, kreditai</string>
@@ -5854,7 +5844,7 @@
     <string name="search_kw_translate_engine">neprisijungęs privatus internetas lėktuvas vietinis įrenginys ml rinkinys google modelio atsisiuntimas debesis</string>
     <string name="search_kw_translate_models">vertimo neprisijungus modelio atsisiuntimas ištrynimas saugykla ml kit google</string>
     <string name="search_kw_translate_only_downloaded">slėpti neprisijungus veikiančių modelių parinkiklio meniu trumpąjį filtrą</string>
-    <string name="search_kw_translate_server">openai suderinamas savarankiškai priglobtas vietinis llm ai modelis ollama llama studio vllm localai pokalbių užbaigimai</string>
+    <string name="search_kw_translate_server">openai suderinamas savarankiškai priglobtas vietinis llm ai modelis ollama llama studio vllm localai pokalbių užbaigimai mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">rašybos tikrinimas, automatinis užbaigimas, nuspėjamasis tekstas, braukimas, gestai, kontaktai, anuliuoti</string>
     <string name="search_kw_typing_auto_capitalize">automatinės didžiosios raidės automatinis didžiųjų raidžių rašymas</string>
     <string name="search_kw_typing_auto_close_brackets">automatinis porinių skliaustų uždarymas atitikimo užbaigimas</string>
@@ -6825,7 +6815,6 @@
     <string name="theme_parts_strip_subtitle">Pašalinti užpildą, žodžių spalvas ir dydį</string>
     <string name="theme_parts_toolbar_subtitle">Įrankių užpildai, piktogramos, forma, kraštinė</string>
     <string name="theme_pick_hint">Paspauskite klavišą, įrankį arba juostą</string>
-    <string name="theme_pick_start_desc">Pasirinkite klaviatūros dalį, kuriai norite pritaikyti stilių</string>
     <string name="theme_pick_start_subtitle">Norėdami pritaikyti stilių, peržiūroje paspauskite klavišą, įrankį arba pasiūlymų juostą</string>
     <string name="theme_pick_start_title">Pasirinkti klaviatūroje</string>
     <string name="theme_pick_strip_sample_words">Labas,Ačiū,Gerai</string>
@@ -7650,12 +7639,6 @@
     <string name="tooldetail_ocr_info">Atpažinimas vykdomas jūsų įrenginyje naudojant „ML Kit“. Jokia nuotrauka ir joks tekstas nepalieka jūsų įrenginio, be to, tai veikia neprisijungus. Jis nuskaito lotyniškų rašmenų tekstą, pavyzdžiui, anglų kalbą. „ML Kit“ teksto atpažinimo priemonė dar nepalaiko bengalų kalbos. Po fiksavimo paspauskite žodžius, kad pasirinktumėte būtent tai, ką klaviatūra įveda arba kopijuoja.</string>
     <string name="tooldetail_ocr_online_group">Internetinis teksto skaitytuvas</string>
     <string name="tooldetail_ocr_online_info">Nuotrauka siunčiama modeliui, kuris gali skaityti vaizdus, jūsų pasirinktu adresu, ir modelis užrašo matomą tekstą. Jis skaito bet kokį raštą ir jam nereikia kalbos duomenų. Veikia bet kuri paslauga su „OpenAI“ suderinama API: „OpenAI“, „OpenRouter“, „Gemini“, „Mistral“ arba modelis jūsų kompiuteryje su „Ollama“ ar „LM Studio“. Kiekvienas nuskaitymas siunčia nuotrauką į tą paslaugą, ir paslauga gali už tai imti mokestį.</string>
-    <string name="tooldetail_ocr_online_key_hint">Palikite tuščią serveriui, kuriam nereikia rakto</string>
-    <string name="tooldetail_ocr_online_key_label">API raktas</string>
-    <string name="tooldetail_ocr_online_model_hint">Modelis, kuris skaito vaizdus, pavyzdžiui, gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modelis</string>
-    <string name="tooldetail_ocr_online_url_hint">Pavyzdžiui, https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adresas</string>
     <string name="tooldetail_ocr_packs_header">„Tesseract“ kalbos</string>
     <string name="tooldetail_ocr_packs_info">„Tesseract“ nuskaito kalbą tik tada, kai tos kalbos duomenys yra jūsų įrenginyje. Kiekvienai kalbai, kuria rašote, reikia atsisiųsti duomenų (nuo 0,4 MB iki 12 MB). Duomenys gaunami iš „Tesseract“ projekto „tessdata_fast“ rinkinio „GitHub“ svetainėje. Kalbą taip pat galite atsisiųsti iš paties skaitytuvo.</string>
     <string name="tooldetail_ocr_packs_none_info">Nė viena iš įjungtų kalbų neturi „Tesseract“ duomenų. Pridėkite kalbą kalbų ekrane. Tada jos duomenys bus rodomi čia.</string>
@@ -8783,11 +8766,9 @@
     <string name="typing_trail_opacity_title">Pėdsako neskaidrumas</string>
     <string name="typing_trail_width_subtitle">Braukimo pėdsako storis</string>
     <string name="typing_trail_width_title">Pėdsako plotis</string>
-    <string name="typing_two_thumb_info">Naudokite abu nykščius kartu. Kiekvienas nykštys gali bakstelėti arba braukti tuo pačiu metu kaip ir kitas, o kiekvienas bakstelėjimas ir braukimas papildo tą patį žodį. Pavyzdžiui, bakstelėkite S kairiuoju nykščiu, braukite O į M dešiniuoju, bakstelėkite E kairiuoju, tada braukite T H I N G dešiniuoju, ir gausite kažką. Bakstelėjimas, kuris įvyksta, kol kitas nykštys vis dar braukia, įterpiamas į žodį toje vietoje, todėl braukimas per H E L O ir bakstelėjimas ant L duoda „hello“. „Backspace“ pašalina paskutinį bakstelėjimą ar braukimą iš žodžio.</string>
     <string name="typing_two_thumb_subtitle">Bakstelėkite ir braukite abiem nykščiais vienu metu, kad sudarytumėte vieną žodį</string>
     <string name="typing_two_thumb_title">Spausdinimas dviem nykščiais</string>
     <string name="typing_two_thumb_word_end_all_up_label">Viskas puiku</string>
-    <string name="typing_two_thumb_word_end_info">Su tarpu žodis lieka atviras, kol bakstelite ir braukiate, o klaviatūra jį vėl perskaito po kiekvieno veiksmo. Bakstelkite tarpą arba skyrybos ženklą, kad įvestumėte. Kai visi nykščiai pakelti, žodis įvedamas su tarpu, kai tik joks nykštys neliečia klaviatūros, kaip įprasto braukimo atveju, todėl jūsų nykščiai turi persidengti, kad pasidalintų žodžiu.</string>
     <string name="typing_two_thumb_word_end_space_label">Tarpas</string>
     <string name="typing_two_thumb_word_end_subtitle">Kas įveda žodį, kurį kuriate</string>
     <string name="typing_two_thumb_word_end_title">Užbaigti dviejų nykščių žodį</string>

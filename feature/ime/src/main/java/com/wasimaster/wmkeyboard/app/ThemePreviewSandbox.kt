@@ -264,7 +264,7 @@ data class SandboxContext(
  */
 internal fun panelForTool(tool: ToolbarTool): PanelMode? = when (tool) {
     ToolbarTool.EMOJI -> PanelMode.EMOJI
-    ToolbarTool.CLIPBOARD -> PanelMode.CLIPBOARD
+    ToolbarTool.CLIPBOARD, ToolbarTool.CLIPBOARD_SEARCH -> PanelMode.CLIPBOARD
     ToolbarTool.SNIPPETS -> PanelMode.SNIPPETS
     ToolbarTool.TEXT_EDIT -> PanelMode.TEXT_EDIT
     ToolbarTool.TRACKPAD -> PanelMode.TRACKPAD
@@ -285,6 +285,8 @@ internal fun panelForTool(tool: ToolbarTool): PanelMode? = when (tool) {
     ToolbarTool.NOTES -> PanelMode.NOTES
     ToolbarTool.LOCATION -> PanelMode.LOCATION
     ToolbarTool.CLOCK -> PanelMode.CLOCK
+    ToolbarTool.HOME_ASSISTANT -> PanelMode.HOME_ASSISTANT
+    ToolbarTool.SEND_FILES -> PanelMode.SEND_FILES
     ToolbarTool.GALLERY -> PanelMode.GALLERY
     ToolbarTool.TRANSLATE -> PanelMode.TRANSLATE
     ToolbarTool.GIF -> PanelMode.GIF
@@ -302,6 +304,7 @@ internal fun panelForTool(tool: ToolbarTool): PanelMode? = when (tool) {
     ToolbarTool.CURRENCY -> PanelMode.CURRENCY
     ToolbarTool.QR_GEN -> PanelMode.QR_GEN
     ToolbarTool.PASSWORD_GEN -> PanelMode.PASSWORD_GEN
+    ToolbarTool.TEXT_REPEAT -> PanelMode.TEXT_REPEAT
     ToolbarTool.TYPING_TEST -> PanelMode.TYPING_TEST
     ToolbarTool.MEDIA_CONTROL -> PanelMode.MEDIA_CONTROL
     ToolbarTool.KDE_CONNECT -> PanelMode.KDE_CONNECT

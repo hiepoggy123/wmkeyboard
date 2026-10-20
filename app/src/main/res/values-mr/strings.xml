@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">लिंक पेस्ट करा आणि त्यावर जाण्यासाठी एंटर दाबा, किंवा कीबोर्डवर परत न जाता त्यांच्यामध्ये स्पेस किंवा नवीन ओळ देऊन अधिक क्लिप्स पेस्ट करा. ABC अक्षरांवर परत जाते. जर तुम्ही पॅनेल लेआउट बदलला असेल, तर ही सेटिंग काहीही करत नाही: त्याऐवजी लेआउट एडिटरमध्ये कीज जोडा. क्लिपबोर्ड कीजवर स्टॅक केलेला असताना ही ओळ दिसत नाही. ही सेटिंग डीफॉल्टनुसार बंद असते.</string>
     <string name="clipboard_key_row_subtitle">क्लिपबोर्ड पॅनेलच्या तळाशी असलेल्या कीची एक ओळ</string>
     <string name="clipboard_key_row_title">ABC, स्पेस आणि एंटर कीज</string>
-    <string name="clipboard_line_spacing_info">१००% वर क्लिपच्या ओळी फॉन्टला शक्य तितक्या जवळ असतात. त्यांना पसरवण्यासाठी हे वाढवा. डीफॉल्ट १३०% आहे.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">१००% वर क्लिपच्या ओळी फॉन्टला शक्य तितक्या जवळ असतात. त्यांना पसरवण्यासाठी हे वाढवा. डीफॉल्ट १३०% आहे.</string>
     <string name="clipboard_line_spacing_subtitle">क्लिपच्या मजकुरातील ओळींमधील अंतर</string>
     <string name="clipboard_line_spacing_title">ओळींमधील अंतर</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2398,9 +2398,7 @@
     <string name="import_sticker_editor_border_white_option">पांढरा</string>
     <string name="import_sticker_editor_border_width_label">बॉर्डरची रुंदी</string>
     <string name="import_sticker_editor_brush_size_label">ब्रशचा आकार</string>
-    <string name="import_sticker_editor_caption">कीबोर्ड ५१२ बाय ५१२ स्टिकर सेव्ह करतो. ठेवण्यासाठी भाग निवडण्यासाठी इमेज हलवा आणि पिंच करा, त्यानंतर बॅकग्राउंड काढून टाका आणि बॉर्डर जोडा. अॅप ही इमेज फोनवर ठेवते, जेणेकरून तुम्ही नंतर पुन्हा स्टिकर एडिट करू शकाल.</string>
     <string name="import_sticker_editor_crop_action">क्रॉप करा</string>
-    <string name="import_sticker_editor_crop_hint">इमेज हलवण्यासाठी ड्रॅग करा. मोठी करण्यासाठी पिंच करा.</string>
     <string name="import_sticker_editor_cutout_action">पार्श्वभूमी काढा</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">आधी बॅकग्राउंड रिमूव्हर मिळवा. हे ५ MB चे डाउनलोड आहे.</string>
     <string name="import_sticker_editor_cutout_download_progress">ॲप बॅकग्राउंड रिमूव्हर मिळवत आहे…</string>
@@ -3518,7 +3516,6 @@
     <string name="layout_editor_alternate_columns_default">सेटिंग्जवरून</string>
     <string name="layout_editor_alternate_columns_subtitle">ही की एका ओळीवर किती पर्याय ठेवते</string>
     <string name="layout_editor_alternate_columns_title">पॉपअपमधील स्तंभ</string>
-    <string name="layout_editor_alternate_hint_badge">हिंट</string>
     <string name="layout_editor_alternates_field_hint">एंट्रीज स्पेसने वेगळ्या करा, जेणेकरून पर्यायी की स्पेस असू शकत नाही. एकापेक्षा जास्त अक्षरांच्या एंट्रीज, जसे की .com, योग्य आहेत. ॲप पहिली एंट्री कीच्या कोपऱ्यात देखील काढते.</string>
     <string name="layout_editor_alternates_field_label">दाबून धरण्यासाठी पर्याय</string>
     <string name="layout_editor_apply_action">लागू करा</string>
@@ -3614,7 +3611,6 @@
     <string name="layout_editor_field_row_title">घटक</string>
     <string name="layout_editor_fill_row_action">ओळ भरा (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">नंबर ओळ आधीच अंक दाखवते, म्हणून कीबोर्ड या लेयरच्या पहिल्या ओळीच्या जागी ही ओळ दाखवतो.</string>
-    <string name="layout_editor_fill_row_off_caption">जेव्हा नंबर ओळ चालू असते, तेव्हा कीबोर्ड या लेयरच्या पहिल्या ओळीच्या जागी ही ओळ दाखवतो, कारण नंबर ओळ आधीच अंक दाखवते. नंबर ओळ आता बंद आहे.</string>
     <string name="layout_editor_fill_row_title">अंकांच्या जागी ओळ</string>
     <string name="layout_editor_fit_row_action">रो ला ग्रिडमध्ये बसवा (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">या दिशेला कोणतीही फ्लिक क्रिया नाही. क्रिया निवडण्यासाठी टॅप करा.</string>
@@ -3789,8 +3785,6 @@
     <string name="layout_editor_new_secondary_title">दुय्यम लेआउट सुरू करा</string>
     <string name="layout_editor_not_live_caption">तुम्ही \'भाषा\' अंतर्गत लेआउट चालू करेपर्यंत येथील तुमचे बदल टायपिंगवर परिणाम करत नाहीत.</string>
     <string name="layout_editor_number_row_caption">कीबोर्ड या लेयरच्या वर ही ओळ दाखवतो. ती बदलण्यासाठी की वर टॅप करा. की हलवण्यासाठी ती दाबून धरा आणि ड्रॅग करा.</string>
-    <string name="layout_editor_number_row_hidden_caption">जेव्हा लेआउट आणि आकार मध्ये चिन्हांमधील नंबर ओळ चालू असते, तेव्हा कीबोर्ड या लेयरच्या वर ही ओळ दाखवतो. ती आता बंद आहे.</string>
-    <string name="layout_editor_number_row_off_caption">जेव्हा लेआउट आणि आकार मध्ये नंबर ओळ चालू असते, तेव्हा कीबोर्ड या लेयरच्या वर ही ओळ दाखवतो. नंबर ओळ आता बंद आहे.</string>
     <string name="layout_editor_number_row_title">नंबर ओळ</string>
     <string name="layout_editor_panel_inherited_caption">हे लेआउट सामायिक %1$s पॅनेल वापरते. येथे काहीही बदलल्यास ते फक्त या लेआउटसाठी एक प्रत तयार करते. सामायिक पॅनेल की लेआउट्स, पॅनेल लेआउट्स अंतर्गत आहे.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">लेआउटची थीम इनहेरिट करा</string>
@@ -3993,11 +3987,8 @@
     <string name="layout_split_spacebar_title">स्पेसबार विभाजित करा</string>
     <string name="layout_split_subtitle">कीज डाव्या आणि उजव्या भागात विभाजित करा</string>
     <string name="layout_split_title">स्प्लिट कीबोर्ड</string>
-    <string name="layout_summon_button_info">कीबोर्ड बंद असताना, एक लहान गोल बटण प्रत्येक ॲपवर तरंगते. त्यावर टॅप करा आणि कीबोर्ड उघडतो, अगदी मजकूर फील्ड नसलेल्या स्क्रीनवरही, आणि तुम्ही बंद करेपर्यंत तो तिथेच उघडा राहतो. कीबोर्ड स्क्रीनवर ठेवा प्रमाणेच, कीज ॲपवर की-प्रेस म्हणून पोहोचतात. बटण हलवण्यासाठी ते ड्रॅग करा; ते जवळच्या बाजूला स्थिरावते. कीबोर्ड पुन्हा उघडण्यापर्यंत ते लपवण्यासाठी ते दाबून धरा. यासाठी अँड्रॉइडची \'इतर ॲप्सवर डिस्प्ले\' परवानगी आवश्यक आहे.</string>
     <string name="layout_summon_button_permission_subtitle">Android परवानगी देईपर्यंत बटण दिसू शकत नाही</string>
     <string name="layout_summon_button_permission_title">इतर ॲप्सवर डिस्प्लेची परवानगी द्या</string>
-    <string name="layout_summon_button_subtitle">इतर ॲप्सच्या वर एक बटण जे कीबोर्ड उघडते, मजकूर फील्डसह किंवा त्याशिवाय</string>
-    <string name="layout_summon_button_title">फ्लोटिंग कीबोर्ड बटण</string>
     <string name="layout_swap_comma_globe_info">स्पेसबारच्या दोन्ही बाजूंच्या दोन की आपली जागा बदलतात. जर त्यापैकी एक इमोजी की असेल, तर ती बाहेरील बाजूला जाते आणि स्वल्पविराम स्पेसबारच्या शेजारी राहतो. नेहमीचा क्रम मिळवण्यासाठी हे बंद करा.</string>
     <string name="layout_swap_comma_globe_subtitle">स्वल्पविराम स्पेसबारच्या शेजारी ठेवा</string>
     <string name="layout_swap_comma_globe_title">स्वल्पविराम आणि 🌐 की अदलाबदल करा</string>
@@ -5817,7 +5808,6 @@
     <string name="search_kw_layout_show_globe">ग्लोब भाषा लपवा किंवा काढा</string>
     <string name="search_kw_layout_size_position">आकार बदला लहान कॉम्पॅक्ट मोठे करा</string>
     <string name="search_kw_layout_split">थंब एर्गोनॉमिक टॅब्लेट</string>
-    <string name="search_kw_layout_summon_button">बबल ओव्हरले शो समन फील्डलेस हॅकर्स</string>
     <string name="search_kw_layout_symbols_numpad_key">नंपॅड कीपॅड डायलपॅड 1234 जीबोर्ड</string>
     <string name="search_kw_learnedcorrections">शिकलेली दुरुस्ती, माझे फिक्स, टायपो जोड्या, शिकवलेले फिक्स, ऑटोकरेक्ट लर्निंग, स्लिप्स, सवयी</string>
     <string name="search_kw_licenses">ओपन सोर्स, ॲट्रिब्युशन, क्रेडिट्स</string>
@@ -5856,7 +5846,7 @@
     <string name="search_kw_translate_engine">ऑफलाइन खाजगी इंटरनेट एअरप्लेन स्थानिक डिव्हाइस ml किट गुगल मॉडेल डाउनलोड क्लाउड</string>
     <string name="search_kw_translate_models">ऑफलाइन भाषांतर मॉडेल डाउनलोड हटवा स्टोरेज ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ऑफलाइन मॉडेल पिकर मेनू शॉर्ट फिल्टर लपवा</string>
-    <string name="search_kw_translate_server">openai सुसंगत सेल्फहोस्टेड होस्ट केलेले लोकल llm ai मॉडेल ollama llama studio vllm localai चॅट पूर्ण करणे</string>
+    <string name="search_kw_translate_server">openai सुसंगत सेल्फहोस्टेड होस्ट केलेले लोकल llm ai मॉडेल ollama llama studio vllm localai चॅट पूर्ण करणे mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">स्पेल चेक, ऑटो-कम्प्लीट, प्रेडिक्टिव टेक्स्ट, ग्लाइड, स्वाइप टायपिंग, जेश्चर, कॉन्टॅक्ट्स, अनडू</string>
     <string name="search_kw_typing_auto_capitalize">ऑटो-कॅप्स ऑटो-कॅपिटलाईज ऑटो-कॅपिटलाईझेशन</string>
     <string name="search_kw_typing_auto_close_brackets">ऑटोक्लोज पेअर कंस ब्रेसेस कंस जुळणी पूर्ण करा</string>
@@ -6827,7 +6817,6 @@
     <string name="theme_parts_strip_subtitle">स्ट्रिप फिल, शब्दांचे रंग आणि आकार</string>
     <string name="theme_parts_toolbar_subtitle">टूल फिल, आयकॉन्स, आकार, बॉर्डर</string>
     <string name="theme_pick_hint">एक की, एक टूल किंवा स्ट्रिप दाबा</string>
-    <string name="theme_pick_start_desc">स्टाईल करण्यासाठी कीबोर्डचा एक भाग निवडा</string>
     <string name="theme_pick_start_subtitle">प्रीव्ह्यूवर एखादी की, टूल किंवा सूचना पट्टी निवडून तिला स्टाईल करा</string>
     <string name="theme_pick_start_title">कीबोर्डवर निवडा</string>
     <string name="theme_pick_strip_sample_words">नमस्कार,धन्यवाद,ठीक आहे</string>
@@ -7654,12 +7643,6 @@
     <string name="tooldetail_ocr_info">ओळख तुमच्या डिव्हाइसवर ML Kit सह चालते. कोणताही फोटो किंवा मजकूर तुमच्या डिव्हाइसबाहेर जात नाही आणि ते ऑफलाइन काम करते. हे लॅटिन लिपीतील मजकूर वाचते, उदाहरणार्थ इंग्रजी. ML Kit चा मजकूर ओळखणारा प्रोग्राम अजून बंगालीला सपोर्ट करत नाही. कॅप्चर केल्यानंतर, कीबोर्डने काय टाईप करावे किंवा कॉपी करावे हे निवडण्यासाठी शब्दांवर दाबा.</string>
     <string name="tooldetail_ocr_online_group">ऑनलाइन मजकूर वाचक</string>
     <string name="tooldetail_ocr_online_info">फोटो एका अशा मॉडेलकडे पाठवला जातो जे प्रतिमा वाचू शकते, तुमच्या निवडलेल्या पत्त्यावर, आणि मॉडेल त्यातील मजकूर लिहून काढते. ते कोणतीही लिपी वाचू शकते आणि त्यासाठी कोणत्याही भाषा डेटाची गरज नाही. OpenAI-सुसंगत API असलेले कोणतेही सेवा कार्य करते: OpenAI, OpenRouter, Gemini, Mistral, किंवा Ollama किंवा LM Studio सह तुमच्या स्वतःच्या संगणकावरील मॉडेल. प्रत्येक स्कॅन फोटो त्या सेवेला पाठवते आणि सेवा त्यासाठी शुल्क आकारू शकते.</string>
-    <string name="tooldetail_ocr_online_key_hint">ज्या सर्व्हरला की ची गरज नाही, त्यासाठी रिकामे सोडा</string>
-    <string name="tooldetail_ocr_online_key_label">API की</string>
-    <string name="tooldetail_ocr_online_model_hint">प्रतिमा वाचणारे मॉडेल, उदाहरणार्थ gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">मॉडेल</string>
-    <string name="tooldetail_ocr_online_url_hint">उदाहरणार्थ https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">पत्ता</string>
     <string name="tooldetail_ocr_packs_header">टेसेरॅक्ट भाषा</string>
     <string name="tooldetail_ocr_packs_info">टेसेरॅक्ट (Tesseract) फक्त तुमच्या डिव्हाइसवर त्या भाषेचा डेटा आल्यानंतरच भाषा वाचते. तुम्ही टाईप करत असलेल्या प्रत्येक भाषेसाठी 0.4 MB ते 12 MB चे एक डाउनलोड आहे. हा डेटा GitHub वरील टेसेरॅक्ट प्रोजेक्टच्या tessdata_fast सेटवरून येतो. तुम्ही स्कॅनरवरूनही भाषा डाउनलोड करू शकता.</string>
     <string name="tooldetail_ocr_packs_none_info">तुम्ही चालू केलेल्या कोणत्याही भाषेत टेसेरॅक्ट डेटा नाही. भाषा स्क्रीनवर एक भाषा जोडा. त्यानंतर त्याचा डेटा येथे दिसेल.</string>
@@ -8497,7 +8480,7 @@
     <string name="typing_letter_swipe_select_key_label">की वर स्लाइड करा</string>
     <string name="typing_letter_swipe_type_words_desc">कीजवर स्वाइप केल्याने एक शब्द तयार होतो</string>
     <string name="typing_letter_swipe_type_words_label">शब्द टाईप करा</string>
-    <string name="typing_mistype_tolerance_info">प्रत्येक टॅप केवळ त्याने हिट केलेल्या की विरुद्धच नाही, तर तो कुठे पडला त्याविरुद्ध वाचला जातो, त्यामुळे की च्या कडेजवळील टॅप त्याच्या शेजारील की म्हणून वाचला जाऊ शकतो. हे वाचन किती उदार असावे हे ठरवते. १००% च्या वर, शेजारील की च्या आत असलेला टॅप अजूनही एक संभाव्य चूक आहे, जे जलद किंवा धावपळीच्या टायपिंगसाठी आणि मोठ्या बोटांसाठी योग्य आहे. १००% च्या खाली, तुम्ही हिट केलेल्या की वर जास्त विश्वास ठेवला जातो, जे काळजीपूर्वक टायपिंगसाठी योग्य आहे. हे पट्टी कोणते शब्द सुचवते आणि ऑटोकरेक्ट काय निवडते हे बदलते. डीफॉल्ट १००% आहे.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">प्रत्येक टॅप केवळ त्याने हिट केलेल्या की विरुद्धच नाही, तर तो कुठे पडला त्याविरुद्ध वाचला जातो, त्यामुळे की च्या कडेजवळील टॅप त्याच्या शेजारील की म्हणून वाचला जाऊ शकतो. हे वाचन किती उदार असावे हे ठरवते. १००% च्या वर, शेजारील की च्या आत असलेला टॅप अजूनही एक संभाव्य चूक आहे, जे जलद किंवा धावपळीच्या टायपिंगसाठी आणि मोठ्या बोटांसाठी योग्य आहे. १००% च्या खाली, तुम्ही हिट केलेल्या की वर जास्त विश्वास ठेवला जातो, जे काळजीपूर्वक टायपिंगसाठी योग्य आहे. हे पट्टी कोणते शब्द सुचवते आणि ऑटोकरेक्ट काय निवडते हे बदलते. डीफॉल्ट १००% आहे.</string>
     <string name="typing_mistype_tolerance_subtitle">शेजारच्या की वर टॅप किती दूर जाऊ शकतो आणि तरीही तो चुकीचा टॅप मानला जाऊ शकतो</string>
     <string name="typing_mistype_tolerance_title">चुकीच्या टायपिंगची सहनशीलता</string>
     <string name="typing_new_word_sightings_info">केवळ ज्या शब्दांची माहिती कोणत्याही शब्दकोशात नाही, त्यांचीच गणना केली जाते. शब्दकोशात आधीच असलेला शब्द तुम्ही टाइप करताच शिकला जातो. वापर तेव्हाच मोजला जातो जेव्हा तुम्ही पुढे जाता आणि शब्द सोडून देता, त्यामुळे तुम्ही मागे जाऊन दुरुस्त केलेली चूक कधीही मोजली जात नाही. जर तुमची स्वतःची नावे आणि स्लँग शब्द शिकायला खूप वेळ लागत असेल, तर हे प्रमाण कमी करा. प्रत्येक नवीन शब्द त्वरित सेव्ह करण्यासाठी ते 1 वर सेट करा, जे जुन्या आवृत्त्यांमध्ये होते. हे सेटिंग डीफॉल्टनुसार 3 असते.</string>
@@ -8791,11 +8774,9 @@
     <string name="typing_trail_opacity_title">ट्रेल अपारदर्शकता</string>
     <string name="typing_trail_width_subtitle">ग्लाइड ट्रेलची जाडी</string>
     <string name="typing_trail_width_title">ट्रेलची रुंदी</string>
-    <string name="typing_two_thumb_info">दोन्ही अंगठ्यांचा एकत्र वापर करा. प्रत्येक अंगठा टॅप किंवा स्वाइप करू शकतो, दुसऱ्याच्याच वेळी, आणि प्रत्येक टॅप आणि स्वाइप एकाच शब्दात भर घालतो. उदाहरणार्थ, डाव्या अंगठ्याने S टॅप करा, उजव्याने O ते M स्वाइप करा, डाव्याने E टॅप करा, मग उजव्याने T H I N G स्वाइप करा, आणि तुम्हाला काहीतरी मिळेल. दुसरा अंगठा स्वाइप करत असताना पडलेला टॅप त्या बिंदूवर शब्दात जातो, म्हणून H E L O वर स्वाइप आणि L वर टॅप केल्यास hello मिळते. बॅकस्पेस शब्दातून शेवटचा टॅप किंवा स्वाइप काढून टाकतो.</string>
     <string name="typing_two_thumb_subtitle">एक शब्द तयार करण्यासाठी दोन्ही अंगठ्यांनी एकाच वेळी टॅप करा आणि स्वाइप करा</string>
     <string name="typing_two_thumb_title">दोन अंगठ्यांनी टायपिंग</string>
     <string name="typing_two_thumb_word_end_all_up_label">सर्व अंगठे वर</string>
-    <string name="typing_two_thumb_word_end_info">स्पेससह, तुम्ही टॅप आणि स्वाइप करत असताना शब्द उघडा राहतो आणि कीबोर्ड प्रत्येक टॅप/स्वाइपनंतर तो पुन्हा वाचतो. ते टाइप करण्यासाठी स्पेस किंवा विरामचिन्ह टॅप करा. सर्व अंगठे वर असताना, कोणताही अंगठा कीबोर्डला स्पर्श करत नाही तोपर्यंत शब्द स्पेससह टाइप केला जातो, जसे सामान्य ग्लाइडमध्ये असते, त्यामुळे शब्द शेअर करण्यासाठी तुमच्या अंगठ्यांनी ओव्हरलॅप करणे आवश्यक आहे.</string>
     <string name="typing_two_thumb_word_end_space_label">स्पेस</string>
     <string name="typing_two_thumb_word_end_subtitle">तुम्ही तयार करत असलेला शब्द काय टाईप करतो</string>
     <string name="typing_two_thumb_word_end_title">दोन-अंगठ्यांचा शब्द पूर्ण करा</string>

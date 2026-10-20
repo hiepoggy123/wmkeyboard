@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Plak een link en druk op enter om erheen te gaan, of plak meer fragmenten met een spatie of een nieuwe regel ertussen, zonder terug te gaan naar het toetsenbord. ABC gaat terug naar de letters. Als je de paneelindeling hebt gewijzigd, doet deze instelling niets: voeg de toetsen in plaats daarvan toe in de lay-outeditor. De rij wordt niet getoond terwijl het klembord over de toetsen gestapeld is. Deze instelling staat standaard uit.</string>
     <string name="clipboard_key_row_subtitle">Een rij toetsen onderaan het klembordpaneel</string>
     <string name="clipboard_key_row_title">ABC-, spatie- en enter-toetsen</string>
-    <string name="clipboard_line_spacing_info">Bij 100% staan de regels van een clip zo dicht op elkaar als het lettertype toelaat. Verhoog dit percentage om ze verder uit elkaar te plaatsen. De standaardwaarde is 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Bij 100% staan de regels van een clip zo dicht op elkaar als het lettertype toelaat. Verhoog dit percentage om ze verder uit elkaar te plaatsen. De standaardwaarde is 130%.</string>
     <string name="clipboard_line_spacing_subtitle">De ruimte tussen de regels van de tekst van een fragment</string>
     <string name="clipboard_line_spacing_title">Regelafstand</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">Wit</string>
     <string name="import_sticker_editor_border_width_label">Randbreedte</string>
     <string name="import_sticker_editor_brush_size_label">Penseelgrootte</string>
-    <string name="import_sticker_editor_caption">Het toetsenbord slaat een sticker van 512 bij 512 op. Verplaats en knijp in de afbeelding om het deel te selecteren dat je wilt behouden, verwijder vervolgens de achtergrond en voeg een rand toe. De app bewaart deze afbeelding op de telefoon, zodat je de sticker later opnieuw kunt bewerken.</string>
     <string name="import_sticker_editor_crop_action">Bijsnijden</string>
-    <string name="import_sticker_editor_crop_hint">Sleep om de afbeelding te verplaatsen. Knijp om deze groter te maken.</string>
     <string name="import_sticker_editor_cutout_action">Verwijder de achtergrond</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Installeer eerst de achtergrondverwijderaar. Dit is een download van 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">De app haalt de achtergrondverwijderaar op…</string>
@@ -3517,7 +3515,6 @@
     <string name="layout_editor_alternate_columns_default">Vanuit instellingen</string>
     <string name="layout_editor_alternate_columns_subtitle">Hoeveel alternatieven deze toets op een rij plaatst</string>
     <string name="layout_editor_alternate_columns_title">Kolommen in de pop-up</string>
-    <string name="layout_editor_alternate_hint_badge">hint</string>
     <string name="layout_editor_alternates_field_hint">Scheid de items met spaties, zodat een alternatief geen spatie kan zijn. Items van meer dan één teken, zoals .com, zijn correct. De app tekent de eerste ook in de hoek van de toets.</string>
     <string name="layout_editor_alternates_field_label">Alternatieven voor indrukken en vasthouden</string>
     <string name="layout_editor_apply_action">Toepassen</string>
@@ -3613,7 +3610,6 @@
     <string name="layout_editor_field_row_title">Onderdeel</string>
     <string name="layout_editor_fill_row_action">Vul de rij (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">De cijferrij toont de cijfers al, dus het toetsenbord toont deze rij in plaats van de eerste rij van deze laag.</string>
-    <string name="layout_editor_fill_row_off_caption">Wanneer de cijferrij is ingeschakeld, toont het toetsenbord deze rij in plaats van de eerste rij van deze laag, omdat de cijferrij de cijfers al toont. De cijferrij is nu uitgeschakeld.</string>
     <string name="layout_editor_fill_row_title">Rij in plaats van de cijfers</string>
     <string name="layout_editor_fit_row_action">Rij passend maken voor het raster (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Geen flick deze kant op. Tik om een actie te kiezen.</string>
@@ -3788,8 +3784,6 @@
     <string name="layout_editor_new_secondary_title">Start een secundaire lay-out</string>
     <string name="layout_editor_not_live_caption">Je wijzigingen hier hebben pas invloed op het typen nadat je de lay-out hebt ingeschakeld onder Talen.</string>
     <string name="layout_editor_number_row_caption">Het toetsenbord toont deze rij boven deze laag. Tik op een toets om deze te wijzigen. Houd een toets ingedrukt en sleep deze om hem te verplaatsen.</string>
-    <string name="layout_editor_number_row_hidden_caption">Het toetsenbord toont deze rij boven deze laag wanneer de cijferrij in symbolen is ingeschakeld in Indeling en grootte. Deze is nu uitgeschakeld.</string>
-    <string name="layout_editor_number_row_off_caption">Het toetsenbord toont deze rij boven deze laag wanneer de cijferrij is ingeschakeld in Indeling en grootte. De cijferrij is nu uitgeschakeld.</string>
     <string name="layout_editor_number_row_title">Cijferrij</string>
     <string name="layout_editor_panel_inherited_caption">Deze lay-out gebruikt het gedeelde %1$s-paneel. Als je hier iets wijzigt, wordt er een kopie gemaakt voor alleen deze lay-out. Het gedeelde paneel staat onder Toetsenbordlay-outs, Paneellay-outs.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Neem het thema van de indeling over</string>
@@ -3992,11 +3986,8 @@
     <string name="layout_split_spacebar_title">De spatiebalk splitsen</string>
     <string name="layout_split_subtitle">Verdeel de toetsen in een linkerhelft en een rechterhelft</string>
     <string name="layout_split_title">Gesplitst toetsenbord</string>
-    <string name="layout_summon_button_info">Terwijl het toetsenbord gesloten is, zweeft er een kleine ronde knop over elke app. Tik erop en het toetsenbord opent, zelfs op een scherm zonder tekstveld, en blijft daar open totdat je het sluit. Toetsen bereiken dan de app als toetsaanslagen, hetzelfde als bij \'Toetsenbord op scherm houden\'. Sleep de knop om deze te verplaatsen; hij nestelt zich tegen de dichtstbijzijnde kant. Houd ingedrukt om te verbergen totdat het toetsenbord de volgende keer opent. Vereist de toestemming \'Weergeven over andere apps\' van Android.</string>
     <string name="layout_summon_button_permission_subtitle">De knop kan niet verschijnen totdat Android dit toestaat</string>
     <string name="layout_summon_button_permission_title">Weergave over andere apps toestaan</string>
-    <string name="layout_summon_button_subtitle">Een knop over andere apps die het toetsenbord opent, met of zonder tekstveld</string>
-    <string name="layout_summon_button_title">Zwevende toetsenbordknop</string>
     <string name="layout_swap_comma_globe_info">De twee toetsen aan weerszijden van de spatiebalk wisselen van plaats. Als een van deze een emoji-toets is, verplaatst deze naar de buitenste positie en blijft de komma naast de spatiebalk. Schakel dit uit voor de gebruikelijke volgorde.</string>
     <string name="layout_swap_comma_globe_subtitle">Plaats de komma naast de spatiebalk</string>
     <string name="layout_swap_comma_globe_title">Wissel de komma- en 🌐-toetsen om</string>
@@ -5816,7 +5807,6 @@
     <string name="search_kw_layout_show_globe">verberg verwijder wereldboltaal</string>
     <string name="search_kw_layout_size_position">formaat wijzigen verkleinen compact vergroten</string>
     <string name="search_kw_layout_split">duim ergonomische tablet</string>
-    <string name="search_kw_layout_summon_button">bubble overlay show summon fieldless hackers</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad numeriek toetsenbord kiestoetsen 1234 gboard</string>
     <string name="search_kw_learnedcorrections">aangeleerde correcties, mijn correcties, typefoutparen, aangeleerde verbeteringen, autocorrectie-leren, slippertjes, gewoontes</string>
     <string name="search_kw_licenses">open source, naamsvermelding, credits</string>
@@ -5855,7 +5845,7 @@
     <string name="search_kw_translate_engine">offline privé internet vliegtuig lokaal apparaat ml kit google model download cloud</string>
     <string name="search_kw_translate_models">offline vertaalmodel downloaden verwijderen opslag ml kit google</string>
     <string name="search_kw_translate_only_downloaded">filter voor offline modellen verbergen</string>
-    <string name="search_kw_translate_server">openai compatibel zelfgehost lokaal llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatibel zelfgehost lokaal llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">spellingscontrole, automatisch aanvullen, voorspellende tekst, glijden, veegtypen, gebaren, contacten, ongedaan maken</string>
     <string name="search_kw_typing_auto_capitalize">autocaps automatisch hoofdlettergebruik automatische hoofdletter</string>
     <string name="search_kw_typing_auto_close_brackets">automatisch sluiten paar haakjes accolades haakje matchen compleet sluitend</string>
@@ -6826,7 +6816,6 @@
     <string name="theme_parts_strip_subtitle">Stripvulling, woordkleuren en grootte</string>
     <string name="theme_parts_toolbar_subtitle">Tool-vullingen, iconen, vorm, rand</string>
     <string name="theme_pick_hint">Druk op een toets, een tool of de balk</string>
-    <string name="theme_pick_start_desc">Kies een deel van het toetsenbord om te stylen</string>
     <string name="theme_pick_start_subtitle">Druk op een toets, een tool of de suggestiebalk in het voorbeeld om deze te stylen</string>
     <string name="theme_pick_start_title">Kies op het toetsenbord</string>
     <string name="theme_pick_strip_sample_words">Hallo,Bedankt,Oké</string>
@@ -7653,12 +7642,6 @@
     <string name="tooldetail_ocr_info">Herkenning draait op je apparaat met ML Kit. Geen foto en geen tekst verlaat je apparaat, en het werkt offline. Het leest tekst in Latijns schrift, bijvoorbeeld Engels. De tekstherkenner van ML Kit ondersteunt Bengaals nog niet. Druk na een opname op woorden om precies te selecteren wat het toetsenbord typt of kopieert.</string>
     <string name="tooldetail_ocr_online_group">Online tekstlezer</string>
     <string name="tooldetail_ocr_online_info">De foto gaat naar een model dat afbeeldingen kan lezen, op een adres dat je kiest, en het model schrijft de tekst op die het ziet. Het leest elk schrift en heeft geen taalgegevens nodig. Elke service met een OpenAI-compatibele API werkt: OpenAI, OpenRouter, Gemini, Mistral of een model op je eigen computer met Ollama of LM Studio. Elke scan stuurt de foto naar die service, en de service kan hiervoor kosten in rekening brengen.</string>
-    <string name="tooldetail_ocr_online_key_hint">Laat leeg voor een server die geen sleutel vereist</string>
-    <string name="tooldetail_ocr_online_key_label">API-sleutel</string>
-    <string name="tooldetail_ocr_online_model_hint">Een model dat afbeeldingen leest, bijvoorbeeld gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_url_hint">Bijvoorbeeld https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adres</string>
     <string name="tooldetail_ocr_packs_header">Tesseract-talen</string>
     <string name="tooldetail_ocr_packs_info">Tesseract leest pas een taal nadat de gegevens voor die taal op je apparaat staan. Er is een download voor elke taal waarin je typt, variërend van 0,4 MB tot 12 MB. De gegevens zijn afkomstig uit de tessdata_fast-set van het Tesseract-project op GitHub. Je kunt ook een taal downloaden vanuit de scanner zelf.</string>
     <string name="tooldetail_ocr_packs_none_info">Geen van de talen die je hebt ingeschakeld, bevat Tesseract-gegevens. Voeg een taal toe op het scherm Talen. De gegevens worden dan hier weergegeven.</string>
@@ -8790,11 +8773,9 @@
     <string name="typing_trail_opacity_title">Doorzichtigheid van het spoor</string>
     <string name="typing_trail_width_subtitle">Dikte van het glijspoor</string>
     <string name="typing_trail_width_title">Breedte van het spoor</string>
-    <string name="typing_two_thumb_info">Gebruik beide duimen tegelijk. Elke duim kan tikken of vegen, tegelijkertijd met de andere, en elke tik en veeg wordt aan hetzelfde woord toegevoegd. Tik bijvoorbeeld met de linkerduim op S, veeg met de rechter van O naar M, tik met de linker op E, en veeg dan met de rechter T H I N G, en je krijgt iets. Een tik die plaatsvindt terwijl de andere duim nog aan het vegen is, wordt op dat punt in het woord ingevoegd, dus een veeg over H E L O en een tik op L geeft hello. Backspace verwijdert de laatste tik of veeg uit het woord.</string>
     <string name="typing_two_thumb_subtitle">Tik en veeg met beide duimen tegelijk om één woord te vormen</string>
     <string name="typing_two_thumb_title">Typen met twee duimen</string>
     <string name="typing_two_thumb_word_end_all_up_label">Alle duimen omhoog</string>
-    <string name="typing_two_thumb_word_end_info">Met spatie blijft het woord open terwijl je tikt en veegt, en het toetsenbord leest het opnieuw na elke actie. Tik op spatie of leestekens om het te typen. Als beide duimen omhoog zijn, wordt het woord met een spatie getypt zodra er geen duim meer het toetsenbord aanraakt, zoals bij gewoon glijden, dus je duimen moeten elkaar overlappen om een woord te delen.</string>
     <string name="typing_two_thumb_word_end_space_label">Spatie</string>
     <string name="typing_two_thumb_word_end_subtitle">Wat het woord typt dat je aan het opbouwen bent</string>
     <string name="typing_two_thumb_word_end_title">Voltooi een woord met twee duimen</string>

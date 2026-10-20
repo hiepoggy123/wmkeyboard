@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Incolla un link e premi invio per aprirlo, oppure incolla altri clip separandoli con uno spazio o una nuova riga, senza tornare alla tastiera. ABC riporta alle lettere. Se hai modificato il layout del pannello, questa impostazione non ha effetto: aggiungi i tasti nell\'editor del layout. La riga non viene mostrata mentre gli appunti sono sovrapposti ai tasti. Questa impostazione è disattivata per impostazione predefinita.</string>
     <string name="clipboard_key_row_subtitle">Una riga di tasti lungo la parte inferiore del pannello degli appunti</string>
     <string name="clipboard_key_row_title">Tasti ABC, spazio e invio</string>
-    <string name="clipboard_line_spacing_info">Al 100% le righe di una clip sono vicine quanto il carattere consente. Aumentalo per distanziarle. Il valore predefinito è 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Al 100% le righe di una clip sono vicine quanto il carattere consente. Aumentalo per distanziarle. Il valore predefinito è 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Lo spazio tra le righe del testo di una clip</string>
     <string name="clipboard_line_spacing_title">Interlinea</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2397,9 +2397,7 @@
     <string name="import_sticker_editor_border_white_option">Bianco</string>
     <string name="import_sticker_editor_border_width_label">Larghezza bordo</string>
     <string name="import_sticker_editor_brush_size_label">Dimensione pennello</string>
-    <string name="import_sticker_editor_caption">La tastiera salva un adesivo 512x512. Sposta e pizzica l\'immagine per selezionare la parte da mantenere, quindi rimuovi lo sfondo e aggiungi un bordo. L\'app mantiene questa immagine sul telefono, così potrai modificare l\'adesivo in seguito.</string>
     <string name="import_sticker_editor_crop_action">Ritaglia</string>
-    <string name="import_sticker_editor_crop_hint">Trascina per spostare l\'immagine. Pizzica per ingrandirla.</string>
     <string name="import_sticker_editor_cutout_action">Rimuovi lo sfondo</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Scarica prima lo strumento di rimozione dello sfondo. È un download di 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">L\'app sta scaricando lo strumento di rimozione sfondo…</string>
@@ -3511,7 +3509,6 @@
     <string name="layout_editor_alternate_columns_default">Dalle impostazioni</string>
     <string name="layout_editor_alternate_columns_subtitle">Quante alternative questo tasto inserisce su una riga</string>
     <string name="layout_editor_alternate_columns_title">Colonne nel popup</string>
-    <string name="layout_editor_alternate_hint_badge">suggerimento</string>
     <string name="layout_editor_alternates_field_hint">Separa le voci con spazi, in modo che un\'alternativa non possa essere uno spazio. Le voci di più di un carattere, come .com, sono corrette. L\'app disegna anche la prima nell\'angolo del tasto.</string>
     <string name="layout_editor_alternates_field_label">Alternative per la pressione prolungata</string>
     <string name="layout_editor_apply_action">Applica</string>
@@ -3607,7 +3604,6 @@
     <string name="layout_editor_field_row_title">Componente</string>
     <string name="layout_editor_fill_row_action">Riempi la riga (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">La riga numerica mostra già le cifre, quindi la tastiera mostra questa riga al posto della prima riga di questo livello.</string>
-    <string name="layout_editor_fill_row_off_caption">Quando la riga numerica è attiva, la tastiera mostra questa riga al posto della prima riga di questo livello, poiché la riga numerica mostra già le cifre. La riga numerica è attualmente disattivata.</string>
     <string name="layout_editor_fill_row_title">Riga al posto delle cifre</string>
     <string name="layout_editor_fit_row_action">Adatta la riga alla griglia (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Nessun flick in questa direzione. Tocca per scegliere un\'azione.</string>
@@ -3782,8 +3778,6 @@
     <string name="layout_editor_new_secondary_title">Avvia un layout secondario</string>
     <string name="layout_editor_not_live_caption">Le modifiche apportate qui non influiranno sulla digitazione finché non attiverai il layout in Lingue.</string>
     <string name="layout_editor_number_row_caption">La tastiera mostra questa riga sopra questo livello. Tocca un tasto per modificarlo. Tieni premuto un tasto e trascinalo per spostarlo.</string>
-    <string name="layout_editor_number_row_hidden_caption">La tastiera mostra questa riga sopra questo livello quando la riga numerica nei simboli è attiva in Layout e dimensioni. È attualmente disattivata.</string>
-    <string name="layout_editor_number_row_off_caption">La tastiera mostra questa riga sopra questo livello quando la riga numerica è attiva in Layout e dimensioni. La riga numerica è attualmente disattivata.</string>
     <string name="layout_editor_number_row_title">Riga numerica</string>
     <string name="layout_editor_panel_inherited_caption">Questo layout utilizza il pannello condiviso %1$s. Modificare qualsiasi cosa qui crea una copia solo per questo layout. Il pannello condiviso si trova in Layout tasti, Layout pannelli.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Eredita il tema del layout</string>
@@ -3986,11 +3980,8 @@
     <string name="layout_split_spacebar_title">Dividi la barra spaziatrice</string>
     <string name="layout_split_subtitle">Dividi i tasti in una metà sinistra e una metà destra</string>
     <string name="layout_split_title">Tastiera divisa</string>
-    <string name="layout_summon_button_info">Mentre la tastiera è chiusa, un piccolo pulsante rotondo fluttua sopra ogni app. Toccalo e la tastiera si apre, anche su una schermata senza campo di testo, e rimane aperta finché non la chiudi. I tasti raggiungono quindi l\'app come pressioni di tasti, lo stesso che con Mantieni la tastiera sullo schermo. Trascina il pulsante per spostarlo; si posiziona contro il lato più vicino. Premi e tieni premuto per nasconderlo finché la tastiera non si apre la prossima volta. Richiede l\'autorizzazione di Android per apparire sopra altre app.</string>
     <string name="layout_summon_button_permission_subtitle">Il pulsante non può apparire finché Android non lo consente</string>
     <string name="layout_summon_button_permission_title">Consenti la visualizzazione sopra altre app</string>
-    <string name="layout_summon_button_subtitle">Un pulsante sopra le altre app che apre la tastiera, con o senza un campo di testo</string>
-    <string name="layout_summon_button_title">Pulsante tastiera mobile</string>
     <string name="layout_swap_comma_globe_info">I due tasti ai lati della barra spaziatrice si scambiano di posto. Se uno di essi è un tasto emoji, si sposta nella posizione esterna e la virgola rimane accanto alla barra spaziatrice. Disattiva questa opzione per ripristinare l\'ordine abituale.</string>
     <string name="layout_swap_comma_globe_subtitle">Metti la virgola accanto alla barra spaziatrice</string>
     <string name="layout_swap_comma_globe_title">Scambia i tasti virgola e 🌐</string>
@@ -5810,7 +5801,6 @@
     <string name="search_kw_layout_show_globe">nascondi rimuovi globo lingua</string>
     <string name="search_kw_layout_size_position">ridimensiona rimpicciolisci compatto ingrandisci</string>
     <string name="search_kw_layout_split">tablet ergonomico pollice</string>
-    <string name="search_kw_layout_summon_button">mostra sovrapposizione a bolla richiama campo senza hacker</string>
     <string name="search_kw_layout_symbols_numpad_key">tastierino numerico tastiera numerica tastierino 1234 gboard</string>
     <string name="search_kw_learnedcorrections">correzioni apprese, le mie correzioni, coppie di refusi, correzioni insegnate, apprendimento correzione automatica, errori, abitudini</string>
     <string name="search_kw_licenses">open source, attribuzione, crediti</string>
@@ -5849,7 +5839,7 @@
     <string name="search_kw_translate_engine">offline privato internet aereo dispositivo locale ml kit google modello download cloud</string>
     <string name="search_kw_translate_models">modello traduzione offline download elimina archiviazione ml kit google</string>
     <string name="search_kw_translate_only_downloaded">nascondi filtro menu selezione modello offline elenco lingue breve</string>
-    <string name="search_kw_translate_server">openai compatibile selfhosted ospitato locale llm ai modello ollama llama studio vllm localai chat completamenti</string>
+    <string name="search_kw_translate_server">openai compatibile selfhosted ospitato locale llm ai modello ollama llama studio vllm localai chat completamenti mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">controllo ortografico, completamento automatico, testo predittivo, glide, digitazione a scorrimento, gesti, contatti, annulla</string>
     <string name="search_kw_typing_auto_capitalize">maiuscole automatiche autocapitalizzazione</string>
     <string name="search_kw_typing_auto_close_brackets">chiusura automatica coppie parentesi graffe corrispondenza parentesi completamento</string>
@@ -6820,7 +6810,6 @@
     <string name="theme_parts_strip_subtitle">Rimuovi riempimento, colori delle parole e dimensioni</string>
     <string name="theme_parts_toolbar_subtitle">Riempimenti strumenti, icone, forma, bordo</string>
     <string name="theme_pick_hint">Premi un tasto, uno strumento o la barra</string>
-    <string name="theme_pick_start_desc">Scegli una parte della tastiera da personalizzare</string>
     <string name="theme_pick_start_subtitle">Premi un tasto, uno strumento o la barra dei suggerimenti sull\'anteprima per personalizzarlo</string>
     <string name="theme_pick_start_title">Scegli sulla tastiera</string>
     <string name="theme_pick_strip_sample_words">Ciao,Grazie,Ok</string>
@@ -7645,12 +7634,6 @@
     <string name="tooldetail_ocr_info">Il riconoscimento viene eseguito sul tuo dispositivo con ML Kit. Nessuna foto e nessun testo lascia il tuo dispositivo, e funziona offline. Legge testo in alfabeto latino, ad esempio l\'inglese. Il riconoscitore di testo di ML Kit non supporta ancora il bengalese. Dopo un\'acquisizione, premi sulle parole per selezionare esattamente ciò che la tastiera deve digitare o copiare.</string>
     <string name="tooldetail_ocr_online_group">Lettore di testo online</string>
     <string name="tooldetail_ocr_online_info">La foto viene inviata a un modello in grado di leggere le immagini, a un indirizzo a tua scelta, e il modello scrive il testo che vede. Legge qualsiasi script e non necessita di dati linguistici. Funziona qualsiasi servizio con API compatibile con OpenAI: OpenAI, OpenRouter, Gemini, Mistral o un modello sul tuo computer con Ollama o LM Studio. Ogni scansione invia la foto a quel servizio, che potrebbe addebitare un costo.</string>
-    <string name="tooldetail_ocr_online_key_hint">Lasciare vuoto per un server che non richiede alcuna chiave</string>
-    <string name="tooldetail_ocr_online_key_label">Chiave API</string>
-    <string name="tooldetail_ocr_online_model_hint">Un modello che legge le immagini, ad esempio gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modello</string>
-    <string name="tooldetail_ocr_online_url_hint">Per esempio https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Indirizzo</string>
     <string name="tooldetail_ocr_packs_header">Lingue Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract legge una lingua solo dopo che i dati per quella lingua sono sul tuo dispositivo. C\'è un download per ogni lingua che digiti, da 0,4 MB a 12 MB. I dati provengono dal set tessdata_fast del progetto Tesseract su GitHub. Puoi anche scaricare una lingua dallo scanner stesso.</string>
     <string name="tooldetail_ocr_packs_none_info">Nessuna delle lingue attivate dispone di dati Tesseract. Aggiungi una lingua nella schermata Lingue. I relativi dati verranno quindi visualizzati qui.</string>
@@ -8486,7 +8469,7 @@
     <string name="typing_letter_swipe_select_key_label">Scorri su un tasto</string>
     <string name="typing_letter_swipe_type_words_desc">Uno scorrimento sui tasti compone una parola</string>
     <string name="typing_letter_swipe_type_words_label">Digita parole</string>
-    <string name="typing_mistype_tolerance_info">Ogni tocco viene letto in base a dove è atterrato, non solo in base al tasto colpito, quindi un tocco vicino al bordo di un tasto può ancora essere letto come il tasto accanto. Questo imposta quanto è generosa tale lettura. Sopra il 100%, un tocco ben all\'interno di un tasto vicino è ancora un probabile errore, il che si adatta a una digitazione veloce o frenetica e a dita grandi. Sotto il 100%, il tasto colpito è più affidabile, il che si adatta a una digitazione attenta. Cambia le parole che la striscia offre e ciò che l\'autocorrezione sceglie. Il valore predefinito è 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Ogni tocco viene letto in base a dove è atterrato, non solo in base al tasto colpito, quindi un tocco vicino al bordo di un tasto può ancora essere letto come il tasto accanto. Questo imposta quanto è generosa tale lettura. Sopra il 100%, un tocco ben all\'interno di un tasto vicino è ancora un probabile errore, il che si adatta a una digitazione veloce o frenetica e a dita grandi. Sotto il 100%, il tasto colpito è più affidabile, il che si adatta a una digitazione attenta. Cambia le parole che la striscia offre e ciò che l\'autocorrezione sceglie. Il valore predefinito è 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Quanto lontano in un tasto adiacente può cadere un tocco ed essere comunque considerato un errore</string>
     <string name="typing_mistype_tolerance_title">Tolleranza agli errori di battitura</string>
     <string name="typing_new_word_sightings_info">Vengono contate solo le parole che nessun dizionario conosce. Una parola già presente in un dizionario viene appresa nel momento in cui la digiti. Un utilizzo conta solo una volta che hai proseguito e lasciato stare la parola, quindi un errore di battitura che torni a correggere non viene mai contato. Abbassa questo valore se i tuoi nomi e lo slang impiegano troppo tempo a essere memorizzati. Impostalo su 1 per salvare subito ogni nuova parola, come facevano le versioni precedenti. Questa impostazione è 3 per impostazione predefinita.</string>
@@ -8779,11 +8762,9 @@
     <string name="typing_trail_opacity_title">Opacità scia</string>
     <string name="typing_trail_width_subtitle">Spessore della scia di scorrimento</string>
     <string name="typing_trail_width_title">Larghezza traccia</string>
-    <string name="typing_two_thumb_info">Usa entrambi i pollici contemporaneamente. Ogni pollice può toccare o scorrere, nello stesso momento dell\'altro, e ogni tocco o scorrimento contribuisce alla stessa parola. Ad esempio, tocca S con il pollice sinistro, scorri da O a M con il destro, tocca E con il sinistro, poi scorri T H I N G con il destro, e otterrai qualcosa. Un tocco che avviene mentre l\'altro pollice sta ancora scorrendo viene inserito nella parola in quel punto, quindi uno scorrimento su H E L O e un tocco su L danno hello. Il tasto backspace rimuove l\'ultimo tocco o scorrimento dalla parola.</string>
     <string name="typing_two_thumb_subtitle">Tocca e scorri con entrambi i pollici contemporaneamente per comporre una parola</string>
     <string name="typing_two_thumb_title">Digitazione con due pollici</string>
     <string name="typing_two_thumb_word_end_all_up_label">Tutti i pollici in su</string>
-    <string name="typing_two_thumb_word_end_info">Con lo spazio, la parola rimane aperta mentre tocchi e scorri, e la tastiera la legge di nuovo dopo ogni tocco. Tocca spazio o punteggiatura per digitarla. Con entrambi i pollici sollevati, la parola viene digitata con uno spazio non appena nessun pollice tocca la tastiera, come nella digitazione a scorrimento normale, quindi i tuoi pollici devono sovrapporsi per condividere una parola.</string>
     <string name="typing_two_thumb_word_end_space_label">Spazio</string>
     <string name="typing_two_thumb_word_end_subtitle">Cosa digita la parola che stai componendo</string>
     <string name="typing_two_thumb_word_end_title">Termina una parola con due pollici</string>

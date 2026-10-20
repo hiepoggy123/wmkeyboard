@@ -21,7 +21,7 @@ Voice typing turns speech into text using your device's own speech recognizer: n
 
 Open **Voice typing** from the toolbar (or the toolbox if you haven't pinned it). What opens depends on **Voice typing view**, covered below. There are three of them:
 
-- **Full panel** (the default) replaces the whole keyboard with a large mic button and a level-driven pulse ring. A four-key action rail runs down the right side: <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap>, a context-aware <KeyCap>Enter</KeyCap>, and a key that closes the panel and returns you to normal typing. In a search box that Enter key shows a search icon, rather than promising a newline it won't insert.
+- **Full panel** (the default) replaces the whole keyboard with a large mic button and a level-driven pulse ring. A four-key action rail runs down the right side: <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap>, a context-aware <KeyCap>Enter</KeyCap>, and a key that closes the panel and returns you to normal typing. In a search box that Enter key shows a search icon, rather than promising a newline it won't insert. Next to it a column of punctuation keys, <KeyCap>.</KeyCap> <KeyCap>,</KeyCap> <KeyCap>?</KeyCap> <KeyCap>!</KeyCap>, puts a mark in by hand without saying it (see [Fixing it while you talk](#fixing-it-while-you-talk)).
 - **Compact bar over the keys** replaces the suggestion strip with a small mic and status text, and the keys stay visible underneath. Dictate a sentence, then tap a letter key to fix a misheard word without leaving the view.
 - **Collapsed bar, keyboard hidden** hands the keyboard's whole window back to the app you're typing in and leaves a small draggable pill of dictation controls floating over it. See [The collapsed bar](#the-collapsed-bar).
 
@@ -35,7 +35,7 @@ With the Voice tool pinned to the toolbar, press and hold it instead of tapping 
 
 <GestureDemo type="long-press" caption="Hold the mic in the full panel to dictate walkie-talkie style." />
 
-Recognized words stream into the text field live as you talk. That's the system recognizer only. [Offline voice](/tools/whisper/) covers how Whisper's panel differs: a whisper.cpp model shows its words under the microphone while it transcribes, and types them once it's done. WM Keyboard works out the spacing around what you dictate from the characters already next to the cursor, so starting mid-sentence or dictating over a selection doesn't leave a double space or a missing one.
+Recognized words stream into the text field live as you talk, underlined until the phrase is finished. That's the system recognizer and [Asr4All](/tools/asr4all/), the offline engine that hears as you speak. [Offline voice](/tools/whisper/) covers how Whisper's panel differs: a whisper.cpp model shows its words under the microphone while it transcribes, and types them once it's done. WM Keyboard works out the spacing around what you dictate from the characters already next to the cursor, so starting mid-sentence or dictating over a selection doesn't leave a double space or a missing one.
 
 Every word you dictate is learned the same way a typed word is, so frequent dictated vocabulary starts showing up in suggestions and autocorrect too.
 
@@ -44,6 +44,12 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 - **Password and other secure fields** never get a mic. Tapping the voice tool in one shows a brief "You cannot use voice typing in a password field" toast and opens nothing. If you land in a password field with a view already open, the panel reads "Voice typing does not work in password fields." and the compact bar reads "Not available in password fields".
 - **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen (IMEs can't show permission dialogs directly), and the keyboard rechecks automatically once you're back. The bars have room for one line, so they say "The app needs microphone permission" with an **Allow** chip.
 - **No speech recognizer on the device** (rare, typically no Google app installed) shows "Speech recognition is not available on your device." in the panel, or "Speech recognition is not available" on either bar.
+
+### Opening on voice typing
+
+If you dictate more than you type, switch on **Reopen voice typing where you left it** on the Voice typing screen. After that, closing the keyboard with the voice panel, the compact bar or the collapsed bar on screen means the next field you tap opens on the same view and starts listening. That holds when you send a message, switch apps or tap into another box.
+
+You turn it off by leaving voice typing yourself. Press Back or the close button on the panel or the compact bar, the keyboard button on the collapsed bar, or the Voice tool, and the keyboard opens on its keys from then on. Open voice typing again and it sticks again. Password fields always open on the keys, and without the microphone permission the view asks for it instead of listening.
 
 ## Typing while you dictate
 
@@ -111,6 +117,12 @@ The bar isn't just for one field. It stands in for the keyboard on every new fie
 
 An **Undo** control appears (bottom-left in the panel, as a small icon on either bar) right after a phrase commits, as long as it's still sitting immediately before your cursor. Tapping it removes exactly that dictated text in one step. It disappears again once you dictate something else, edit the text some other way, or the text it would remove is no longer where dictation left it.
 
+It stays while the mic is open, too. Tapped while a phrase is still being heard, it takes back that phrase instead: the words heard so far go, and listening starts over, so a sentence that came out wrong can be said again without stopping. Between phrases, with nothing being heard, it removes the last phrase that landed, as above.
+
+### Fixing it while you talk
+
+In the default mode a phrase being heard sits in the field as one piece that the recognizer keeps rewriting, so nothing can be typed into it. The keys on the voice surfaces work around that rather than ending the dictation. A punctuation key, <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap> or <KeyCap>Enter</KeyCap> on the panel's rails, or the collapsed bar's backspace, pressed in the middle of a phrase lands the words heard so far as if you had paused, puts the key in after them, and goes straight back to listening. So "meet me at noon", a tap on <KeyCap>?</KeyCap>, then "or later" comes out as one line with your question mark in it. The few words you say in the moment the mic is restarting can be missed, so press at a natural break. Keys on the keyboard itself still end the dictation, as described under [Continuous mode](#continuous-mode); [Type while you speak](#typing-while-you-dictate) is the mode for typing freely with the mic open.
+
 ## Continuous mode
 
 <SettingsPath path="Voice typing / Keep listening" />
@@ -125,7 +137,7 @@ That stretch has a limit. A recognizer that stops on its own pause is expected t
 
 Continuous mode is also patient with silence: a pause that would normally time out the recognizer restarts listening quietly instead of surfacing an error, but only for two silent retries in a row. After that it gives up and goes idle, so an abandoned open mic doesn't sit there listening forever.
 
-Dictation ends completely the moment you type a key, swipe, or tap a suggestion. There's no pausing and picking up where you left off. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than interrupt it. Whichever view you're in stays open afterward, so you can tap the mic to resume. A tap on the Voice tool is the exception among the ways out: it finishes the phrase first (see [Starting dictation](#starting-dictation)). Dictation also stops when you close the panel, dismiss either bar, or switch to a different tool panel.
+Dictation ends completely the moment you type a key, swipe, or tap a suggestion. There's no pausing and picking up where you left off. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than interrupt it. Whichever view you're in stays open afterward, so you can tap the mic to resume. The keys on the voice surfaces themselves don't end it (see [Fixing it while you talk](#fixing-it-while-you-talk)). A tap on the Voice tool is the exception among the ways out: it finishes the phrase first (see [Starting dictation](#starting-dictation)). Dictation also stops when you close the panel, dismiss either bar, or switch to a different tool panel.
 
 That last paragraph describes the default mode. If you want the mic to survive typing, see [Typing while you dictate](#typing-while-you-dictate). Both interactive modes ignore the **Keep listening** setting and always chain.
 
@@ -206,13 +218,13 @@ A language chip sits in the corner of the voice panel whenever there's a choice 
 
 The compact bar over the keys can carry the same chip. Turn on **Language button on the compact bar** (it shows under **Voice typing view** while the compact bar is the one picked) and the chip sits between the status text and the undo button, with the same menu behind it. It's off by default because that bar has room for one line.
 
-On Android 12 and up the system recognizer prefers to run fully on-device, once your phone has that language's model installed. It's faster, needs no network, and skips the little beep before it starts listening. If a language's on-device model can't handle recognition, WM Keyboard falls back to the network recognizer transparently. The same happens when the on-device recognizer opens the microphone and then hears nothing at all, with no level and no words for the first couple of seconds. Some phones' on-device model stalls that way, which used to look like a dead microphone. That language then stays on the network recognizer until the keyboard restarts. **Prefer on-device recognition**, under the engine while the system recognizer is the one in use, turns the on-device recognizer off altogether.
+On Android 12 and up the system recognizer prefers to run fully on-device, once your phone has that language's model installed. It's faster, needs no network, and skips the little beep before it starts listening. If a language's on-device model can't handle recognition, WM Keyboard falls back to the network recognizer transparently. The same happens when the on-device recognizer opens the microphone and then hears nothing at all, with no level and no words for the first couple of seconds. Some phones' on-device model stalls that way, which used to look like a dead microphone. That language then stays on the network recognizer until the keyboard restarts. **Prefer on-device recognition**, shown while the phone's recognizer is on the engine list, turns the on-device recognizer off altogether.
 
 ### An engine for each language
 
 <SettingsPath path="Voice typing / Engine for each language" />
 
-**Engine for each language** gives each of your keyboard languages its own engine, and for Offline Whisper, Asr4All, Parakeet and Moonshine its own model: English on the system recognizer and Bangla on a Whisper model, say. Tap a language to see what can take it on this phone. Only engines that know the language and models that are downloaded are listed. **Default** follows the **Recognition engine** row. Dictation picks the engine for the language it starts in.
+**Engine for each language** gives each of your keyboard languages its own engine, and for Offline Whisper, Asr4All, Parakeet and Moonshine its own model: English on the system recognizer and Bangla on a Whisper model, say. Tap a language to see what can take it on this phone. Only engines that know the language and models that are downloaded are listed. **Default** follows the **Recognition engine** list. Dictation picks the engine for the language it starts in.
 
 Turn on **Change engine from the voice tool** and the voice panel gets an engine chip in its bottom left corner. It names the engine the language you dictate in uses, and a tap lists the same choices for that language, with **As in settings** to go back to the default. A pick is saved the same way as one made in settings, and a session that's listening starts again on it.
 
@@ -249,6 +261,7 @@ Everything below lives on the Voice typing screen, under Features on the setting
 | Language button on the compact bar | Off | Shown while **Voice typing view** is the compact bar. Adds the language chip to the bar, so you can pick what dictation listens for without opening the panel. See [Language and engine](#language-and-engine). |
 | Voice typing mode | One block at a time | Another choice of three: whether the keys work while the mic is open. **One block at a time**, **Type while you speak**, or **Type while you speak, plain text**. See [Typing while you dictate](#typing-while-you-dictate). |
 | Hold the tool to pick a mode | On | A press and hold on the toolbar's Voice tool opens a menu of the three modes; picking one makes it the mode and starts dictation. Off gives the hold back to the toolbar's own press-and-hold action. |
+| Reopen voice typing where you left it | Off | Close the keyboard with a voice view open and the next field opens on that view, already listening. See [Opening on voice typing](#opening-on-voice-typing). |
 | Pause media during voice typing | Off | The keyboard takes the audio focus while the microphone listens, so music, podcasts and video pause. They resume about a second after dictation ends, which keeps a continuous session from restarting the music between sentences. An app that ignores the request keeps playing. |
 | Microphone switch | On | Off leaves the microphone to Android and takes the switch off the voice views. See [Choosing the microphone](#choosing-the-microphone). |
 | Microphone | Automatic | Which microphone voice typing listens through: **Automatic**, **Bluetooth headset**, **Wired headset**, **USB microphone** or **Phone microphone**. A pick is preferred whenever one of its kind is connected, and automatic stands in when none is. See [Choosing the microphone](#choosing-the-microphone). |
@@ -258,7 +271,11 @@ Everything below lives on the Voice typing screen, under Features on the setting
 | Spoken punctuation | On | Saying "comma", "question mark" or "দাঁড়ি" types the mark. |
 | Tidy dictation with AI | Off | Sends each phrase to the AI tool's model to take out filler words, repeats and spoken corrections. Hidden in plain text mode. See [Tidying dictation with AI](#tidying-dictation-with-ai). |
 
-All of these sit in a group headed **Dictation**. An **Engine** group above it holds **Voice typing language** and **Engine for each language** (see [Language and engine](#language-and-engine)), **Prefer on-device recognition** while the system recognizer is the engine, and the **Recognition engine** choice: **System recognizer** (the default), **Offline Whistle** on a 64-bit ARM phone, a small fast model for seven languages (see [Offline voice (Whistle)](/tools/whistle/)), **Offline Whisper** in an edition with the offline engine built in (see [Offline voice (Whisper)](/tools/whisper/)), **Offline Asr4All**, English dictation that shows the words while you speak (see [Offline voice (Asr4All)](/tools/asr4all/)), **Offline Parakeet**, 25 European languages that the model tells apart (see [Offline voice (Parakeet)](/tools/parakeet/)), **Offline Moonshine**, a small quick English model (see [Offline voice (Moonshine)](/tools/moonshine/)), and **Transcription server** in every edition, which sends each phrase to a speech-to-text server you run (see [Transcription server](/tools/transcription-server/)). With the system recognizer in use, the screen ends with this note about what it sends:
+All of these sit in a group headed **Dictation**. An **Engine** group above it holds **Voice typing language** and **Engine for each language** (see [Language and engine](#language-and-engine)), and **Prefer on-device recognition** while the phone's recognizer is on the list.
+
+At the top of the screen, **Recognition engine** is a [provider list](/tools/providers/) of dictation engines. Dictation uses the first one on it that is switched on and can run on the phone; the others are there for a language that has an engine of its own, and the phone's recognizer answers when nothing on the list can. **Add a provider** offers **Phone's recognizer**, **Whistle** on a 64-bit ARM phone, a small fast model for seven languages (see [Offline voice (Whistle)](/tools/whistle/)), **Whisper** in an edition with the offline engine built in (see [Offline voice (Whisper)](/tools/whisper/)), **Asr4All**, English dictation that shows the words while you speak (see [Offline voice (Asr4All)](/tools/asr4all/)), **Parakeet**, 25 European languages that the model tells apart (see [Offline voice (Parakeet)](/tools/parakeet/)), **Moonshine**, a small quick English model (see [Offline voice (Moonshine)](/tools/moonshine/)), and **Transcription server** in every edition, which sends each phrase to a speech-to-text server you run (see [Transcription server](/tools/transcription-server/)). A transcription server can be added more than once, each with its own address, key, model and route; the first one on the list is the one dictation sends to. Each offline engine you list gets its model manager further down the screen.
+
+Until you edit the list, it is worked out from your earlier choice: that engine first, then your transcription server if you had one, then the phone's recognizer. "Use the system recognizer" on the voice panel moves the phone's recognizer to the top of the list. The phone's recognizer's **?** carries this note about what it sends:
 
 > Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.
 
@@ -275,7 +292,7 @@ Nothing of voice typing is loaded while it's off. The system recognizer is only 
 
 ### Words to listen for
 
-A recognizer trained on everyone's speech spells a name its own way. The **Words to listen for** group tells it about yours. It shows for the system recognizer and the transcription server. Offline Whisper can't take a hint, so the group isn't there while it's the engine.
+A recognizer trained on everyone's speech spells a name its own way. The **Words to listen for** group tells it about yours. It shows for the system recognizer and the transcription server. Offline Whisper can't take a hint, so the group isn't there while it's the first engine on the list.
 
 - **Listen for my words** (on by default) sends a list of your own words with each phrase: the words you added by hand, the words in Android's personal dictionary (when **Use the Android dictionary** is on), and the words the keyboard learned from your typing that no word list has, such as names, most used first. Common words the recognizer already knows are left out, since they don't help. The system recognizer also gets permission to use what it knows about your phone itself, such as your contacts; the keyboard never reads your contacts for this.
 - **More words to listen for** takes your own list, separated by commas. These go first, ahead of the words from your dictionary.

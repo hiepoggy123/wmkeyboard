@@ -1157,7 +1157,7 @@
     <string name="clipboard_key_row_info">ಲಿಂಕ್ ಅನ್ನು ಪೇಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಅದಕ್ಕೆ ಹೋಗಲು ಎಂಟರ್ ಒತ್ತಿರಿ, ಅಥವಾ ಕೀಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗದೆ ಅವುಗಳ ನಡುವೆ ಸ್ಪೇಸ್ ಅಥವಾ ಹೊಸ ಸಾಲಿನೊಂದಿಗೆ ಹೆಚ್ಚಿನ ಕ್ಲಿಪ್‌ಗಳನ್ನು ಪೇಸ್ಟ್ ಮಾಡಿ. ABC ಅಕ್ಷರಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತದೆ. ನೀವು ಪ್ಯಾನಲ್ ವಿನ್ಯಾಸವನ್ನು ಬದಲಾಯಿಸಿದ್ದರೆ, ಈ ಸೆಟ್ಟಿಂಗ್ ಏನನ್ನೂ ಮಾಡುವುದಿಲ್ಲ: ಬದಲಿಗೆ ಲೇಔಟ್ ಎಡಿಟರ್‌ನಲ್ಲಿ ಕೀಗಳನ್ನು ಸೇರಿಸಿ. ಕ್ಲಿಪ್‌ಬೋರ್ಡ್ ಕೀಗಳ ಮೇಲೆ ಜೋಡಿಸಲಾದಾಗ ಸಾಲು ಕಾಣಿಸುವುದಿಲ್ಲ. ಈ ಸೆಟ್ಟಿಂಗ್ ಪೂರ್ವನಿಯೋಜಿತವಾಗಿ ಆಫ್ ಆಗಿರುತ್ತದೆ.</string>
     <string name="clipboard_key_row_subtitle">ಕ್ಲಿಪ್‌ಬೋರ್ಡ್ ಪ್ಯಾನೆಲ್‌ನ ಕೆಳಭಾಗದಲ್ಲಿರುವ ಕೀಗಳ ಸಾಲು</string>
     <string name="clipboard_key_row_title">ABC, ಸ್ಪೇಸ್ ಮತ್ತು ಎಂಟರ್ ಕೀಗಳು</string>
-    <string name="clipboard_line_spacing_info">100% ನಲ್ಲಿ ಕ್ಲಿಪ್‌ನ ಸಾಲುಗಳು ಫಾಂಟ್ ಅನುಮತಿಸುವಷ್ಟು ಹತ್ತಿರದಲ್ಲಿರುತ್ತವೆ. ಅವುಗಳನ್ನು ಹರಡಲು ಅದನ್ನು ಹೆಚ್ಚಿಸಿ. ಡೀಫಾಲ್ಟ್ 130% ಆಗಿದೆ.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100% ನಲ್ಲಿ ಕ್ಲಿಪ್‌ನ ಸಾಲುಗಳು ಫಾಂಟ್ ಅನುಮತಿಸುವಷ್ಟು ಹತ್ತಿರದಲ್ಲಿರುತ್ತವೆ. ಅವುಗಳನ್ನು ಹರಡಲು ಅದನ್ನು ಹೆಚ್ಚಿಸಿ. ಡೀಫಾಲ್ಟ್ 130% ಆಗಿದೆ.</string>
     <string name="clipboard_line_spacing_subtitle">ಕ್ಲಿಪ್‌ನ ಪಠ್ಯದ ಸಾಲುಗಳ ನಡುವಿನ ಅಂತರ</string>
     <string name="clipboard_line_spacing_title">ಲೈನ್ ಸ್ಪೇಸಿಂಗ್</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2404,9 +2404,7 @@
     <string name="import_sticker_editor_border_white_option">ಬಿಳಿ</string>
     <string name="import_sticker_editor_border_width_label">ಅಂಚಿನ ಅಗಲ</string>
     <string name="import_sticker_editor_brush_size_label">ಬ್ರಷ್ ಗಾತ್ರ</string>
-    <string name="import_sticker_editor_caption">ಕೀಬೋರ್ಡ್ 512 ಬೈ 512 ಸ್ಟಿಕ್ಕರ್ ಅನ್ನು ಉಳಿಸುತ್ತದೆ. ಇರಿಸಿಕೊಳ್ಳಬೇಕಾದ ಭಾಗವನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಚಿತ್ರವನ್ನು ಸರಿಸಿ ಮತ್ತು ಪಿಂಚ್ ಮಾಡಿ, ನಂತರ ಹಿನ್ನೆಲೆಯನ್ನು ತೆಗೆದುಹಾಕಿ ಮತ್ತು ಬಾರ್ಡರ್ ಸೇರಿಸಿ. ಅಪ್ಲಿಕೇಶನ್ ಈ ಚಿತ್ರವನ್ನು ಫೋನ್‌ನಲ್ಲಿ ಇರಿಸುತ್ತದೆ, ಆದ್ದರಿಂದ ನೀವು ನಂತರ ಸ್ಟಿಕ್ಕರ್ ಅನ್ನು ಮತ್ತೆ ಎಡಿಟ್ ಮಾಡಬಹುದು.</string>
     <string name="import_sticker_editor_crop_action">ಕ್ರಾಪ್ ಮಾಡಿ</string>
-    <string name="import_sticker_editor_crop_hint">ಚಿತ್ರವನ್ನು ಚಲಿಸಲು ಎಳೆಯಿರಿ. ಅದನ್ನು ದೊಡ್ಡದಾಗಿಸಲು ಪಿಂಚ್ ಮಾಡಿ.</string>
     <string name="import_sticker_editor_cutout_action">ಹಿನ್ನೆಲೆಯನ್ನು ತೆಗೆದುಹಾಕಿ</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">ಮೊದಲು ಹಿನ್ನೆಲೆ ತೆಗೆಯುವ ಸಾಧನವನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ. ಇದು 5 MB ಡೌನ್‌ಲೋಡ್ ಆಗಿದೆ.</string>
     <string name="import_sticker_editor_cutout_download_progress">ಅಪ್ಲಿಕೇಶನ್ ಹಿನ್ನೆಲೆ ತೆಗೆಯುವ ಸಾಧನವನ್ನು ಪಡೆಯುತ್ತಿದೆ…</string>
@@ -3532,7 +3530,6 @@
     <string name="layout_editor_alternate_columns_info">ಇದು ಈ ಕೀಲಿಗಾಗಿ ಮಾತ್ರ ಕಾಲಮ್‌ಗಳ ಸಂಖ್ಯೆಯಾಗಿದೆ. ಕೀಲಿಗಳು ಭಿನ್ನವಾಗಿರುತ್ತವೆ: ಹನ್ನೆರಡು ಪರ್ಯಾಯಗಳನ್ನು ಹೊಂದಿರುವ ಕೀಲಿಯು ಗ್ರಿಡ್‌ನಂತೆ ಉತ್ತಮವಾಗಿ ಕಾಣುತ್ತದೆ, ಮತ್ತು ಮೂರು ಅಥವಾ ನಾಲ್ಕು ಹೊಂದಿರುವ ಕೀಲಿಯು ಒಂದೇ ಸಾಲಿನಂತೆ ಉತ್ತಮವಾಗಿ ಕಾಣುತ್ತದೆ. ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಂದ ಕೀಲಿಯನ್ನು \'ಪರ್ಯಾಯ ಕೀ ಕಾಲಮ್‌ಗಳು\' ಸೆಟ್ಟಿಂಗ್‌ಗೆ ಬಿಡಲಾಗುತ್ತದೆ, ನೀವು ಅದನ್ನು ಬದಲಾಯಿಸದ ಹೊರತು ಇದು ಸ್ವಯಂಚಾಲಿತವಾಗಿರುತ್ತದೆ. 3 ರಿಂದ 11 ರವರೆಗಿನ ಸಂಖ್ಯೆಯು ಸೆಟ್ಟಿಂಗ್ ಏನೇ ಇದ್ದರೂ ಈ ಕೀಲಿಗಾಗಿ ಅಷ್ಟು ಕಾಲಮ್‌ಗಳನ್ನು ನೀಡುತ್ತದೆ.</string>
     <string name="layout_editor_alternate_columns_subtitle">ಈ ಕೀಲಿಯು ಒಂದು ಸಾಲಿನಲ್ಲಿ ಎಷ್ಟು ಪರ್ಯಾಯಗಳನ್ನು ಇರಿಸುತ್ತದೆ</string>
     <string name="layout_editor_alternate_columns_title">ಪಾಪ್‌ಅಪ್‌ನಲ್ಲಿನ ಕಾಲಮ್‌ಗಳು</string>
-    <string name="layout_editor_alternate_hint_badge">ಸುಳಿವು</string>
     <string name="layout_editor_alternates_field_hint">ನಮೂದುಗಳನ್ನು ಸ್ಪೇಸ್‌ಗಳೊಂದಿಗೆ ಪ್ರತ್ಯೇಕಿಸಿ, ಆದ್ದರಿಂದ ಪರ್ಯಾಯವು ಸ್ಪೇಸ್ ಆಗಿರಲು ಸಾಧ್ಯವಿಲ್ಲ. .com ನಂತಹ ಒಂದಕ್ಕಿಂತ ಹೆಚ್ಚು ಅಕ್ಷರಗಳ ನಮೂದುಗಳು ಸರಿಯಾಗಿವೆ. ಅಪ್ಲಿಕೇಶನ್ ಕೀಯ ಮೂಲೆಯಲ್ಲಿ ಮೊದಲನೆಯದನ್ನು ಸಹ ತೋರಿಸುತ್ತದೆ.</string>
     <string name="layout_editor_alternates_field_label">ಒತ್ತಿ ಹಿಡಿಯಲು ಪರ್ಯಾಯಗಳು</string>
     <string name="layout_editor_apply_action">ಅನ್ವಯಿಸು</string>
@@ -3628,7 +3625,6 @@
     <string name="layout_editor_field_row_title">ಘಟಕ</string>
     <string name="layout_editor_fill_row_action">ಸಾಲು ತುಂಬಿಸಿ (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">ಸಂಖ್ಯೆಯ ಸಾಲು ಈಗಾಗಲೇ ಅಂಕಿಗಳನ್ನು ತೋರಿಸುತ್ತದೆ, ಆದ್ದರಿಂದ ಕೀಬೋರ್ಡ್ ಈ ಪದರದ ಮೊದಲ ಸಾಲಿನ ಬದಲಿಗೆ ಈ ಸಾಲನ್ನು ತೋರಿಸುತ್ತದೆ.</string>
-    <string name="layout_editor_fill_row_off_caption">ಸಂಖ್ಯೆಯ ಸಾಲು ಆನ್ ಆಗಿರುವಾಗ, ಕೀಬೋರ್ಡ್ ಈ ಪದರದ ಮೊದಲ ಸಾಲಿನ ಬದಲಿಗೆ ಈ ಸಾಲನ್ನು ತೋರಿಸುತ್ತದೆ, ಏಕೆಂದರೆ ಸಂಖ್ಯೆಯ ಸಾಲು ಈಗಾಗಲೇ ಅಂಕಿಗಳನ್ನು ತೋರಿಸುತ್ತದೆ. ಸಂಖ್ಯೆಯ ಸಾಲು ಈಗ ಆಫ್ ಆಗಿದೆ.</string>
     <string name="layout_editor_fill_row_title">ಅಂಕಿಗಳ ಬದಲಿಗೆ ಸಾಲು</string>
     <string name="layout_editor_fit_row_action">ಸಾಲುಗಳನ್ನು ಗ್ರಿಡ್‌ಗೆ ಹೊಂದಿಸಿ (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">ಈ ಕಡೆ ಯಾವುದೇ ಫ್ಲಿಕ್ ಇಲ್ಲ. ಕ್ರಿಯೆಯನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ.</string>
@@ -3803,8 +3799,6 @@
     <string name="layout_editor_new_secondary_title">ದ್ವಿತೀಯ ಲೇಔಟ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಿ</string>
     <string name="layout_editor_not_live_caption">ನೀವು ಭಾಷೆಗಳ ಅಡಿಯಲ್ಲಿ ಲೇಔಟ್ ಅನ್ನು ಆನ್ ಮಾಡುವವರೆಗೆ ಇಲ್ಲಿನ ನಿಮ್ಮ ಬದಲಾವಣೆಗಳು ಟೈಪಿಂಗ್ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುವುದಿಲ್ಲ.</string>
     <string name="layout_editor_number_row_caption">ಕೀಬೋರ್ಡ್ ಈ ಪದರದ ಮೇಲೆ ಈ ಸಾಲನ್ನು ತೋರಿಸುತ್ತದೆ. ಅದನ್ನು ಬದಲಾಯಿಸಲು ಕೀಲಿಯನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ. ಅದನ್ನು ಸರಿಸಲು ಕೀಲಿಯನ್ನು ಹಿಡಿದಿಟ್ಟುಕೊಂಡು ಎಳೆಯಿರಿ.</string>
-    <string name="layout_editor_number_row_hidden_caption">ಲೇಔಟ್ ಮತ್ತು ಗಾತ್ರದಲ್ಲಿ ಚಿಹ್ನೆಗಳಲ್ಲಿನ ಸಂಖ್ಯೆಯ ಸಾಲು ಆನ್ ಆಗಿರುವಾಗ ಕೀಬೋರ್ಡ್ ಈ ಪದರದ ಮೇಲೆ ಈ ಸಾಲನ್ನು ತೋರಿಸುತ್ತದೆ. ಇದು ಈಗ ಆಫ್ ಆಗಿದೆ.</string>
-    <string name="layout_editor_number_row_off_caption">ಲೇಔಟ್ ಮತ್ತು ಗಾತ್ರದಲ್ಲಿ ಸಂಖ್ಯೆಯ ಸಾಲು ಆನ್ ಆಗಿರುವಾಗ ಕೀಬೋರ್ಡ್ ಈ ಪದರದ ಮೇಲೆ ಈ ಸಾಲನ್ನು ತೋರಿಸುತ್ತದೆ. ಸಂಖ್ಯೆಯ ಸಾಲು ಈಗ ಆಫ್ ಆಗಿದೆ.</string>
     <string name="layout_editor_number_row_title">ಸಂಖ್ಯೆಯ ಸಾಲು</string>
     <string name="layout_editor_panel_inherited_caption">ಈ ಲೇಔಟ್ ಹಂಚಿಕೆಯಾದ %1$s ಪ್ಯಾನಲ್ ಅನ್ನು ಬಳಸುತ್ತದೆ. ಇಲ್ಲಿ ಏನನ್ನಾದರೂ ಬದಲಾಯಿಸುವುದು ಈ ಲೇಔಟ್‌ಗೆ ಮಾತ್ರ ಪ್ರತಿಯನ್ನು ಮಾಡುತ್ತದೆ. ಹಂಚಿಕೆಯಾದ ಪ್ಯಾನಲ್ ಕೀ ಲೇಔಟ್‌ಗಳು, ಪ್ಯಾನಲ್ ಲೇಔಟ್‌ಗಳ ಅಡಿಯಲ್ಲಿದೆ.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">ಲೇಔಟ್‌ನ ಥೀಮ್ ಅನ್ನು ಪಡೆದುಕೊಳ್ಳಿ</string>
@@ -4007,11 +4001,8 @@
     <string name="layout_split_spacebar_title">ಸ್ಪೇಸ್‌ಬಾರ್ ಅನ್ನು ವಿಭಜಿಸಿ</string>
     <string name="layout_split_subtitle">ಕೀಲಿಗಳನ್ನು ಎಡ ಅರ್ಧ ಮತ್ತು ಬಲ ಅರ್ಧವಾಗಿ ವಿಭಜಿಸಿ</string>
     <string name="layout_split_title">ಸ್ಪ್ಲಿಟ್ ಕೀಬೋರ್ಡ್</string>
-    <string name="layout_summon_button_info">ಕೀಬೋರ್ಡ್ ಮುಚ್ಚಿದಾಗ, ಒಂದು ಸಣ್ಣ ದುಂಡಗಿನ ಬಟನ್ ಪ್ರತಿ ಆ್ಯಪ್‌ನ ಮೇಲೆ ತೇಲುತ್ತದೆ. ಅದನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ಕೀಬೋರ್ಡ್ ತೆರೆಯುತ್ತದೆ, ಟೆಕ್ಸ್ಟ್ ಫೀಲ್ಡ್ ಇಲ್ಲದ ಪರದೆಯ ಮೇಲೂ ಸಹ, ಮತ್ತು ನೀವು ಅದನ್ನು ಮುಚ್ಚುವವರೆಗೆ ಅಲ್ಲಿಯೇ ಇರುತ್ತದೆ. ಕೀಬೋರ್ಡ್ ಅನ್ನು ಪರದೆಯ ಮೇಲೆ ಇರಿಸಿದಂತೆಯೇ, ಕೀಗಳು ಕೀ ಪ್ರೆಸ್‌ಗಳಾಗಿ ಆ್ಯಪ್‌ಗೆ ತಲುಪುತ್ತವೆ. ಬಟನ್ ಅನ್ನು ಸರಿಸಲು ಅದನ್ನು ಡ್ರ್ಯಾಗ್ ಮಾಡಿ; ಅದು ಹತ್ತಿರದ ಬದಿಯಲ್ಲಿ ನೆಲೆಗೊಳ್ಳುತ್ತದೆ. ಕೀಬೋರ್ಡ್ ಮುಂದಿನ ಬಾರಿ ತೆರೆಯುವವರೆಗೆ ಅದನ್ನು ಮರೆಮಾಡಲು ಒತ್ತಿ ಹಿಡಿದುಕೊಳ್ಳಿ. ಆಂಡ್ರಾಯ್ಡ್‌ನ \'ಇತರ ಆ್ಯಪ್‌ಗಳ ಮೇಲೆ ಪ್ರದರ್ಶಿಸಿ\' ಅನುಮತಿಯ ಅಗತ್ಯವಿದೆ.</string>
     <string name="layout_summon_button_permission_subtitle">Android ಅನುಮತಿಸುವವರೆಗೆ ಬಟನ್ ಕಾಣಿಸುವುದಿಲ್ಲ</string>
     <string name="layout_summon_button_permission_title">ಇತರ ಆ್ಯಪ್‌ಗಳ ಮೇಲೆ ಪ್ರದರ್ಶಿಸಲು ಅನುಮತಿಸಿ</string>
-    <string name="layout_summon_button_subtitle">ಇತರ ಆ್ಯಪ್‌ಗಳ ಮೇಲೆ ಇರುವ ಬಟನ್, ಇದು ಕೀಬೋರ್ಡ್ ಅನ್ನು ತೆರೆಯುತ್ತದೆ, ಟೆಕ್ಸ್ಟ್ ಫೀಲ್ಡ್‌ನೊಂದಿಗೆ ಅಥವಾ ಇಲ್ಲದೆ</string>
-    <string name="layout_summon_button_title">ತೇಲುವ ಕೀಬೋರ್ಡ್ ಬಟನ್</string>
     <string name="layout_swap_comma_globe_info">ಸ್ಪೇಸ್‌ಬಾರ್‌ನ ಎರಡೂ ಬದಿಯಲ್ಲಿರುವ ಎರಡು ಕೀಲಿಗಳು ಸ್ಥಾನ ಬದಲಾಯಿಸುತ್ತವೆ. ಅವುಗಳಲ್ಲಿ ಒಂದು ಎಮೋಜಿ ಕೀ ಆಗಿದ್ದರೆ, ಅದು ಹೊರಗಿನ ಸ್ಥಾನಕ್ಕೆ ಹೋಗುತ್ತದೆ ಮತ್ತು ಅಲ್ಪವಿರಾಮವು ಸ್ಪೇಸ್‌ಬಾರ್‌ನ ಪಕ್ಕದಲ್ಲಿ ಉಳಿಯುತ್ತದೆ. ಸಾಮಾನ್ಯ ಕ್ರಮವನ್ನು ಪಡೆಯಲು ಇದನ್ನು ಆಫ್ ಮಾಡಿ.</string>
     <string name="layout_swap_comma_globe_subtitle">ಸ್ಪೇಸ್‌ಬಾರ್ ಪಕ್ಕದಲ್ಲಿ ಅಲ್ಪವಿರಾಮವನ್ನು (comma) ಇರಿಸಿ</string>
     <string name="layout_swap_comma_globe_title">ಅಲ್ಪವಿರಾಮ ಮತ್ತು 🌐 ಕೀಗಳನ್ನು ಅದಲುಬದಲು ಮಾಡಿ</string>
@@ -5832,7 +5823,6 @@
     <string name="search_kw_layout_show_globe">ಗ್ಲೋಬ್ ಭಾಷೆಯನ್ನು ಮರೆಮಾಡಿ ತೆಗೆದುಹಾಕಿ</string>
     <string name="search_kw_layout_size_position">ಮರುಗಾತ್ರಗೊಳಿಸು ಕುಗ್ಗಿಸು ಕಾಂಪ್ಯಾಕ್ಟ್ ಬೆಳೆಸು</string>
     <string name="search_kw_layout_split">ಥಂಬ್ ಎರ್ಗೊನಾಮಿಕ್ ಟ್ಯಾಬ್ಲೆಟ್</string>
-    <string name="search_kw_layout_summon_button">ಬಬಲ್ ಓವರ್‌ಲೇ ಫೀಲ್ಡ್‌ಲೆಸ್ ಹ್ಯಾಕರ್‌ಗಳನ್ನು ತೋರಿಸುತ್ತದೆ</string>
     <string name="search_kw_layout_symbols_numpad_key">ನಂಪ್ಯಾಡ್ ಕೀಪ್ಯಾಡ್ ಡಯಲ್‌ಪ್ಯಾಡ್ 1234 ಜಿಬೋರ್ಡ್</string>
     <string name="search_kw_learnedcorrections">learned corrections, my fixes, typo pairs, taught fixes, autocorrect learning, slips, habits</string>
     <string name="search_kw_licenses">ಓಪನ್ ಸೋರ್ಸ್, ಅಟ್ರಿಬ್ಯೂಷನ್, ಕ್ರೆಡಿಟ್‌ಗಳು</string>
@@ -5871,7 +5861,7 @@
     <string name="search_kw_translate_engine">ಆಫ್‌ಲೈನ್ ಖಾಸಗಿ ಇಂಟರ್ನೆಟ್ ವಿಮಾನ ಸ್ಥಳೀಯ ಸಾಧನ ml ಕಿಟ್ ಗೂಗಲ್ ಮಾದರಿ ಡೌನ್‌ಲೋಡ್ ಕ್ಲೌಡ್</string>
     <string name="search_kw_translate_models">ಆಫ್‌ಲೈನ್ ಅನುವಾದ ಮಾದರಿ ಡೌನ್‌ಲೋಡ್ ಅಳಿಸಿ ಸಂಗ್ರಹಣೆ ml ಕಿಟ್ ಗೂಗಲ್</string>
     <string name="search_kw_translate_only_downloaded">ಆಫ್‌ಲೈನ್ ಮಾದರಿ ಪಿಕರ್ ಮೆನು ಭಾಷೆಯ ಪಟ್ಟಿಯ ಸಂಕ್ಷಿಪ್ತ ರೂಪವನ್ನು ಫಿಲ್ಟರ್ ಮಾಡುವುದನ್ನು ಮರೆಮಾಡಿ</string>
-    <string name="search_kw_translate_server">openai ಹೊಂದಾಣಿಕೆಯ ಸ್ವಯಂ-ಹೋಸ್ಟ್ ಮಾಡಿದ ಸ್ಥಳೀಯ llm ai ಮಾದರಿ ollama llama studio vllm localai ಚಾಟ್ ಪೂರ್ಣಗೊಳಿಸುವಿಕೆಗಳು</string>
+    <string name="search_kw_translate_server">openai ಹೊಂದಾಣಿಕೆಯ ಸ್ವಯಂ-ಹೋಸ್ಟ್ ಮಾಡಿದ ಸ್ಥಳೀಯ llm ai ಮಾದರಿ ollama llama studio vllm localai ಚಾಟ್ ಪೂರ್ಣಗೊಳಿಸುವಿಕೆಗಳು mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">ಸ್ಪೆಲ್ ಚೆಕ್, ಸ್ವಯಂ ಪೂರ್ಣಗೊಳಿಸುವಿಕೆ, ಮುನ್ಸೂಚಕ ಪಠ್ಯ, ಗ್ಲೈಡ್, ಸ್ವೈಪ್ ಟೈಪಿಂಗ್, ಗೆಸ್ಚರ್‌ಗಳು, ಸಂಪರ್ಕಗಳು, ರದ್ದುಗೊಳಿಸಿ</string>
     <string name="search_kw_typing_auto_capitalize">ಆಟೋಕ್ಯಾಪ್ಸ್ ಆಟೋಕ್ಯಾಪಿಟಲೈಸ್ ಆಟೋಕ್ಯಾಪಿಟಲೈಸೇಶನ್</string>
     <string name="search_kw_typing_auto_close_brackets">ಆವರಣಗಳು, ಬ್ರೇಸ್‌ಗಳನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಮುಚ್ಚುವುದು, ಆವರಣದ ಹೊಂದಾಣಿಕೆ ಪೂರ್ಣಗೊಂಡಿದೆ</string>
@@ -6843,7 +6833,6 @@
     <string name="theme_parts_strip_subtitle">ಸ್ಟ್ರಿಪ್ ಫಿಲ್, ಪದಗಳ ಬಣ್ಣಗಳು ಮತ್ತು ಗಾತ್ರ</string>
     <string name="theme_parts_toolbar_subtitle">ಟೂಲ್ ಫಿಲ್‌ಗಳು, ಐಕಾನ್‌ಗಳು, ಆಕಾರ, ಬಾರ್ಡರ್</string>
     <string name="theme_pick_hint">ಕೀ, ಟೂಲ್ ಅಥವಾ ಸ್ಟ್ರಿಪ್ ಅನ್ನು ಒತ್ತಿರಿ</string>
-    <string name="theme_pick_start_desc">ಶೈಲಿ ನೀಡಲು ಕೀಬೋರ್ಡ್‌ನ ಒಂದು ಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ</string>
     <string name="theme_pick_start_subtitle">ಪೂರ್ವವೀಕ್ಷಣೆಯಲ್ಲಿ ಕೀ, ಟೂಲ್ ಅಥವಾ ಸಲಹೆ ಪಟ್ಟಿಯನ್ನು ಒತ್ತಿ ಅದನ್ನು ಸ್ಟೈಲ್ ಮಾಡಿ</string>
     <string name="theme_pick_start_title">ಕೀಬೋರ್ಡ್‌ನಲ್ಲಿ ಆಯ್ಕೆಮಾಡಿ</string>
     <string name="theme_pick_strip_sample_words">ನಮಸ್ಕಾರ,ಧನ್ಯವಾದಗಳು,ಸರಿ</string>
@@ -7671,12 +7660,6 @@
     <string name="tooldetail_ocr_info">ಗುರುತಿಸುವಿಕೆಯು ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ML Kit ನೊಂದಿಗೆ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ. ಯಾವುದೇ ಫೋಟೋ ಮತ್ತು ಯಾವುದೇ ಪಠ್ಯವು ನಿಮ್ಮ ಸಾಧನವನ್ನು ಬಿಟ್ಟು ಹೋಗುವುದಿಲ್ಲ, ಮತ್ತು ಇದು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ. ಇದು ಲ್ಯಾಟಿನ್ ಲಿಪಿಯ ಪಠ್ಯವನ್ನು ಓದುತ್ತದೆ, ಉದಾಹರಣೆಗೆ ಇಂಗ್ಲಿಷ್. ML Kit ನ ಪಠ್ಯ ಗುರುತಿಸುವಿಕೆಯು ಇನ್ನೂ ಬಂಗಾಳಿ ಭಾಷೆಯನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ. ಕ್ಯಾಪ್ಚರ್ ಮಾಡಿದ ನಂತರ, ಕೀಬೋರ್ಡ್ ಏನು ಟೈಪ್ ಮಾಡುತ್ತದೆ ಅಥವಾ ನಕಲಿಸುತ್ತದೆ ಎಂಬುದನ್ನು ನಿಖರವಾಗಿ ಆಯ್ಕೆ ಮಾಡಲು ಪದಗಳನ್ನು ಒತ್ತಿರಿ.</string>
     <string name="tooldetail_ocr_online_group">ಆನ್‌ಲೈನ್ ಪಠ್ಯ ಓದುಗ</string>
     <string name="tooldetail_ocr_online_info">ಫೋಟೋವನ್ನು ಚಿತ್ರಗಳನ್ನು ಓದಬಲ್ಲ ಮಾದರಿಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ, ನೀವು ಆಯ್ಕೆ ಮಾಡಿದ ವಿಳಾಸದಲ್ಲಿ, ಮತ್ತು ಮಾದರಿಯು ಅದು ನೋಡುವ ಪಠ್ಯವನ್ನು ಬರೆಯುತ್ತದೆ. ಇದು ಯಾವುದೇ ಲಿಪಿಯನ್ನು ಓದುತ್ತದೆ ಮತ್ತು ಯಾವುದೇ ಭಾಷಾ ಡೇಟಾದ ಅಗತ್ಯವಿಲ್ಲ. OpenAI-ಹೊಂದಾಣಿಕೆಯ API ಹೊಂದಿರುವ ಯಾವುದೇ ಸೇವೆಯು ಕೆಲಸ ಮಾಡುತ್ತದೆ: OpenAI, OpenRouter, Gemini, Mistral, ಅಥವಾ Ollama ಅಥವಾ LM Studio ನೊಂದಿಗೆ ನಿಮ್ಮ ಸ್ವಂತ ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿರುವ ಮಾದರಿ. ಪ್ರತಿ ಸ್ಕ್ಯಾನ್ ಫೋಟೋವನ್ನು ಆ ಸೇವೆಗೆ ಕಳುಹಿಸುತ್ತದೆ ಮತ್ತು ಸೇವೆ ಅದಕ್ಕಾಗಿ ಶುಲ್ಕ ವಿಧಿಸಬಹುದು.</string>
-    <string name="tooldetail_ocr_online_key_hint">ಯಾವುದೇ ಕೀ ಕೇಳದ ಸರ್ವರ್‌ಗಾಗಿ ಖಾಲಿ ಬಿಡಿ</string>
-    <string name="tooldetail_ocr_online_key_label">API ಕೀ</string>
-    <string name="tooldetail_ocr_online_model_hint">ಚಿತ್ರಗಳನ್ನು ಓದುವ ಮಾದರಿ, ಉದಾಹರಣೆಗೆ gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">ಮಾದರಿ</string>
-    <string name="tooldetail_ocr_online_url_hint">ಉದಾಹರಣೆಗೆ https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">ವಿಳಾಸ</string>
     <string name="tooldetail_ocr_packs_header">ಟೆಸೆರಾಕ್ಟ್ ಭಾಷೆಗಳು</string>
     <string name="tooldetail_ocr_packs_info">ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ಭಾಷೆಯ ಡೇಟಾ ಇದ್ದರೆ ಮಾತ್ರ Tesseract ಆ ಭಾಷೆಯನ್ನು ಓದುತ್ತದೆ. ನೀವು ಟೈಪ್ ಮಾಡುವ ಪ್ರತಿಯೊಂದು ಭಾಷೆಗೆ 0.4 MB ಯಿಂದ 12 MB ವರೆಗಿನ ಒಂದು ಡೌನ್‌ಲೋಡ್ ಇರುತ್ತದೆ. ಈ ಡೇಟಾ GitHub ನಲ್ಲಿರುವ Tesseract ಪ್ರಾಜೆಕ್ಟ್‌ನ tessdata_fast ಸೆಟ್‌ನಿಂದ ಬರುತ್ತದೆ. ನೀವು ಸ್ಕ್ಯಾನರ್‌ನಿಂದಲೇ ಭಾಷೆಯನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಬಹುದು.</string>
     <string name="tooldetail_ocr_packs_none_info">ನೀವು ಆನ್ ಮಾಡಿರುವ ಯಾವುದೇ ಭಾಷೆಗಳಲ್ಲಿ ಟೆಸೆರಾಕ್ಟ್ ಡೇಟಾ ಇಲ್ಲ. ಭಾಷೆಗಳ ಪರದೆಯಲ್ಲಿ ಭಾಷೆಯನ್ನು ಸೇರಿಸಿ. ಅದರ ಡೇಟಾ ನಂತರ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.</string>
@@ -8515,7 +8498,7 @@
     <string name="typing_letter_swipe_select_key_label">ಕೀಗೆ ಸ್ಲೈಡ್ ಮಾಡಿ</string>
     <string name="typing_letter_swipe_type_words_desc">ಕೀಲಿಗಳಾದ್ಯಂತ ಸ್ವೈಪ್ ಒಂದು ಪದವನ್ನು ಉಚ್ಚರಿಸುತ್ತದೆ</string>
     <string name="typing_letter_swipe_type_words_label">ಪದಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ</string>
-    <string name="typing_mistype_tolerance_info">ಪ್ರತಿ ಟ್ಯಾಪ್ ಅನ್ನು ಅದು ಎಲ್ಲಿ ಬಿದ್ದಿದೆ ಎಂಬುದರ ಆಧಾರದ ಮೇಲೆ ಓದಲಾಗುತ್ತದೆ, ಅದು ಹೊಡೆದ ಕೀಯ ಆಧಾರದ ಮೇಲೆ ಮಾತ್ರವಲ್ಲ, ಆದ್ದರಿಂದ ಕೀಯ ಅಂಚಿನ ಹತ್ತಿರವಿರುವ ಟ್ಯಾಪ್ ಅನ್ನು ಅದರ ಪಕ್ಕದ ಕೀ ಎಂದು ಓದಬಹುದು. ಇದು ಆ ಓದುವಿಕೆ ಎಷ್ಟು ಉದಾರವಾಗಿರಬೇಕು ಎಂಬುದನ್ನು ನಿರ್ಧರಿಸುತ್ತದೆ. 100% ಕ್ಕಿಂತ ಹೆಚ್ಚು ಇದ್ದರೆ, ಪಕ್ಕದ ಕೀಯ ಒಳಗೆ ಬಿದ್ದ ಟ್ಯಾಪ್ ಕೂಡ ಸಂಭವನೀಯ ತಪ್ಪು ಎಂದು ಪರಿಗಣಿಸಲಾಗುತ್ತದೆ, ಇದು ವೇಗದ ಅಥವಾ ಗಡಿಬಿಡಿಯ ಟೈಪಿಂಗ್ ಮತ್ತು ದೊಡ್ಡ ಬೆರಳುಗಳಿಗೆ ಸೂಕ್ತವಾಗಿದೆ. 100% ಕ್ಕಿಂತ ಕಡಿಮೆ ಇದ್ದರೆ, ನೀವು ಹೊಡೆದ ಕೀಯನ್ನು ಹೆಚ್ಚು ನಂಬಲಾಗುತ್ತದೆ, ಇದು ಎಚ್ಚರಿಕೆಯ ಟೈಪಿಂಗ್‌ಗೆ ಸೂಕ್ತವಾಗಿದೆ. ಇದು ಸ್ಟ್ರಿಪ್ ಯಾವ ಪದಗಳನ್ನು ನೀಡುತ್ತದೆ ಮತ್ತು ಆಟೋಕರೆಕ್ಟ್ ಏನು ಆಯ್ಕೆ ಮಾಡುತ್ತದೆ ಎಂಬುದನ್ನು ಬದಲಾಯಿಸುತ್ತದೆ. ಪೂರ್ವನಿಯೋಜಿತವಾಗಿ 100% ಇರುತ್ತದೆ.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">ಪ್ರತಿ ಟ್ಯಾಪ್ ಅನ್ನು ಅದು ಎಲ್ಲಿ ಬಿದ್ದಿದೆ ಎಂಬುದರ ಆಧಾರದ ಮೇಲೆ ಓದಲಾಗುತ್ತದೆ, ಅದು ಹೊಡೆದ ಕೀಯ ಆಧಾರದ ಮೇಲೆ ಮಾತ್ರವಲ್ಲ, ಆದ್ದರಿಂದ ಕೀಯ ಅಂಚಿನ ಹತ್ತಿರವಿರುವ ಟ್ಯಾಪ್ ಅನ್ನು ಅದರ ಪಕ್ಕದ ಕೀ ಎಂದು ಓದಬಹುದು. ಇದು ಆ ಓದುವಿಕೆ ಎಷ್ಟು ಉದಾರವಾಗಿರಬೇಕು ಎಂಬುದನ್ನು ನಿರ್ಧರಿಸುತ್ತದೆ. 100% ಕ್ಕಿಂತ ಹೆಚ್ಚು ಇದ್ದರೆ, ಪಕ್ಕದ ಕೀಯ ಒಳಗೆ ಬಿದ್ದ ಟ್ಯಾಪ್ ಕೂಡ ಸಂಭವನೀಯ ತಪ್ಪು ಎಂದು ಪರಿಗಣಿಸಲಾಗುತ್ತದೆ, ಇದು ವೇಗದ ಅಥವಾ ಗಡಿಬಿಡಿಯ ಟೈಪಿಂಗ್ ಮತ್ತು ದೊಡ್ಡ ಬೆರಳುಗಳಿಗೆ ಸೂಕ್ತವಾಗಿದೆ. 100% ಕ್ಕಿಂತ ಕಡಿಮೆ ಇದ್ದರೆ, ನೀವು ಹೊಡೆದ ಕೀಯನ್ನು ಹೆಚ್ಚು ನಂಬಲಾಗುತ್ತದೆ, ಇದು ಎಚ್ಚರಿಕೆಯ ಟೈಪಿಂಗ್‌ಗೆ ಸೂಕ್ತವಾಗಿದೆ. ಇದು ಸ್ಟ್ರಿಪ್ ಯಾವ ಪದಗಳನ್ನು ನೀಡುತ್ತದೆ ಮತ್ತು ಆಟೋಕರೆಕ್ಟ್ ಏನು ಆಯ್ಕೆ ಮಾಡುತ್ತದೆ ಎಂಬುದನ್ನು ಬದಲಾಯಿಸುತ್ತದೆ. ಪೂರ್ವನಿಯೋಜಿತವಾಗಿ 100% ಇರುತ್ತದೆ.</string>
     <string name="typing_mistype_tolerance_subtitle">ಪಕ್ಕದ ಕೀಯ ಮೇಲೆ ಟ್ಯಾಪ್ ಮಾಡಿದರೂ ಅದನ್ನು ತಪ್ಪು ಎಂದು ಪರಿಗಣಿಸದ ಮಿತಿ</string>
     <string name="typing_mistype_tolerance_title">ತಪ್ಪು ಟೈಪಿಂಗ್ ಸಹಿಷ್ಣುತೆ</string>
     <string name="typing_new_word_sightings_info">ಯಾವುದೇ ನಿಘಂಟಿಗೆ ತಿಳಿಯದ ಪದಗಳನ್ನು ಮಾತ್ರ ಎಣಿಸಲಾಗುತ್ತದೆ. ನಿಘಂಟಿನಲ್ಲಿ ಈಗಾಗಲೇ ಇರುವ ಪದವನ್ನು ನೀವು ಟೈಪ್ ಮಾಡಿದ ಕ್ಷಣವೇ ಕಲಿಯಲಾಗುತ್ತದೆ. ನೀವು ಮುಂದೆ ಸಾಗಿ ಪದವನ್ನು ಬಿಟ್ಟ ನಂತರವೇ ಬಳಕೆ ಎಣಿಕೆಯಾಗುತ್ತದೆ, ಆದ್ದರಿಂದ ನೀವು ಹಿಂತಿರುಗಿ ಸರಿಪಡಿಸುವ ಟೈಪೊವನ್ನು ಎಂದಿಗೂ ಎಣಿಸಲಾಗುವುದಿಲ್ಲ. ನಿಮ್ಮ ಸ್ವಂತ ಹೆಸರುಗಳು ಮತ್ತು ಆಡುಭಾಷೆಗಳು ಕಲಿಯಲು ಹೆಚ್ಚು ಸಮಯ ತೆಗೆದುಕೊಂಡರೆ ಇದನ್ನು ಕಡಿಮೆ ಮಾಡಿ. ಪ್ರತಿ ಹೊಸ ಪದವನ್ನು ತಕ್ಷಣವೇ ಉಳಿಸಲು ಇದನ್ನು 1 ಕ್ಕೆ ಹೊಂದಿಸಿ, ಇದು ಹಳೆಯ ಆವೃತ್ತಿಗಳು ಮಾಡುತ್ತಿದ್ದ ಕೆಲಸವಾಗಿದೆ. ಈ ಸೆಟ್ಟಿಂಗ್ ಡೀಫಾಲ್ಟ್ ಆಗಿ 3 ಆಗಿದೆ.</string>
@@ -8809,11 +8792,9 @@
     <string name="typing_trail_opacity_title">ಟ್ರಯಲ್ ಅಪಾರದರ್ಶಕತೆ</string>
     <string name="typing_trail_width_subtitle">ಗ್ಲೈಡ್ ಟ್ರೈಲ್‌ನ ದಪ್ಪ</string>
     <string name="typing_trail_width_title">ಟ್ರೈಲ್ ಅಗಲ</string>
-    <string name="typing_two_thumb_info">ಎರಡೂ ಹೆಬ್ಬೆರಳುಗಳನ್ನು ಒಟ್ಟಿಗೆ ಬಳಸಿ. ಪ್ರತಿ ಹೆಬ್ಬೆರಳು ಇನ್ನೊಂದರೊಂದಿಗೆ ಏಕಕಾಲದಲ್ಲಿ ಟ್ಯಾಪ್ ಮಾಡಬಹುದು ಅಥವಾ ಸ್ವೈಪ್ ಮಾಡಬಹುದು, ಮತ್ತು ಪ್ರತಿ ಟ್ಯಾಪ್ ಮತ್ತು ಸ್ವೈಪ್ ಒಂದೇ ಪದಕ್ಕೆ ಸೇರಿಕೊಳ್ಳುತ್ತದೆ. ಉದಾಹರಣೆಗೆ, ಎಡ ಹೆಬ್ಬೆರಳಿನಿಂದ S ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ, ಬಲ ಹೆಬ್ಬೆರಳಿನಿಂದ O ನಿಂದ M ಗೆ ಸ್ವೈಪ್ ಮಾಡಿ, ಎಡದಿಂದ E ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ, ನಂತರ ಬಲದಿಂದ T H I N G ಅನ್ನು ಸ್ವೈಪ್ ಮಾಡಿ, ಆಗ ನಿಮಗೆ ಒಂದು ಪದ ಸಿಗುತ್ತದೆ. ಇನ್ನೊಂದು ಹೆಬ್ಬೆರಳು ಸ್ವೈಪ್ ಮಾಡುತ್ತಿರುವಾಗ ಬಿದ್ದ ಟ್ಯಾಪ್ ಆ ಹಂತದಲ್ಲಿ ಪದಕ್ಕೆ ಸೇರುತ್ತದೆ, ಆದ್ದರಿಂದ H E L O ಮೇಲೆ ಸ್ವೈಪ್ ಮತ್ತು L ಮೇಲೆ ಟ್ಯಾಪ್ ಮಾಡಿದರೆ hello ಸಿಗುತ್ತದೆ. ಬ್ಯಾಕ್‌ಸ್ಪೇಸ್ ಪದದಿಂದ ಕೊನೆಯ ಟ್ಯಾಪ್ ಅಥವಾ ಸ್ವೈಪ್ ಅನ್ನು ತೆಗೆದುಹಾಕುತ್ತದೆ.</string>
     <string name="typing_two_thumb_subtitle">ಒಂದು ಪದವನ್ನು ನಿರ್ಮಿಸಲು ಎರಡೂ ಹೆಬ್ಬೆರಳುಗಳಿಂದ ಏಕಕಾಲದಲ್ಲಿ ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ಸ್ವೈಪ್ ಮಾಡಿ</string>
     <string name="typing_two_thumb_title">ಎರಡು ಹೆಬ್ಬೆರಳುಗಳ ಟೈಪಿಂಗ್</string>
     <string name="typing_two_thumb_word_end_all_up_label">ಎಲ್ಲಾ ಹೆಬ್ಬೆರಳುಗಳು ಮೇಲಕ್ಕೆ</string>
-    <string name="typing_two_thumb_word_end_info">ಸ್ಪೇಸ್‌ನೊಂದಿಗೆ, ನೀವು ಟ್ಯಾಪ್ ಮಾಡುವಾಗ ಮತ್ತು ಸ್ವೈಪ್ ಮಾಡುವಾಗ ಪದವು ತೆರೆದಿರುತ್ತದೆ ಮತ್ತು ಕೀಬೋರ್ಡ್ ಪ್ರತಿ ಬಾರಿ ಅದನ್ನು ಮತ್ತೆ ಓದುತ್ತದೆ. ಅದನ್ನು ಟೈಪ್ ಮಾಡಲು ಸ್ಪೇಸ್ ಅಥವಾ ವಿರಾಮ ಚಿಹ್ನೆಯನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ. ಎರಡೂ ಹೆಬ್ಬೆರಳುಗಳನ್ನು ಬಳಸಿದಾಗ, ಯಾವುದೇ ಹೆಬ್ಬೆರಳು ಕೀಬೋರ್ಡ್ ಅನ್ನು ಮುಟ್ಟದ ತಕ್ಷಣ ಪದವು ಸ್ಪೇಸ್‌ನೊಂದಿಗೆ ಟೈಪ್ ಆಗುತ್ತದೆ, ಇದು ಸಾಮಾನ್ಯ ಗ್ಲೈಡ್‌ನಂತೆಯೇ ಇರುತ್ತದೆ, ಆದ್ದರಿಂದ ಪದವನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ನಿಮ್ಮ ಹೆಬ್ಬೆರಳುಗಳು ಒಂದರ ಮೇಲೊಂದು ಬರಬೇಕು.</string>
     <string name="typing_two_thumb_word_end_space_label">ಸ್ಪೇಸ್</string>
     <string name="typing_two_thumb_word_end_subtitle">ನೀವು ನಿರ್ಮಿಸುತ್ತಿರುವ ಪದವನ್ನು ಯಾವುದು ಟೈಪ್ ಮಾಡುತ್ತದೆ</string>
     <string name="typing_two_thumb_word_end_title">ಎರಡು ಹೆಬ್ಬೆರಳುಗಳ ಪದವನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ</string>

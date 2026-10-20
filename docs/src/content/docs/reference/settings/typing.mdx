@@ -34,8 +34,6 @@ The Typing screen is a hub. Six of its groups are pages of their own (Automatic 
 | Stop after I refuse a fix | Slider, Never / 1–5 | 2 | Autocorrect on |
 | Learn from my fixes | Toggle | On | Autocorrect on |
 | Learned corrections | Screen | | Autocorrect on |
-| Learn where my taps land | Toggle, with a Forget button | On | Autocorrect on |
-| Mistype tolerance | Slider, 50&ndash;200% | 100% | |
 | Skip words in capital letters | Toggle | On | Autocorrect on |
 | Correct the word before Enter | Toggle | On | Autocorrect on |
 | Correct the word before punctuation | Toggle | Off | Autocorrect on |
@@ -47,6 +45,8 @@ The Typing screen is a hub. Six of its groups are pages of their own (Automatic 
 | Detection strength | Choice: Gentle / Balanced / Aggressive | Balanced | Autocorrect on and Detect the language you type on |
 | Remember each app's language | Toggle | On | Autocorrect on and Detect the language you type on |
 | Fix number row slips | Toggle | On | Autocorrect on and the number row is shown |
+| Learn where my taps land | Toggle, with a Forget button | On | always |
+| Mistype tolerance | Slider, 50&ndash;200% | 100% | always |
 | Adapt to app tone | Toggle | On | always |
 | Fix missing apostrophes | Toggle | On | always |
 | Automatic capital letters | Toggle | On | always |
@@ -60,7 +60,8 @@ The Typing screen is a hub. Six of its groups are pages of their own (Automatic 
 | Wrap the selection with brackets | Toggle | On | always |
 | Close brackets for me | Toggle | Off | always |
 | Shift changes the case of the selection | Toggle | On | always |
-| Shift changes the case of the word at the cursor | Toggle | Off | Shift changes the case of the selection on |
+| Shift changes the case of the word before the cursor | Toggle | Off | Shift changes the case of the selection on |
+| Shift changes the case of the word around the cursor | Toggle | Off | Shift changes the case of the selection on |
 
 **Autocorrect** is this group's master switch, and fifteen rows hang off it: the confidence slider, the two rows that tune how hard it tries (Adaptive confidence, Typing rhythm), and everything down to Fix number row slips. Three of those fourteen carry a second condition. How often to offer the undo needs Undo a correction from the strip on. Detection strength needs Detect the language you type on. Fix number row slips shows up only while the [number row](/reference/settings/layout/) is on screen, since it corrects a digit to the letter below it. From **Adapt to app tone** downwards the rows stay put whether autocorrect is on or off.
 
@@ -114,6 +115,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Password manager suggestions | Toggle | On | Android 11+ only |
 | Smart replies | Toggle | On | Android 11+ only |
 | Only offer new words | Toggle | Off | always |
+| Recent words | Toggle | Off | always |
 | Numbers from the letter keys | Toggle | Off | always |
 | Autopilot | Nav row | n/a | always (opens the Autopilot screen below) |
 | Words on the keys | Nav row | n/a | always (opens the Words on the keys screen below) |
@@ -121,7 +123,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Custom dictionaries | Nav row | n/a | always (opens the Custom dictionaries screen) |
 | Suggestion blacklist | Nav row | n/a | always (opens the [Suggestion blacklist](/smart/blacklist/) screen) |
 | Word menu | Chips | Never suggest, Add, Delete, Synonyms | always |
-| Synonym sources | Drag list with switches | Vocabulary packs, Datamuse thesaurus, Wiktionary, Free Dictionary API, Similar words, all on | always |
+| Synonym sources | [Provider list](/tools/providers/) | Vocabulary packs, Datamuse thesaurus, Wiktionary, Free Dictionary API, Similar words, all on | always |
 | Adjust rank changes | Choice | Both | always |
 | Delete edits imported lists | Toggle | On | always |
 
@@ -139,7 +141,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 
 All three are covered in full on [Personal dictionary](/smart/personal-dictionary/#words-wait-their-turn).
 
-**Word menu** picks which of the four optional items the press-and-hold menu on a suggested word offers; **Edit** is always on it. **Synonym sources** sets where the menu's **Synonyms** looks, in order: each source is asked only when the ones above it had no synonyms for the word or could not be reached. Drag to reorder, and switch a source off to never ask it. **Adjust rank changes** decides which rank controls the word card shows: the learned weight (the personal dictionary's own count), a separate rank adjustment that can move any word up or down, or both. All three settings are covered on [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip).
+**Word menu** picks which of the four optional items the press-and-hold menu on a suggested word offers; **Edit** is always on it. **Synonym sources** sets where the menu's **Synonyms** looks, in order: each source is asked only when the ones above it had no synonyms for the word or could not be reached. Drag to reorder, switch a source off to never ask it, or remove it and add it back later with **Add a provider**. **Adjust rank changes** decides which rank controls the word card shows: the learned weight (the personal dictionary's own count), a separate rank adjustment that can move any word up or down, or both. All three settings are covered on [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip).
 
 **Delete edits imported lists** governs what happens when you delete one of your own imported words from the strip. On, the word is removed from that list's file for good. Off, the list stays untouched and the word is blacklisted instead, the same as a word from a downloaded list, which can't be edited.
 
@@ -217,9 +219,11 @@ Two gestures take a floating word. **Flick up to pick** reads a straight, mostly
 | Group long numbers | Toggle | On | Smart chips on |
 | Grouping style | Choice: Automatic / Thousands / Lakh and crore | Automatic | Group long numbers on |
 | Call or text a contact | Toggle | Off | Smart chips on |
+| Repeated text | Toggle | On | Smart chips on |
+| Chip after this many repeats | Stepper: 2–6 | 3 | Repeated text on |
 | Keep the text when a chip opens its tool | Toggle | Off | Smart chips on |
 
-**Convert currencies**' own subtitle ends with your live target currency code instead of describing the setting, so out of the box it reads "…offers the amount in BDT". It updates the moment you change that currency inside the Currency converter tool. The same three calculate/currency/unit toggles are mirrored inside each tool's own Options screen. See [Smart chips](/smart/chips/#options) for where. Five of the rows above are the phrase-triggered chips: "next friday" offers a date, "will it rain" the forecast, "define serendipity" a dictionary lookup, "in spanish" the translator, and "happy birthday" a GIF search. **Group long numbers** offers a typed run of digits back grouped, so `1234567` gets a chip reading `1,234,567`, and one press types the grouped form; **Grouping style** picks where the separators fall, following the language you're typing in when it's Automatic. **Call or text a contact** turns a typed contact name into a chip that opens the dialer or your messages app for that person; it asks for the contacts permission when you switch it on. **Keep the text when a chip opens its tool** stops a chip's settings button from removing what you typed (`150 usd`, `calculator`) when it opens the tool. With it off, the first backspace after the tool closes puts that text back, as long as nothing was typed in between.
+**Convert currencies**' own subtitle ends with your live target currency code instead of describing the setting, so out of the box it reads "…offers the amount in BDT". It updates the moment you change that currency inside the Currency converter tool. The same three calculate/currency/unit toggles are mirrored inside each tool's own Options screen. See [Smart chips](/smart/chips/#options) for where. Five of the rows above are the phrase-triggered chips: "next friday" offers a date, "will it rain" the forecast, "define serendipity" a dictionary lookup, "in spanish" the translator, and "happy birthday" a GIF search. **Group long numbers** offers a typed run of digits back grouped, so `1234567` gets a chip reading `1,234,567`, and one press types the grouped form; **Grouping style** picks where the separators fall, following the language you're typing in when it's Automatic. **Call or text a contact** turns a typed contact name into a chip that opens the dialer or your messages app for that person; it asks for the contacts permission when you switch it on. **Repeated text** offers the [Text repeat](/tools/utilities/#repeating-text) tool once the same text has been typed in a row **Chip after this many repeats** times, opened on that text with the count set; the tool's own page decides whether its Insert replaces the typed copies or adds to them. **Keep the text when a chip opens its tool** stops a chip's settings button from removing what you typed (`150 usd`, `calculator`) when it opens the tool. With it off, the first backspace after the tool closes puts that text back, as long as nothing was typed in between.
 
 <PhoneFrame caption="The Smart chips group: the master switch and its per-family toggles.">
   <Shot id="reference/settings/typing-smart-chips-group" alt="The Smart chips group: the master switch and its four per-family toggles." />
@@ -255,6 +259,14 @@ Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/priva
 | Glide typing | Toggle | On | always |
 | What a swipe does | Choice: Type words / Handwrite / Slide to a key | Type words | Glide typing on (Handwrite only in <Flavor edition="full" />) |
 | Glide across the spacebar | Toggle | On | Glide typing on and swipe mode is Type words |
+| Two-thumb typing | Toggle | Off | Glide typing on and swipe mode is Type words |
+| Finish a two-thumb word | Choice: Space / All thumbs up | Space | Two-thumb typing on |
+| Pause after a swiped word | Slider, 100–1500 ms | 350 ms | Two-thumb typing on and All thumbs up |
+| Pause after a tapped word | Slider, 100–1500 ms | Same as the swiped-word pause | Two-thumb typing on and All thumbs up |
+| Pause after a one-letter word | Slider, 100–1500 ms | Same as the swiped-word pause | Two-thumb typing on and All thumbs up |
+| Take the space back | Slider, 0–3000 ms ("Off" at 0) | Twice the swiped-word pause (700 ms) | Two-thumb typing on and All thumbs up |
+| Show the pause on the strip | Toggle | On | Two-thumb typing on and All thumbs up |
+| Swipe finishes typed letters | Toggle | Off | Glide typing on, swipe mode is Type words, and Two-thumb typing off |
 | Glide over Shift to capitalize | Toggle | On | Glide typing on and swipe mode is Type words |
 | What a pass over Shift capitalizes | Choice: Whole word / One letter | Whole word | Glide over Shift to capitalize on |
 | Ask when a glide is unclear | Toggle | On | Glide typing on and swipe mode is Type words |
@@ -298,7 +310,10 @@ Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/priva
 | Swipe up for a capital | Toggle | Off | always |
 | Show flick arms on keys | Toggle | On | always |
 | Flick popup | Toggle | On | always |
+| Tap a swipe-only key to see its swipes | Toggle | Off | always |
 | Flick distance | Slider, 8–48 dp | 22 dp | always |
+| Flick reach | Slider, 80–200% of the key's diagonal | 141% | always (read only while glide typing is on) |
+| A flick onto a letter glides a word | Toggle | Off | always (read only while glide typing is on) |
 | Swipe to add 's | Choice: Off / Comma / Full stop / Apostrophe key | Off | always |
 | Spacebar long press keys | Text field | Blank (the hold opens the language picker) | always |
 | Arrows on the spacebar | Toggle | On | either swipe slot above is Language |
@@ -307,13 +322,20 @@ Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/priva
 | Language picker shape | Choice: List / Carousel | List | always |
 | Picker for more than four layouts | Toggle | On | always |
 | Spacebar text | Text field | Blank (falls back to the live spacebar label) | always |
+| Typing speed on the spacebar | Toggle | Off | always |
 | Multi-finger swipes | Toggle | On | always |
 | 2, 3 and 4 fingers up / down / left / right | Action picker (any key action) | Two fingers: Select all / Paste / Undo / Redo; the rest Nothing | Multi-finger swipes on |
 | Reset swipe actions | Action | | Multi-finger swipes on and a swipe has been changed |
+| Chords with ?123 | Toggle | On | always |
+| ?123 + a key | Action picker (any key action) | ?123 + L: Next language | Chords with ?123 on |
+| Add a chord | Action: a key, then an action | | Chords with ?123 on |
+| Reset chords | Action | | Chords with ?123 on and a chord has been changed |
 
 :::note
 **Two settings are named almost the same thing.** This one, "Swipe down to hide the keyboard" under Typing → Gestures, dismisses the keyboard on a downward swipe of the spacebar. A separate, independent toggle under <SettingsPath path="Appearance / Toolbar / Swipe down to hide" /> does the same for a downward flick on the toolbar strip instead. Search results for "swipe down" bring back both. See [Gestures](/typing/gestures/#swiping-down-to-hide-the-keyboard) for the full disambiguation.
 :::
+
+While **Two-thumb typing** is on, Glide across the spacebar, Glide over Shift to capitalize, What a pass over Shift capitalizes, Ask when a glide is unclear and its four sub-settings say "Off while two-thumb typing is on" in place of their usual line. Each of them reads one swipe as a whole word, which two-thumb typing does not do. They stay editable, and the values you set take effect again once two-thumb typing is off. The hint and capital flicks work with both thumbs, so their rows carry no such note.
 
 <PhoneFrame side caption="The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.">
   <Shot id="reference/settings/typing-gestures-group" alt="The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers." />

@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Lim inn en lenke og trykk enter for å gå til den, eller lim inn flere utklipp med et mellomrom eller en ny linje mellom dem, uten å gå tilbake til tastaturet. ABC går tilbake til bokstavene. Hvis du endret paneloppsettet, gjør ikke denne innstillingen noe: legg til tastene i oppsettredigeringsprogrammet i stedet. Raden vises ikke mens utklippstavlen er stablet over tastene. Denne innstillingen er av som standard.</string>
     <string name="clipboard_key_row_subtitle">En rad med taster nederst på utklippstavlepanelet</string>
     <string name="clipboard_key_row_title">ABC, mellomrom- og enter-taster</string>
-    <string name="clipboard_line_spacing_info">Ved 100 % sitter linjene i et utklipp så tett som skrifttypen tillater. Øk den for å spre dem ut. Standard er 130 %.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Ved 100 % sitter linjene i et utklipp så tett som skrifttypen tillater. Øk den for å spre dem ut. Standard er 130 %.</string>
     <string name="clipboard_line_spacing_subtitle">Avstanden mellom linjene i en tekstklipp</string>
     <string name="clipboard_line_spacing_title">Linjeavstand</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Hvit</string>
     <string name="import_sticker_editor_border_width_label">Kantbredde</string>
     <string name="import_sticker_editor_brush_size_label">Penselstørrelse</string>
-    <string name="import_sticker_editor_caption">Tastaturet lagrer et 512 x 512 klistremerke. Flytt og knip på bildet for å velge delen som skal beholdes, fjern deretter bakgrunnen og legg til en kantlinje. Appen beholder dette bildet på telefonen, slik at du kan redigere klistremerket igjen senere.</string>
     <string name="import_sticker_editor_crop_action">Beskjær</string>
-    <string name="import_sticker_editor_crop_hint">Dra for å flytte bildet. Knip for å gjøre det større.</string>
     <string name="import_sticker_editor_cutout_action">Fjern bakgrunnen</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Hent bakgrunnsfjerneren først. Det er en nedlasting på 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Appen henter bakgrunnsfjerneren…</string>
@@ -3519,7 +3517,6 @@
     <string name="layout_editor_alternate_columns_info">Dette er antall kolonner for denne tasten alene. Taster varierer: en tast med et dusin alternativer leses bedre som et rutenett, og en tast med tre eller fire leses bedre som en enkelt rad. Fra innstillinger forlater tasten til innstillingen \"Alternative tastkolonner\" under Tastetrykk, som er Automatisk med mindre du endret den. Et tall fra 3 til 11 gir denne tasten så mange kolonner uansett hva innstillingen sier.</string>
     <string name="layout_editor_alternate_columns_subtitle">Hvor mange alternativer denne tasten legger på en rad</string>
     <string name="layout_editor_alternate_columns_title">Kolonner i popup-vinduet</string>
-    <string name="layout_editor_alternate_hint_badge">hint</string>
     <string name="layout_editor_alternates_field_hint">Skill oppføringene med mellomrom, slik at et alternativ ikke kan være et mellomrom. Oppføringer med mer enn ett tegn, som .com, er korrekte. Appen tegner også den første i hjørnet av tasten.</string>
     <string name="layout_editor_alternates_field_label">Alternativer for trykk og hold</string>
     <string name="layout_editor_apply_action">Bruk</string>
@@ -3615,7 +3612,6 @@
     <string name="layout_editor_field_row_title">Komponent</string>
     <string name="layout_editor_fill_row_action">Fyll raden (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Tallraden viser allerede sifrene, så tastaturet viser denne raden i stedet for den første raden i dette laget.</string>
-    <string name="layout_editor_fill_row_off_caption">Når Tallrad er på, viser tastaturet denne raden i stedet for den første raden i dette laget, fordi tallraden allerede viser sifrene. Tallrad er av nå.</string>
     <string name="layout_editor_fill_row_title">Rad i stedet for sifrene</string>
     <string name="layout_editor_fit_row_action">Tilpass raden til rutenettet (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Ingen flick i denne retningen. Trykk for å velge en handling.</string>
@@ -3790,8 +3786,6 @@
     <string name="layout_editor_new_secondary_title">Start et sekundært oppsett</string>
     <string name="layout_editor_not_live_caption">Endringene dine her påvirker ikke skrivingen før du slår på oppsettet under Språk.</string>
     <string name="layout_editor_number_row_caption">Tastaturet viser denne raden over dette laget. Trykk på en tast for å endre den. Hold inne en tast og dra den for å flytte den.</string>
-    <string name="layout_editor_number_row_hidden_caption">Tastaturet viser denne raden over dette laget når Tallrad i symboler er på i Oppsett og størrelse. Den er av nå.</string>
-    <string name="layout_editor_number_row_off_caption">Tastaturet viser denne raden over dette laget når Tallrad er på i Oppsett og størrelse. Tallrad er av nå.</string>
     <string name="layout_editor_number_row_title">Tallrad</string>
     <string name="layout_editor_panel_inherited_caption">Dette oppsettet bruker det delte %1$s-panelet. Å endre noe her lager en kopi kun for dette oppsettet. Det delte panelet finnes under Tastaturoppsett, Panoppsett.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Arv temaet fra oppsettet</string>
@@ -3994,11 +3988,8 @@
     <string name="layout_split_spacebar_title">Del mellomromstasten</string>
     <string name="layout_split_subtitle">Del tastene inn i en venstre og en høyre halvdel</string>
     <string name="layout_split_title">Delt tastatur</string>
-    <string name="layout_summon_button_info">Mens tastaturet er lukket, flyter en liten rund knapp over hver app. Trykk på den, så åpnes tastaturet, selv på en skjerm uten tekstfelt, og det forblir åpent der til du lukker det. Tastetrykk sendes deretter til appen som tastetrykk, på samme måte som med «Hold tastaturet på skjermen». Dra knappen for å flytte den; den legger seg inntil nærmeste side. Trykk og hold den for å skjule den til neste gang tastaturet åpnes. Krever Android-tillatelsen «Vis over andre apper».</string>
     <string name="layout_summon_button_permission_subtitle">Knappen kan ikke vises før Android tillater det</string>
     <string name="layout_summon_button_permission_title">Tillat visning over andre apper</string>
-    <string name="layout_summon_button_subtitle">En knapp over andre apper som åpner tastaturet, med eller uten et tekstfelt</string>
-    <string name="layout_summon_button_title">Flytende tastaturknapp</string>
     <string name="layout_swap_comma_globe_info">De to tastene på hver side av mellomromstasten bytter plass. Hvis en av dem er en emojitast, flyttes den til den ytre posisjonen og kommaet forblir ved siden av mellomromstasten. Slå av dette for å få den vanlige rekkefølgen.</string>
     <string name="layout_swap_comma_globe_subtitle">Plasser kommaet ved siden av mellomromstasten</string>
     <string name="layout_swap_comma_globe_title">Bytt om på komma- og 🌐-tastene</string>
@@ -5818,7 +5809,6 @@
     <string name="search_kw_layout_show_globe">skjul fjern globus-språk</string>
     <string name="search_kw_layout_size_position">endre størrelse krympe kompakt vokse</string>
     <string name="search_kw_layout_split">tommel ergonomisk nettbrett</string>
-    <string name="search_kw_layout_summon_button">bobleoverlegg vis fremkall feltløse hackere</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad talltastatur talltaster 1234 gboard</string>
     <string name="search_kw_learnedcorrections">lærte rettelser, mine rettelser, skrivefeilpar, lærte rettelser, autokorrektur-læring, glipp, vaner</string>
     <string name="search_kw_licenses">åpen kildekode, attribusjon, kreditter</string>
@@ -5857,7 +5847,7 @@
     <string name="search_kw_translate_engine">frakoblet privat internett flymodus lokal enhet ml kit google modell nedlasting sky</string>
     <string name="search_kw_translate_models">frakoblet oversettelsesmodell nedlasting slett lagring ml kit google</string>
     <string name="search_kw_translate_only_downloaded">skjul filtermeny for frakoblet modellvalg kort</string>
-    <string name="search_kw_translate_server">openai kompatibel selvhostet hostet lokal llm ai modell ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai kompatibel selvhostet hostet lokal llm ai modell ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">stavekontroll, autofullfør, prediktiv tekst, glide, sveipeskriving, bevegelser, kontakter, angre</string>
     <string name="search_kw_typing_auto_capitalize">autostor forbokstav autokapitalisering</string>
     <string name="search_kw_typing_auto_close_brackets">autolukk par parenteser klammeparenteser klammeparentes-matching fullføring</string>
@@ -6828,7 +6818,6 @@
     <string name="theme_parts_strip_subtitle">Fjern fyll, ordfarger og størrelse</string>
     <string name="theme_parts_toolbar_subtitle">Verktøyfyll, ikoner, form, kant</string>
     <string name="theme_pick_hint">Trykk på en tast, et verktøy eller stripen</string>
-    <string name="theme_pick_start_desc">Velg en del av tastaturet som skal styles</string>
     <string name="theme_pick_start_subtitle">Trykk på en tast, et verktøy eller forslagslinjen i forhåndsvisningen for å style den</string>
     <string name="theme_pick_start_title">Velg på tastaturet</string>
     <string name="theme_pick_strip_sample_words">Hei,Takk,Ok</string>
@@ -7656,12 +7645,6 @@
     <string name="tooldetail_ocr_info">Gjenkjenning kjører på enheten din med ML Kit. Ingen bilder eller tekst forlater enheten din, og det fungerer offline. Den leser tekst med latinske bokstaver, for eksempel engelsk. Tekstgjenkjenneren i ML Kit støtter ikke bengali ennå. Etter et opptak, trykk på ord for å velge nøyaktig hva tastaturet skal skrive eller kopiere.</string>
     <string name="tooldetail_ocr_online_group">Tekstleser på nett</string>
     <string name="tooldetail_ocr_online_info">Bildet går til en modell som kan lese bilder, på en adresse du velger, og modellen skriver ut teksten den ser. Den leser ethvert skript og trenger ingen språkdata. Enhver tjeneste med et OpenAI-kompatibelt API fungerer: OpenAI, OpenRouter, Gemini, Mistral, eller en modell på din egen datamaskin med Ollama eller LM Studio. Hver skanning sender bildet til den tjenesten, og tjenesten kan ta betalt for det.</string>
-    <string name="tooldetail_ocr_online_key_hint">La stå tom for en server som ikke krever nøkkel</string>
-    <string name="tooldetail_ocr_online_key_label">API-nøkkel</string>
-    <string name="tooldetail_ocr_online_model_hint">En modell som leser bilder, for eksempel gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modell</string>
-    <string name="tooldetail_ocr_online_url_hint">For eksempel https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adresse</string>
     <string name="tooldetail_ocr_packs_header">Tesseract-språk</string>
     <string name="tooldetail_ocr_packs_info">Tesseract kan kun lese et språk når dataene for språket er lagret på enheten. Det er én nedlasting per språk du skriver inn, fra 0,4 MB til 12 MB. Dataene hentes fra tessdata_fast-settet i Tesseract-prosjektet på GitHub. Du kan også laste ned et språk direkte fra skanneren.</string>
     <string name="tooldetail_ocr_packs_none_info">Ingen av språkene du har aktivert har Tesseract-data. Legg til et språk på skjermbildet Språk. Dataene vil deretter vises her.</string>
@@ -8794,11 +8777,9 @@
     <string name="typing_trail_opacity_title">Gjennomsiktighet for skrivespor</string>
     <string name="typing_trail_width_subtitle">Tykkelse på glide-sporet</string>
     <string name="typing_trail_width_title">Bredde på spor</string>
-    <string name="typing_two_thumb_info">Bruk begge tomlene samtidig. Hver tommel kan trykke eller sveipe samtidig som den andre, og hvert trykk og sveip legges til samme ord. For eksempel: Trykk på S med venstre tommel, sveip O til M med høyre, trykk E med venstre, sveip deretter T H I N G med høyre, så får du «something». Et trykk som lander mens den andre tommelen fortsatt sveiper, legges inn i ordet på det punktet, så et sveip over H E L O og et trykk på L gir «hello». Tilbake-tasten fjerner det siste trykket eller sveipet fra ordet.</string>
     <string name="typing_two_thumb_subtitle">Trykk og sveip med begge tomlene samtidig for å bygge ett ord</string>
     <string name="typing_two_thumb_title">Skriving med to tomler</string>
     <string name="typing_two_thumb_word_end_all_up_label">Begge tomler opp</string>
-    <string name="typing_two_thumb_word_end_info">Med mellomrom forblir ordet åpent mens du trykker og sveiper, og tastaturet leser det på nytt etter hver gang. Trykk på mellomrom eller tegnsetting for å skrive det. Når ingen tomler berører tastaturet, skrives ordet med et mellomrom, som ved vanlig sveiping, så tomlene dine må overlappe for å dele et ord.</string>
     <string name="typing_two_thumb_word_end_space_label">Mellomrom</string>
     <string name="typing_two_thumb_word_end_subtitle">Hva som skriver ordet du bygger</string>
     <string name="typing_two_thumb_word_end_title">Fullfør et ord med tommel</string>

@@ -1152,7 +1152,7 @@
     <string name="clipboard_key_row_info">Επικολλήστε έναν σύνδεσμο και πατήστε enter για να μεταβείτε σε αυτόν, ή επικολλήστε περισσότερα κλιπ με ένα κενό ή μια νέα γραμμή ανάμεσά τους, χωρίς να επιστρέψετε στο πληκτρολόγιο. Το ABC επιστρέφει στα γράμματα. Αν αλλάξατε τη διάταξη του πάνελ, αυτή η ρύθμιση δεν κάνει τίποτα: προσθέστε τα πλήκτρα στον επεξεργαστή διάταξης αντ\' αυτού. Η σειρά δεν εμφανίζεται ενώ το πρόχειρο είναι στοιβαγμένο πάνω από τα πλήκτρα. Αυτή η ρύθμιση είναι απενεργοποιημένη από προεπιλογή.</string>
     <string name="clipboard_key_row_subtitle">Μια σειρά πλήκτρων στο κάτω μέρος του πίνακα πρόχειρου</string>
     <string name="clipboard_key_row_title">Πλήκτρα ABC, διαστήματος και εισαγωγής</string>
-    <string name="clipboard_line_spacing_info">Στο 100%, οι γραμμές ενός αποσπάσματος κάθονται όσο πιο κοντά επιτρέπει η γραμματοσειρά. Αυξήστε το για να τις απλώσετε. Το προεπιλεγμένο είναι 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Στο 100%, οι γραμμές ενός αποσπάσματος κάθονται όσο πιο κοντά επιτρέπει η γραμματοσειρά. Αυξήστε το για να τις απλώσετε. Το προεπιλεγμένο είναι 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Το διάστημα μεταξύ των γραμμών του κειμένου ενός αποσπάσματος</string>
     <string name="clipboard_line_spacing_title">Διάστιχο</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2399,9 +2399,7 @@
     <string name="import_sticker_editor_border_white_option">Λευκό</string>
     <string name="import_sticker_editor_border_width_label">Πλάτος περιγράμματος</string>
     <string name="import_sticker_editor_brush_size_label">Μέγεθος πινέλου</string>
-    <string name="import_sticker_editor_caption">Το πληκτρολόγιο αποθηκεύει ένα αυτοκόλλητο 512 επί 512. Μετακινήστε και κάντε τσίμπημα στην εικόνα για να επιλέξετε το μέρος που θέλετε να κρατήσετε, μετά αφαιρέστε το φόντο και προσθέστε ένα περίγραμμα. Η εφαρμογή διατηρεί αυτή την εικόνα στο τηλέφωνο, ώστε να μπορείτε να επεξεργαστείτε το αυτοκόλλητο ξανά αργότερα.</string>
     <string name="import_sticker_editor_crop_action">Περικοπή</string>
-    <string name="import_sticker_editor_crop_hint">Σύρετε για να μετακινήσετε την εικόνα. Τσιμπήστε για να τη μεγαλώσετε.</string>
     <string name="import_sticker_editor_cutout_action">Αφαίρεση φόντου</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Αποκτήστε πρώτα το εργαλείο αφαίρεσης φόντου. Είναι μια λήψη 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Η εφαρμογή λαμβάνει το εργαλείο αφαίρεσης φόντου…</string>
@@ -3514,7 +3512,6 @@
     <string name="layout_editor_alternate_columns_default">Από τις ρυθμίσεις</string>
     <string name="layout_editor_alternate_columns_subtitle">Πόσες εναλλακτικές επιλογές τοποθετεί αυτό το πλήκτρο σε μια σειρά</string>
     <string name="layout_editor_alternate_columns_title">Στήλες στο αναδυόμενο παράθυρο</string>
-    <string name="layout_editor_alternate_hint_badge">υπόδειξη</string>
     <string name="layout_editor_alternates_field_hint">Διαχωρίστε τις καταχωρίσεις με κενά, ώστε μια εναλλακτική να μην μπορεί να είναι κενό. Καταχωρίσεις με περισσότερους από έναν χαρακτήρες, όπως το .com, είναι έγκυρες. Η εφαρμογή σχεδιάζει επίσης την πρώτη στη γωνία του πλήκτρου.</string>
     <string name="layout_editor_alternates_field_label">Εναλλακτικές για παρατεταμένο πάτημα</string>
     <string name="layout_editor_apply_action">Εφαρμογή</string>
@@ -3610,7 +3607,6 @@
     <string name="layout_editor_field_row_title">Στοιχείο</string>
     <string name="layout_editor_fill_row_action">Συμπλήρωση της σειράς (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Η σειρά αριθμών εμφανίζει ήδη τα ψηφία, επομένως το πληκτρολόγιο εμφανίζει αυτήν τη σειρά στη θέση της πρώτης σειράς αυτού του επιπέδου.</string>
-    <string name="layout_editor_fill_row_off_caption">Όταν η σειρά αριθμών είναι ενεργοποιημένη, το πληκτρολόγιο εμφανίζει αυτήν τη σειρά στη θέση της πρώτης σειράς αυτού του επιπέδου, επειδή η σειρά αριθμών εμφανίζει ήδη τα ψηφία. Η σειρά αριθμών είναι απενεργοποιημένη αυτή τη στιγμή.</string>
     <string name="layout_editor_fill_row_title">Σειρά στη θέση των ψηφίων</string>
     <string name="layout_editor_fit_row_action">Προσαρμογή της σειράς στο πλέγμα (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Καμία κίνηση προς αυτή την κατεύθυνση. Πατήστε για να επιλέξετε μια ενέργεια.</string>
@@ -3785,8 +3781,6 @@
     <string name="layout_editor_new_secondary_title">Έναρξη δευτερεύουσας διάταξης</string>
     <string name="layout_editor_not_live_caption">Οι αλλαγές σας εδώ δεν επηρεάζουν την πληκτρολόγηση μέχρι να ενεργοποιήσετε τη διάταξη στις Γλώσσες.</string>
     <string name="layout_editor_number_row_caption">Το πληκτρολόγιο εμφανίζει αυτήν τη σειρά πάνω από αυτό το επίπεδο. Πατήστε ένα πλήκτρο για να το αλλάξετε. Κρατήστε πατημένο ένα πλήκτρο και σύρετέ το για να το μετακινήσετε.</string>
-    <string name="layout_editor_number_row_hidden_caption">Το πληκτρολόγιο εμφανίζει αυτήν τη σειρά πάνω από αυτό το επίπεδο όταν η σειρά αριθμών στα σύμβολα είναι ενεργοποιημένη στη Διάταξη και μέγεθος. Αυτή τη στιγμή είναι απενεργοποιημένη.</string>
-    <string name="layout_editor_number_row_off_caption">Το πληκτρολόγιο εμφανίζει αυτήν τη σειρά πάνω από αυτό το επίπεδο όταν η σειρά αριθμών είναι ενεργοποιημένη στη Διάταξη και μέγεθος. Η σειρά αριθμών είναι απενεργοποιημένη αυτή τη στιγμή.</string>
     <string name="layout_editor_number_row_title">Σειρά αριθμών</string>
     <string name="layout_editor_panel_inherited_caption">Αυτή η διάταξη χρησιμοποιεί το κοινόχρηστο πλαίσιο %1$s. Η αλλαγή οτιδήποτε εδώ δημιουργεί ένα αντίγραφο μόνο για αυτή τη διάταξη. Το κοινόχρηστο πλαίσιο βρίσκεται στις Διατάξεις πλήκτρων, Διατάξεις πλαισίου.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Κληρονομιά του θέματος της διάταξης</string>
@@ -3989,11 +3983,8 @@
     <string name="layout_split_spacebar_title">Διαχωρισμός του πλήκτρου διαστήματος</string>
     <string name="layout_split_subtitle">Διαχωρισμός των πλήκτρων σε αριστερό και δεξιό μισό</string>
     <string name="layout_split_title">Διαχωρισμένο πληκτρολόγιο</string>
-    <string name="layout_summon_button_info">Όσο το πληκτρολόγιο είναι κλειστό, ένα μικρό στρογγυλό κουμπί επιπλέει πάνω από κάθε εφαρμογή. Πατήστε το και το πληκτρολόγιο ανοίγει, ακόμα και σε οθόνη χωρίς πεδίο κειμένου, και παραμένει ανοιχτό εκεί μέχρι να το κλείσετε. Τα πλήκτρα τότε φτάνουν στην εφαρμογή ως πατήματα πλήκτρων, το ίδιο όπως με τη ρύθμιση Διατήρηση πληκτρολογίου στην οθόνη. Σύρετε το κουμπί για να το μετακινήσετε· σταθεροποιείται στην πλησιέστερη πλευρά. Πατήστε παρατεταμένα για να το αποκρύψετε μέχρι το επόμενο άνοιγμα του πληκτρολογίου. Απαιτεί την άδεια του Android για εμφάνιση πάνω από άλλες εφαρμογές.</string>
     <string name="layout_summon_button_permission_subtitle">Το κουμπί δεν μπορεί να εμφανιστεί μέχρι να το επιτρέψει το Android</string>
     <string name="layout_summon_button_permission_title">Να επιτρέπεται η εμφάνιση πάνω από άλλες εφαρμογές</string>
-    <string name="layout_summon_button_subtitle">Ένα κουμπί πάνω από άλλες εφαρμογές που ανοίγει το πληκτρολόγιο, με ή χωρίς πεδίο κειμένου</string>
-    <string name="layout_summon_button_title">Κουμπί αιωρούμενου πληκτρολογίου</string>
     <string name="layout_swap_comma_globe_info">Τα δύο πλήκτρα σε κάθε πλευρά του διαστήματος αλλάζουν θέση. Αν ένα από αυτά είναι το πλήκτρο emoji, μετακινείται στην εξωτερική θέση και το κόμμα παραμένει δίπλα στο διάστημα. Απενεργοποιήστε το για να επαναφέρετε τη συνήθη σειρά.</string>
     <string name="layout_swap_comma_globe_subtitle">Τοποθετήστε το κόμμα δίπλα στο πλήκτρο διαστήματος</string>
     <string name="layout_swap_comma_globe_title">Εναλλαγή των πλήκτρων κόμματος και 🌐</string>
@@ -5813,7 +5804,6 @@
     <string name="search_kw_layout_show_globe">απόκρυψη αφαίρεσης γλώσσας υδρογείου</string>
     <string name="search_kw_layout_size_position">αλλαγή μεγέθους σμίκρυνση συμπαγές μεγέθυνση</string>
     <string name="search_kw_layout_split">εργονομικό tablet για αντίχειρες</string>
-    <string name="search_kw_layout_summon_button">επικάλυψη φυσαλίδας εμφάνιση κλήσης χωρίς πεδίο hackers</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad πληκτρολόγιο dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">μαθημένες διορθώσεις, οι διορθώσεις μου, ζεύγη τυπογραφικών λαθών, διδαγμένες διορθώσεις, εκμάθηση αυτόματης διόρθωσης, ολισθήματα, συνήθειες</string>
     <string name="search_kw_licenses">ανοιχτού κώδικα, απόδοση, πιστώσεις</string>
@@ -5852,7 +5842,7 @@
     <string name="search_kw_translate_engine">εκτός σύνδεσης ιδιωτικό διαδίκτυο αεροπλάνο τοπική συσκευή ml kit google λήψη μοντέλου cloud</string>
     <string name="search_kw_translate_models">λήψη μοντέλου μετάφρασης εκτός σύνδεσης διαγραφή αποθήκευσης ml kit google</string>
     <string name="search_kw_translate_only_downloaded">απόκρυψη φίλτρου στο σύντομο μενού επιλογής μοντέλου εκτός σύνδεσης</string>
-    <string name="search_kw_translate_server">openai συμβατό αυτοφιλοξενούμενο φιλοξενούμενο τοπικό llm ai μοντέλο ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai συμβατό αυτοφιλοξενούμενο φιλοξενούμενο τοπικό llm ai μοντέλο ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">ορθογραφικός έλεγχος, αυτόματη συμπλήρωση, προβλεπτικό κείμενο, ολίσθηση, πληκτρολόγηση με σάρωση, χειρονομίες, επαφές, αναίρεση</string>
     <string name="search_kw_typing_auto_capitalize">αυτόματη κεφαλαιοποίηση, αυτόματη χρήση κεφαλαίων</string>
     <string name="search_kw_typing_auto_close_brackets">αυτόματο κλείσιμο ζεύγους παρενθέσεων αγκυλών αντιστοίχιση παρένθεσης συμπλήρωση</string>
@@ -6823,7 +6813,6 @@
     <string name="theme_parts_strip_subtitle">Συμπλήρωση λωρίδας, χρώματα λέξεων και μέγεθος</string>
     <string name="theme_parts_toolbar_subtitle">Γεμίσματα εργαλείων, εικονίδια, σχήμα, περίγραμμα</string>
     <string name="theme_pick_hint">Πατήστε ένα πλήκτρο, ένα εργαλείο ή τη λωρίδα</string>
-    <string name="theme_pick_start_desc">Επιλέξτε ένα μέρος του πληκτρολογίου για στυλ</string>
     <string name="theme_pick_start_subtitle">Πατήστε ένα πλήκτρο, ένα εργαλείο ή τη γραμμή προτάσεων στην προεπισκόπηση για να το διαμορφώσετε</string>
     <string name="theme_pick_start_title">Επιλογή στο πληκτρολόγιο</string>
     <string name="theme_pick_strip_sample_words">Γεια,Ευχαριστώ,Εντάξει</string>
@@ -7648,12 +7637,6 @@
     <string name="tooldetail_ocr_info">Η αναγνώριση εκτελείται στη συσκευή σας με το ML Kit. Καμία φωτογραφία και κανένα κείμενο δεν φεύγει από τη συσκευή σας και λειτουργεί εκτός σύνδεσης. Διαβάζει κείμενο με λατινικούς χαρακτήρες, για παράδειγμα αγγλικά. Ο αναγνωριστής κειμένου του ML Kit δεν υποστηρίζει ακόμη Βεγγαλικά. Μετά από μια λήψη, πατήστε λέξεις για να επιλέξετε ακριβώς τι πληκτρολογεί ή αντιγράφει το πληκτρολόγιο.</string>
     <string name="tooldetail_ocr_online_group">Διαδικτυακός αναγνώστης κειμένου</string>
     <string name="tooldetail_ocr_online_info">Η φωτογραφία αποστέλλεται σε ένα μοντέλο ικανό να διαβάζει εικόνες, σε μια διεύθυνση της επιλογής σας, και το μοντέλο γράφει το κείμενο που βλέπει. Διαβάζει οποιαδήποτε γραφή και δεν χρειάζεται δεδομένα γλώσσας. Οποιαδήποτε υπηρεσία με API συμβατό με OpenAI λειτουργεί: OpenAI, OpenRouter, Gemini, Mistral ή ένα μοντέλο στον υπολογιστή σας με Ollama ή LM Studio. Κάθε σάρωση στέλνει τη φωτογραφία στην εν λόγω υπηρεσία, η οποία ενδέχεται να χρεώνει για αυτή την ενέργεια.</string>
-    <string name="tooldetail_ocr_online_key_hint">Αφήστε κενό για έναν διακομιστή που δεν απαιτεί κλειδί</string>
-    <string name="tooldetail_ocr_online_key_label">Κλειδί API</string>
-    <string name="tooldetail_ocr_online_model_hint">Ένα μοντέλο που διαβάζει εικόνες, για παράδειγμα το gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Μοντέλο</string>
-    <string name="tooldetail_ocr_online_url_hint">Για παράδειγμα https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Διεύθυνση</string>
     <string name="tooldetail_ocr_packs_header">Γλώσσες Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Το Tesseract διαβάζει μια γλώσσα μόνο αφού τα δεδομένα για αυτήν τη γλώσσα βρίσκονται στη συσκευή σας. Υπάρχει μία λήψη για κάθε γλώσσα στην οποία πληκτρολογείτε, από 0,4 MB έως 12 MB. Τα δεδομένα προέρχονται από το σύνολο tessdata_fast του έργου Tesseract στο GitHub. Μπορείτε επίσης να κατεβάσετε μια γλώσσα από τον ίδιο τον σαρωτή.</string>
     <string name="tooldetail_ocr_packs_none_info">Καμία από τις γλώσσες που ενεργοποιήσατε δεν διαθέτει δεδομένα Tesseract. Προσθέστε μια γλώσσα στην οθόνη Γλώσσες. Τα δεδομένα της θα εμφανιστούν τότε εδώ.</string>
@@ -8491,7 +8474,7 @@
     <string name="typing_letter_swipe_select_key_label">Σύρετε σε ένα πλήκτρο</string>
     <string name="typing_letter_swipe_type_words_desc">Μια κίνηση στα πλήκτρα γράφει μία λέξη</string>
     <string name="typing_letter_swipe_type_words_label">Πληκτρολόγηση λέξεων</string>
-    <string name="typing_mistype_tolerance_info">Κάθε πάτημα διαβάζεται σε σχέση με το σημείο όπου προσγειώθηκε, όχι μόνο σε σχέση με το πλήκτρο που χτύπησε, οπότε ένα πάτημα κοντά στην άκρη ενός πλήκτρου μπορεί ακόμα να διαβαστεί ως το διπλανό του. Αυτό ορίζει πόσο γενναιόδωρη είναι αυτή η ανάγνωση. Πάνω από 100%, ένα πάτημα καλά μέσα σε ένα γειτονικό πλήκτρο εξακολουθεί να είναι ένα πιθανό λάθος, το οποίο ταιριάζει στη γρήγορη ή έντονη πληκτρολόγηση και στα μεγάλα δάχτυλα. Κάτω από 100%, το πλήκτρο που χτυπήσατε εμπιστεύεται περισσότερο, κάτι που ταιριάζει στην προσεκτική πληκτρολόγηση. Αλλάζει ποιες λέξεις προσφέρει η γραμμή και τι επιλέγει η αυτόματη διόρθωση. Η προεπιλογή είναι 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Κάθε πάτημα διαβάζεται σε σχέση με το σημείο όπου προσγειώθηκε, όχι μόνο σε σχέση με το πλήκτρο που χτύπησε, οπότε ένα πάτημα κοντά στην άκρη ενός πλήκτρου μπορεί ακόμα να διαβαστεί ως το διπλανό του. Αυτό ορίζει πόσο γενναιόδωρη είναι αυτή η ανάγνωση. Πάνω από 100%, ένα πάτημα καλά μέσα σε ένα γειτονικό πλήκτρο εξακολουθεί να είναι ένα πιθανό λάθος, το οποίο ταιριάζει στη γρήγορη ή έντονη πληκτρολόγηση και στα μεγάλα δάχτυλα. Κάτω από 100%, το πλήκτρο που χτυπήσατε εμπιστεύεται περισσότερο, κάτι που ταιριάζει στην προσεκτική πληκτρολόγηση. Αλλάζει ποιες λέξεις προσφέρει η γραμμή και τι επιλέγει η αυτόματη διόρθωση. Η προεπιλογή είναι 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Πόσο βαθιά σε ένα γειτονικό πλήκτρο μπορεί να προσγειωθεί ένα πάτημα και να εξακολουθεί να μετράει ως ολίσθημα</string>
     <string name="typing_mistype_tolerance_title">Ανοχή σε τυπογραφικά λάθη</string>
     <string name="typing_new_word_sightings_info">Μετρώνται μόνο οι λέξεις που δεν γνωρίζει κανένα λεξικό. Μια λέξη που υπάρχει ήδη σε ένα λεξικό χρειάζεται μία χρήση, όχι πολλές, επειδή δεν υπάρχει αμφιβολία για την ορθογραφία της. Είτε έτσι είτε αλλιώς, μια χρήση μετράει μόνο αφού έχετε προχωρήσει και αφήσει τη λέξη στην ησυχία της, οπότε μια λέξη που επιστρέφετε και διορθώνετε, ή μια σάρωση που βγήκε ως λάθος λέξη, δεν μετράται ποτέ. Τίποτα δεν αποθηκεύεται όσο πληκτρολογείτε ακόμα: οι λέξεις που αφήσατε στην ησυχία τους προστίθενται όταν κλείνετε το πληκτρολόγιο, στέλνετε το μήνυμα ή μετακινείστε σε άλλο πεδίο. Μειώστε αυτό αν τα δικά σας ονόματα και η αργκό αργούν πολύ να καθιερωθούν. Ορίστε το στο 1 για να αποθηκεύετε κάθε νέα λέξη μετά από μία μόνο χρήση. Αυτή η ρύθμιση είναι 3 από προεπιλογή.</string>
@@ -8785,11 +8768,9 @@
     <string name="typing_trail_opacity_title">Αδιαφάνεια ίχνους</string>
     <string name="typing_trail_width_subtitle">Πάχος της διαδρομής ολίσθησης</string>
     <string name="typing_trail_width_title">Πλάτος ίχνους</string>
-    <string name="typing_two_thumb_info">Χρησιμοποιήστε και τους δύο αντίχειρες μαζί. Κάθε αντίχειρας μπορεί να πατήσει ή να σύρει, ταυτόχρονα με τον άλλο, και κάθε πάτημα και σύρσιμο προστίθεται στην ίδια λέξη. Για παράδειγμα, πατήστε το S με τον αριστερό αντίχειρα, σύρετε το O στο M με τον δεξιό, πατήστε το E με τον αριστερό, μετά σύρετε το T H I N G με τον δεξιό, και παίρνετε κάτι. Ένα πάτημα που προσγειώνεται ενώ ο άλλος αντίχειρας εξακολουθεί να σέρνει μπαίνει στη λέξη σε εκείνο το σημείο, οπότε ένα σύρσιμο πάνω από το H E L O και ένα πάτημα στο L δίνουν hello. Το backspace αφαιρεί το τελευταίο πάτημα ή σύρσιμο από τη λέξη.</string>
     <string name="typing_two_thumb_subtitle">Πατήστε και σύρετε με τους δύο αντίχειρες ταυτόχρονα για να δημιουργήσετε μια λέξη</string>
     <string name="typing_two_thumb_title">Πληκτρολόγηση με δύο αντίχειρες</string>
     <string name="typing_two_thumb_word_end_all_up_label">Όλοι οι αντίχειρες πάνω</string>
-    <string name="typing_two_thumb_word_end_info">Με το κενό, η λέξη παραμένει ανοιχτή ενώ πατάτε και σύρετε, και το πληκτρολόγιο την διαβάζει ξανά μετά από κάθε κίνηση. Πατήστε κενό ή στίξη για να την πληκτρολογήσετε. Με τους αντίχειρες επάνω, η λέξη πληκτρολογείται με κενό μόλις κανένας αντίχειρας δεν αγγίζει το πληκτρολόγιο, όπως στην κανονική ολίσθηση, οπότε οι αντίχειρές σας πρέπει να επικαλύπτονται για να μοιραστούν μια λέξη.</string>
     <string name="typing_two_thumb_word_end_space_label">Κενό</string>
     <string name="typing_two_thumb_word_end_subtitle">Τι πληκτρολογεί τη λέξη που δημιουργείτε</string>
     <string name="typing_two_thumb_word_end_title">Ολοκληρώστε μια λέξη με δύο αντίχειρες</string>

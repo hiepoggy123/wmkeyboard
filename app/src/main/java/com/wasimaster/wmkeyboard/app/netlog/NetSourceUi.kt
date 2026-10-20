@@ -18,6 +18,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Save
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SystemUpdate
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolunteerActivism
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -120,6 +121,7 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.VOCABULARY -> R.string.netlog_source_vocabulary to R.string.netlog_sent_vocabulary
     NetSource.SYNONYMS -> R.string.netlog_source_synonyms to R.string.netlog_sent_synonyms
     NetSource.WEATHER -> R.string.netlog_source_weather to R.string.netlog_sent_weather
+    NetSource.SEND -> R.string.netlog_source_send to R.string.netlog_sent_send
     NetSource.LOCATION -> R.string.netlog_source_location to R.string.netlog_sent_location
     NetSource.CURRENCY -> R.string.netlog_source_currency to R.string.netlog_sent_currency
     NetSource.PHOTOS -> R.string.netlog_source_photos to R.string.netlog_sent_photos
@@ -132,6 +134,7 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.DOWNLOAD_WHISPER -> R.string.netlog_source_download_whisper to R.string.netlog_sent_download
     NetSource.DOWNLOAD_LLM -> R.string.netlog_source_download_llm to R.string.netlog_sent_download
     NetSource.DOWNLOAD_VOCAB -> R.string.netlog_source_download_vocab to R.string.netlog_sent_download
+    NetSource.DOWNLOAD_DICTIONARY -> R.string.netlog_source_download_dictionary to R.string.netlog_sent_download
     NetSource.DOWNLOAD_FONT -> R.string.netlog_source_download_font to R.string.netlog_sent_download
     NetSource.DOWNLOAD_CUTOUT -> R.string.netlog_source_download_cutout to R.string.netlog_sent_download
     NetSource.DOWNLOAD_OCR -> R.string.netlog_source_download_ocr to R.string.netlog_sent_download
@@ -143,7 +146,14 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.LINK_IMPORT -> R.string.netlog_source_link_import to R.string.netlog_sent_link_import
     NetSource.BACKUP -> R.string.netlog_source_backup to R.string.netlog_sent_backup
     NetSource.UPDATES -> R.string.netlog_source_updates to R.string.netlog_sent_updates
+    NetSource.SUPPORTERS -> R.string.netlog_source_supporters to R.string.netlog_sent_supporters
     NetSource.KDE_CONNECT -> R.string.netlog_source_kde_connect to R.string.netlog_sent_kde_connect
+    NetSource.HOME_ASSISTANT -> R.string.netlog_source_home_assistant to R.string.netlog_sent_home_assistant
+    NetSource.SMARTTHINGS -> R.string.netlog_source_smartthings to R.string.netlog_sent_smartthings
+    NetSource.HUE -> R.string.netlog_source_hue to R.string.netlog_sent_hue
+    NetSource.OPENHAB -> R.string.netlog_source_openhab to R.string.netlog_sent_openhab
+    NetSource.TUYA -> R.string.netlog_source_tuya to R.string.netlog_sent_tuya
+    NetSource.SWITCHBOT -> R.string.netlog_source_switchbot to R.string.netlog_sent_switchbot
     NetSource.OTHER -> R.string.netlog_source_other to R.string.netlog_sent_other
 }
 
@@ -160,6 +170,7 @@ private fun ownerRoute(source: NetSource): String? = when (source) {
     NetSource.RBOARD_THEMES -> "themes"
     NetSource.BACKUP -> "backup"
     NetSource.UPDATES -> "about"
+    NetSource.SUPPORTERS -> "supporters"
     else -> null
 }
 
@@ -178,6 +189,7 @@ private fun fallbackIcon(source: NetSource): ImageVector = when (source) {
     NetSource.BACKUP -> Icons.Outlined.Save
     NetSource.SYNONYMS -> Icons.Outlined.SwapHoriz
     NetSource.UPDATES -> Icons.Outlined.SystemUpdate
+    NetSource.SUPPORTERS -> Icons.Outlined.VolunteerActivism
     NetSource.OTHER -> Icons.Outlined.Public
     else -> Icons.Outlined.CloudDownload
 }
@@ -188,6 +200,12 @@ private fun fallbackIcon(source: NetSource): ImageVector = when (source) {
  */
 private val DataSaverSources = NetSource.entries.toSet() - setOf(
     NetSource.TRANSLATE, NetSource.DEEPL_WRITE, NetSource.BACKUP, NetSource.UPDATES, NetSource.KDE_CONNECT,
+    // The user's own server on their own network; a data saver has nothing to save there.
+    NetSource.HOME_ASSISTANT, NetSource.HUE, NetSource.OPENHAB,
+    // A few small polls while the panel is open, on the user's say-so.
+    NetSource.SMARTTHINGS, NetSource.TUYA, NetSource.SWITCHBOT,
+    // One small list, fetched only when its button is pressed.
+    NetSource.SUPPORTERS,
     // One small request per share the user pressed; its own switch is on the Location page.
     NetSource.LOCATION,
     NetSource.LINK_IMPORT, NetSource.SYNONYMS, NetSource.OCR_ONLINE, NetSource.OTHER,

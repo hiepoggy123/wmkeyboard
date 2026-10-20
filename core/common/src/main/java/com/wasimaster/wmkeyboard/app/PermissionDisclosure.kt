@@ -117,7 +117,8 @@ object PermissionDisclosures {
     )
 
     /**
-     * The AI's "add it directly" for calendar events (#698). Read is asked for
+     * Writing to the calendar: the calendar tool's Save, Edit and Delete, and
+     * the AI's "add it directly" for events (#698). Read is asked for
      * alongside, since choosing which calendar to add to means listing them.
      */
     val CALENDAR_WRITE = PermissionDisclosure(
@@ -125,6 +126,13 @@ object PermissionDisclosures {
         titleRes = R.string.common_permission_calendar_write_title,
         bodyRes = R.string.common_permission_calendar_write_body,
         alsoRequests = listOf(Manifest.permission.READ_CALENDAR),
+    )
+
+    /** The calendar tool's guest row: typing a name offers that contact's address. */
+    val CONTACT_GUESTS = PermissionDisclosure(
+        permission = Manifest.permission.READ_CONTACTS,
+        titleRes = R.string.common_permission_contact_guests_title,
+        bodyRes = R.string.common_permission_contact_guests_body,
     )
 
     val CONTACT_NAMES = PermissionDisclosure(
@@ -186,6 +194,27 @@ object PermissionDisclosures {
     )
 
     /**
+     * The Send files tool's direct link (#729): a Wi-Fi this phone opens for
+     * another, or the other's joined. Android 13 has a permission for exactly
+     * that; before it, Wi-Fi Direct and the hotspot sit behind location, which
+     * is why the copy says so plainly. No position is read or kept.
+     */
+    val NEARBY_WIFI = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        PermissionDisclosure(
+            permission = Manifest.permission.NEARBY_WIFI_DEVICES,
+            titleRes = R.string.common_permission_nearby_title,
+            bodyRes = R.string.common_permission_nearby_body,
+        )
+    } else {
+        PermissionDisclosure(
+            permission = Manifest.permission.ACCESS_FINE_LOCATION,
+            titleRes = R.string.common_permission_nearby_title,
+            bodyRes = R.string.common_permission_nearby_body_location,
+            alsoRequests = listOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+        )
+    }
+
+    /**
      * The shade. Not a data permission at all — nothing is read, only posted —
      * but it goes through the same disclosure as the rest so there stays
      * exactly one way this app asks Android for anything, and so the user
@@ -213,6 +242,17 @@ object PermissionDisclosures {
         permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
         titleRes = R.string.common_permission_storage_title,
         bodyRes = R.string.common_permission_storage_body,
+    )
+
+    /**
+     * AnkiDroid's own permission (#765): the Look up card adds a word to a
+     * deck. AnkiDroid defines it; the grant covers its whole collection, which
+     * the copy says rather than claiming the card only ever adds.
+     */
+    val ANKIDROID = PermissionDisclosure(
+        permission = "com.ichi2.anki.permission.READ_WRITE_DATABASE",
+        titleRes = R.string.common_permission_ankidroid_title,
+        bodyRes = R.string.common_permission_ankidroid_body,
     )
 }
 
@@ -422,6 +462,14 @@ abstract class PermissionRequestActivity : ComponentActivity() {
     /** The permission to ask for, or null when this build/API needs none. */
     protected abstract val disclosure: PermissionDisclosure?
 
+    /**
+     * Whether there is nothing left to ask for, which closes the trampoline
+     * at once. By default the main permission alone; a feature whose grant is
+     * several permissions says when it has all it needs.
+     */
+    protected open fun alreadyGranted(disclosure: PermissionDisclosure): Boolean =
+        checkSelfPermission(disclosure.permission) == PackageManager.PERMISSION_GRANTED
+
     private val probe = PermissionProbe()
 
     // Only ever set by the answer to a request: see [PermissionProbe].
@@ -444,9 +492,7 @@ abstract class PermissionRequestActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val disclosure = disclosure
-        if (disclosure == null ||
-            checkSelfPermission(disclosure.permission) == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (disclosure == null || alreadyGranted(disclosure)) {
             finish()
             return
         }

@@ -1153,7 +1153,7 @@
     <string name="clipboard_key_row_info">Lipește un link și apasă enter pentru a-l accesa, sau lipește mai multe fragmente cu un spațiu sau o linie nouă între ele, fără a reveni la tastatură. ABC revine la litere. Dacă ai modificat aspectul panoului, această setare nu are niciun efect: adaugă tastele în editorul de aspect. Rândul nu este afișat în timp ce clipboard-ul este suprapus peste taste. Această setare este dezactivată implicit.</string>
     <string name="clipboard_key_row_subtitle">Un rând de taste de-a lungul părții inferioare a panoului clipboard</string>
     <string name="clipboard_key_row_title">Tastele ABC, spațiu și enter</string>
-    <string name="clipboard_line_spacing_info">La 100%, liniile unui clip stau cât mai aproape posibil de cum permite fontul. Măriți valoarea pentru a le distanța. Valoarea implicită este 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">La 100%, liniile unui clip stau cât mai aproape posibil de cum permite fontul. Măriți valoarea pentru a le distanța. Valoarea implicită este 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Spațiul dintre liniile textului dintr-un clip</string>
     <string name="clipboard_line_spacing_title">Spațiere între linii</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2400,9 +2400,7 @@
     <string name="import_sticker_editor_border_white_option">Alb</string>
     <string name="import_sticker_editor_border_width_label">Lățime chenar</string>
     <string name="import_sticker_editor_brush_size_label">Dimensiunea pensulei</string>
-    <string name="import_sticker_editor_caption">Tastatura salvează un autocolant de 512 pe 512. Mută și ciupește imaginea pentru a selecta partea de păstrat, apoi elimină fundalul și adaugă o margine. Aplicația păstrează această imagine pe telefon, astfel încât să poți edita autocolantul din nou mai târziu.</string>
     <string name="import_sticker_editor_crop_action">Decupare</string>
-    <string name="import_sticker_editor_crop_hint">Trage pentru a muta imaginea. Ciupește pentru a o mări.</string>
     <string name="import_sticker_editor_cutout_action">Eliminați fundalul</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Obțineți mai întâi eliminatorul de fundal. Este o descărcare de 5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Aplicația descarcă instrumentul de eliminare a fundalului…</string>
@@ -3521,7 +3519,6 @@
     <string name="layout_editor_alternate_columns_default">Din setări</string>
     <string name="layout_editor_alternate_columns_subtitle">Câte alternative pune această tastă pe un rând</string>
     <string name="layout_editor_alternate_columns_title">Coloane în fereastra pop-up</string>
-    <string name="layout_editor_alternate_hint_badge">indiciu</string>
     <string name="layout_editor_alternates_field_hint">Separați intrările cu spații, astfel încât o alternativă să nu poată fi un spațiu. Intrările de mai mult de un caracter, cum ar fi .com, sunt corecte. Aplicația desenează, de asemenea, prima dintre ele în colțul tastei.</string>
     <string name="layout_editor_alternates_field_label">Alternative pentru apăsare lungă</string>
     <string name="layout_editor_apply_action">Aplică</string>
@@ -3617,7 +3614,6 @@
     <string name="layout_editor_field_row_title">Componentă</string>
     <string name="layout_editor_fill_row_action">Umpleți rândul (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Rândul numeric afișează deja cifrele, așa că tastatura afișează acest rând în locul primului rând al acestui strat.</string>
-    <string name="layout_editor_fill_row_off_caption">Când rândul numeric este activat, tastatura afișează acest rând în locul primului rând al acestui strat, deoarece rândul numeric afișează deja cifrele. Rândul numeric este oprit acum.</string>
     <string name="layout_editor_fill_row_title">Rând în locul cifrelor</string>
     <string name="layout_editor_fit_row_action">Potriviți rândul la grilă (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Fără glisare în această direcție. Atinge pentru a alege o acțiune.</string>
@@ -3792,8 +3788,6 @@
     <string name="layout_editor_new_secondary_title">Începe un layout secundar</string>
     <string name="layout_editor_not_live_caption">Modificările tale de aici nu afectează tastarea până când nu activezi dispunerea în Limbi.</string>
     <string name="layout_editor_number_row_caption">Tastatura afișează acest rând deasupra acestui strat. Atinge o tastă pentru a o modifica. Ține apăsată o tastă și trage-o pentru a o muta.</string>
-    <string name="layout_editor_number_row_hidden_caption">Tastatura afișează acest rând deasupra acestui strat când rândul numeric în simboluri este activat în Aspect și dimensiune. Este oprit acum.</string>
-    <string name="layout_editor_number_row_off_caption">Tastatura afișează acest rând deasupra acestui strat când rândul numeric este activat în Aspect și dimensiune. Rândul numeric este oprit acum.</string>
     <string name="layout_editor_number_row_title">Rând numeric</string>
     <string name="layout_editor_panel_inherited_caption">Acest aspect folosește panoul partajat %1$s. Modificarea oricărui element aici creează o copie doar pentru acest aspect. Panoul partajat se află sub Aspecte taste, Aspecte panou.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Moștenește tema aspectului</string>
@@ -3996,11 +3990,8 @@
     <string name="layout_split_spacebar_title">Împărțiți bara de spațiu</string>
     <string name="layout_split_subtitle">Împarte tastele într-o jumătate stângă și una dreaptă</string>
     <string name="layout_split_title">Tastatură divizată</string>
-    <string name="layout_summon_button_info">Cât timp tastatura este închisă, un buton rotund mic plutește peste fiecare aplicație. Atinge-l și tastatura se va deschide, chiar și pe un ecran fără câmp de text, și va rămâne deschisă acolo până când o închizi. Tastele vor ajunge apoi în aplicație ca apăsări de taste, la fel ca la opțiunea „Păstrează tastatura pe ecran”. Trage butonul pentru a-l muta; se va fixa pe marginea cea mai apropiată. Apasă lung pe el pentru a-l ascunde până la următoarea deschidere a tastaturii. Necesită permisiunea Android „Afișare peste alte aplicații”.</string>
     <string name="layout_summon_button_permission_subtitle">Butonul nu poate apărea până când Android nu permite acest lucru</string>
     <string name="layout_summon_button_permission_title">Permite afișarea peste alte aplicații</string>
-    <string name="layout_summon_button_subtitle">Un buton peste alte aplicații care deschide tastatura, cu sau fără un câmp de text</string>
-    <string name="layout_summon_button_title">Buton tastatură plutitoare</string>
     <string name="layout_swap_comma_globe_info">Cele două taste de pe fiecare parte a barei de spațiu își schimbă locul. Dacă una dintre ele este o tastă emoji, aceasta se mută în poziția exterioară, iar virgula rămâne lângă bara de spațiu. Dezactivează acest lucru pentru a reveni la ordinea obișnuită.</string>
     <string name="layout_swap_comma_globe_subtitle">Pune virgula lângă bara de spațiu</string>
     <string name="layout_swap_comma_globe_title">Inversează tastele virgulă și 🌐</string>
@@ -5819,7 +5810,6 @@
     <string name="search_kw_layout_show_globe">ascunde eliminarea limbii glob</string>
     <string name="search_kw_layout_size_position">redimensionare micșorare compactare mărire</string>
     <string name="search_kw_layout_split">ergonomic pentru degetul mare tabletă</string>
-    <string name="search_kw_layout_summon_button">suprapunere balon afișare câmp invocare hackeri fără câmp</string>
     <string name="search_kw_layout_symbols_numpad_key">tastatură numerică numpad dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">corecții învățate, remedierile mele, perechi de greșeli de scriere, remedieri predate, învățare autocorecție, erori, obiceiuri</string>
     <string name="search_kw_licenses">open source, atribuire, credite</string>
@@ -5858,7 +5848,7 @@
     <string name="search_kw_translate_engine">offline privat internet avion dispozitiv local ml kit google model descărcare cloud</string>
     <string name="search_kw_translate_models">descărcare model traducere offline ștergere stocare ml kit google</string>
     <string name="search_kw_translate_only_downloaded">ascunde meniul de selectare a modelului offline din filtru lista de limbi scurt</string>
-    <string name="search_kw_translate_server">openai compatibil găzduit local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatibil găzduit local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">verificare ortografică, completare automată, text predictiv, scriere prin glisare, tastare prin glisare, gesturi, contacte, anulare</string>
     <string name="search_kw_typing_auto_capitalize">autocaps autocapitalizare autocapitalizare</string>
     <string name="search_kw_typing_auto_close_brackets">închidere automată pereche paranteze rotunde acolade potrivire paranteze completare</string>
@@ -6829,7 +6819,6 @@
     <string name="theme_parts_strip_subtitle">Elimină umplerea, culorile cuvintelor și dimensiunea</string>
     <string name="theme_parts_toolbar_subtitle">Umpleri instrumente, pictograme, formă, chenar</string>
     <string name="theme_pick_hint">Apasă pe o tastă, un instrument sau pe bandă</string>
-    <string name="theme_pick_start_desc">Alege o parte a tastaturii pentru a o stiliza</string>
     <string name="theme_pick_start_subtitle">Apasă o tastă, un instrument sau bara de sugestii din previzualizare pentru a o stiliza</string>
     <string name="theme_pick_start_title">Alege pe tastatură</string>
     <string name="theme_pick_strip_sample_words">Bună,Mulțumesc,În regulă</string>
@@ -7654,12 +7643,6 @@
     <string name="tooldetail_ocr_info">Recunoașterea rulează pe dispozitivul tău cu ML Kit. Nicio fotografie și niciun text nu părăsesc dispozitivul, iar funcția lucrează offline. Citește text în alfabet latin, de exemplu engleză. Recunoașterea textului din ML Kit nu suportă încă limba bengaleză. După captură, apasă pe cuvinte pentru a selecta exact ce tastează sau copiază tastatura.</string>
     <string name="tooldetail_ocr_online_group">Cititor de text online</string>
     <string name="tooldetail_ocr_online_info">Fotografia este trimisă către un model care poate citi imagini, la o adresă aleasă de dvs., iar modelul scrie textul pe care îl vede. Citește orice script și nu are nevoie de date lingvistice. Orice serviciu cu un API compatibil OpenAI funcționează: OpenAI, OpenRouter, Gemini, Mistral sau un model pe propriul computer cu Ollama sau LM Studio. Fiecare scanare trimite fotografia către acel serviciu, iar serviciul poate percepe o taxă pentru aceasta.</string>
-    <string name="tooldetail_ocr_online_key_hint">Lăsați necompletat pentru un server care nu solicită o cheie</string>
-    <string name="tooldetail_ocr_online_key_label">Cheie API</string>
-    <string name="tooldetail_ocr_online_model_hint">Un model care citește imagini, de exemplu gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_url_hint">De exemplu, https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adresă</string>
     <string name="tooldetail_ocr_packs_header">Limbi Tesseract</string>
     <string name="tooldetail_ocr_packs_info">Tesseract citește o limbă doar după ce datele pentru acea limbă sunt pe dispozitivul tău. Există o descărcare pentru fiecare limbă în care scrii, de la 0,4 MB la 12 MB. Datele provin din setul tessdata_fast al proiectului Tesseract de pe GitHub. De asemenea, poți descărca o limbă direct din scaner.</string>
     <string name="tooldetail_ocr_packs_none_info">Niciuna dintre limbile activate de dvs. nu are date Tesseract. Adăugați o limbă în ecranul Limbi. Datele sale vor apărea apoi aici.</string>
@@ -8495,7 +8478,7 @@
     <string name="typing_letter_swipe_select_key_label">Glisează către o tastă</string>
     <string name="typing_letter_swipe_type_words_desc">O glisare peste taste scrie un cuvânt</string>
     <string name="typing_letter_swipe_type_words_label">Scrie cuvinte</string>
-    <string name="typing_mistype_tolerance_info">Fiecare atingere este citită în funcție de locul unde a aterizat, nu doar în funcție de tasta pe care a lovit-o, deci o atingere lângă marginea unei taste poate fi citită în continuare ca tasta de lângă ea. Aceasta setează cât de generoasă este acea citire. Peste 100%, o atingere bine în interiorul unei taste vecine este încă o eroare probabilă, ceea ce se potrivește tastării rapide sau agitate și degetelor mari. Sub 100%, tasta pe care ai lovit-o este mai de încredere, ceea ce se potrivește tastării atente. Aceasta schimbă cuvintele pe care le oferă banda și ce alege autocorecția. Valoarea implicită este 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Fiecare atingere este citită în funcție de locul unde a aterizat, nu doar în funcție de tasta pe care a lovit-o, deci o atingere lângă marginea unei taste poate fi citită în continuare ca tasta de lângă ea. Aceasta setează cât de generoasă este acea citire. Peste 100%, o atingere bine în interiorul unei taste vecine este încă o eroare probabilă, ceea ce se potrivește tastării rapide sau agitate și degetelor mari. Sub 100%, tasta pe care ai lovit-o este mai de încredere, ceea ce se potrivește tastării atente. Aceasta schimbă cuvintele pe care le oferă banda și ce alege autocorecția. Valoarea implicită este 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Cât de departe într-o tastă vecină poate ateriza o apăsare și să fie considerată totuși o greșeală</string>
     <string name="typing_mistype_tolerance_title">Toleranță la greșeli de tastare</string>
     <string name="typing_new_word_sightings_info">Sunt numărate doar cuvintele pe care niciun dicționar nu le cunoaște. Un cuvânt deja existent într-un dicționar are nevoie de o singură utilizare, nu de mai multe, deoarece nu există nicio îndoială cu privire la ortografia sa. Oricum, o utilizare este contorizată doar după ce ați trecut mai departe și ați lăsat cuvântul în pace, deci un cuvânt la care vă întoarceți pentru a-l corecta sau o glisare care a rezultat într-un cuvânt greșit nu este niciodată contorizată. Nimic nu este salvat în timp ce tastați: cuvintele pe care le-ați lăsat în pace sunt adăugate când închideți tastatura, trimiteți mesajul sau treceți la un alt câmp. Reduceți această valoare dacă propriile nume și argoul durează prea mult până sunt reținute. Setați la 1 pentru a salva fiecare cuvânt nou după o singură utilizare. Această setare este 3 în mod implicit.</string>
@@ -8789,11 +8772,9 @@
     <string name="typing_trail_opacity_title">Opacitatea urmei</string>
     <string name="typing_trail_width_subtitle">Grosimea urmei de glisare</string>
     <string name="typing_trail_width_title">Lățimea urmei</string>
-    <string name="typing_two_thumb_info">Folosiți ambele degete mari împreună. Fiecare deget mare poate atinge sau glisa, în același timp cu celălalt, și fiecare atingere și glisare se adaugă la același cuvânt. De exemplu, atingeți S cu degetul mare stâng, glisați O la M cu cel drept, atingeți E cu cel stâng, apoi glisați T H I N G cu cel drept și obțineți ceva. O atingere care are loc în timp ce celălalt deget mare încă glisează intră în cuvânt în acel punct, deci o glisare peste H E L O și o atingere pe L dau hello. Backspace elimină ultima atingere sau glisare din cuvânt.</string>
     <string name="typing_two_thumb_subtitle">Atinge și glisează cu ambele degete mari simultan pentru a forma un cuvânt</string>
     <string name="typing_two_thumb_title">Tastare cu două degete mari</string>
     <string name="typing_two_thumb_word_end_all_up_label">Toate degetele sus</string>
-    <string name="typing_two_thumb_word_end_info">Cu spațiu, cuvântul rămâne deschis în timp ce atingeți și glisați, iar tastatura îl citește din nou după fiecare. Atingeți spațiu sau punctuație pentru a-l tasta. Cu ambele degete mari ridicate, cuvântul este tastat cu un spațiu imediat ce niciun deget mare nu atinge tastatura, ca la glisarea obișnuită, deci degetele mari trebuie să se suprapună pentru a partaja un cuvânt.</string>
     <string name="typing_two_thumb_word_end_space_label">Spațiu</string>
     <string name="typing_two_thumb_word_end_subtitle">Ce scrie cuvântul pe care îl construiești</string>
     <string name="typing_two_thumb_word_end_title">Termină un cuvânt cu două degete</string>

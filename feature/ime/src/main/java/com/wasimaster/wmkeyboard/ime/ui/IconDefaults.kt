@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowForward
@@ -21,6 +22,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BarChart
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatterySaver
@@ -90,6 +92,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SentimentSatisfied
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Speed
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SmartButton
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Spellcheck
@@ -132,6 +135,8 @@ object IconDefaults {
         // two sit side by side on a toolbar often enough that sharing a
         // glyph left only their position to tell them apart (#414).
         ToolbarTool.CLIPBOARD -> Icons.AutoMirrored.Outlined.Assignment
+        ToolbarTool.CLIPBOARD_SEARCH -> Icons.Outlined.Search
+        ToolbarTool.RECENT_COPIES -> Icons.Outlined.History
         ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
         ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
         ToolbarTool.TRACKPAD -> SymbolIcons.TrackpadInput
@@ -183,6 +188,7 @@ object IconDefaults {
         ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
         ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
         ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+        ToolbarTool.TEXT_REPEAT -> Icons.Outlined.Repeat
         ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
         // The settings app's own Statistics glyph, so the tool and the row it
         // opens look like the same thing.
@@ -191,6 +197,8 @@ object IconDefaults {
         ToolbarTool.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
         ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
+        ToolbarTool.HOME_ASSISTANT -> Icons.Outlined.HomeIotDevice
+        ToolbarTool.SEND_FILES -> Icons.AutoMirrored.Outlined.Send
         ToolbarTool.GALLERY -> Icons.Outlined.PhotoLibrary
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.KDE_CONNECT -> Icons.Outlined.Phonelink

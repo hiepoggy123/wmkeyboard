@@ -1154,7 +1154,7 @@
     <string name="clipboard_key_row_info">Ielīmējiet saiti un nospiediet Enter, lai to atvērtu, vai ielīmējiet vairākus klipus ar atstarpi vai jaunu rindiņu starp tiem, neatgriežoties pie tastatūras. ABC atgriežas pie burtiem. Ja mainījāt paneļa izkārtojumu, šis iestatījums neko nedara: tā vietā pievienojiet taustiņus izkārtojuma redaktorā. Rinda netiek rādīta, kamēr starpliktuve ir novietota virs taustiņiem. Šis iestatījums pēc noklusējuma ir izslēgts.</string>
     <string name="clipboard_key_row_subtitle">Taustiņu rinda starpliktuves paneļa apakšā</string>
     <string name="clipboard_key_row_title">ABC, atstarpes un ievades taustiņi</string>
-    <string name="clipboard_line_spacing_info">Pie 100% klipa rindas atrodas tik tuvu, cik atļauj fonts. Palieliniet to, lai tās izkliedētu. Noklusējums ir 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Pie 100% klipa rindas atrodas tik tuvu, cik atļauj fonts. Palieliniet to, lai tās izkliedētu. Noklusējums ir 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Atstarpe starp klipa teksta rindām</string>
     <string name="clipboard_line_spacing_title">Rindu atstarpes</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Balts</string>
     <string name="import_sticker_editor_border_width_label">Apmales platums</string>
     <string name="import_sticker_editor_brush_size_label">Otas izmērs</string>
-    <string name="import_sticker_editor_caption">Tastatūra saglabā 512x512 uzlīmi. Pārvietojiet un tuviniet attēlu, lai atlasītu paturamo daļu, pēc tam noņemiet fonu un pievienojiet apmali. Lietotne saglabā šo attēlu tālrunī, lai vēlāk varētu rediģēt uzlīmi vēlreiz.</string>
     <string name="import_sticker_editor_crop_action">Apgriezt</string>
-    <string name="import_sticker_editor_crop_hint">Velciet, lai pārvietotu attēlu. Saspiediet, lai palielinātu.</string>
     <string name="import_sticker_editor_cutout_action">Noņemt fonu</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Vispirms iegūstiet fona noņemšanas rīku. Tas ir 5 MB lejupielāde.</string>
     <string name="import_sticker_editor_cutout_download_progress">Lietotne iegūst fona noņēmēju…</string>
@@ -3521,7 +3519,6 @@
     <string name="layout_editor_alternate_columns_default">No iestatījumiem</string>
     <string name="layout_editor_alternate_columns_subtitle">Cik daudz alternatīvu šis taustiņš ievieto rindā</string>
     <string name="layout_editor_alternate_columns_title">Kolonnas uznirstošajā logā</string>
-    <string name="layout_editor_alternate_hint_badge">mājiens</string>
     <string name="layout_editor_alternates_field_hint">Atdaliet ierakstus ar atstarpēm, lai alternatīva nevarētu būt atstarpe. Vairāku rakstzīmju ieraksti, piemēram, .com, ir pareizi. Lietotne arī uzzīmē pirmo stūrī uz taustiņa.</string>
     <string name="layout_editor_alternates_field_label">Alternatīvas nospiešanai un turēšanai</string>
     <string name="layout_editor_apply_action">Lietot</string>
@@ -3617,7 +3614,6 @@
     <string name="layout_editor_field_row_title">Komponents</string>
     <string name="layout_editor_fill_row_action">Aizpildīt rindu (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Ciparu rindā jau tiek rādīti cipari, tāpēc tastatūra rāda šo rindu šī slāņa pirmās rindas vietā.</string>
-    <string name="layout_editor_fill_row_off_caption">Kad ir ieslēgta Ciparu rinda, tastatūra rāda šo rindu šī slāņa pirmās rindas vietā, jo ciparu rindā jau tiek rādīti cipari. Ciparu rinda pašlaik ir izslēgta.</string>
     <string name="layout_editor_fill_row_title">Rinda ciparu vietā</string>
     <string name="layout_editor_fit_row_action">Pielāgot rindu režģim (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Nav pārvilkšanas šajā virzienā. Pieskarieties, lai izvēlētos darbību.</string>
@@ -3792,8 +3788,6 @@
     <string name="layout_editor_new_secondary_title">Sākt sekundāro izkārtojumu</string>
     <string name="layout_editor_not_live_caption">Jūsu veiktās izmaiņas neietekmēs rakstīšanu, kamēr neieslēgsiet izkārtojumu sadaļā Valodas.</string>
     <string name="layout_editor_number_row_caption">Tastatūra rāda šo rindu virs šī slāņa. Pieskarieties taustiņam, lai to mainītu. Turiet taustiņu un velciet to, lai pārvietotu.</string>
-    <string name="layout_editor_number_row_hidden_caption">Tastatūra rāda šo rindu virs šī slāņa, kad sadaļā Izkārtojums un izmērs ir ieslēgta opcija Ciparu rinda simbolos. Pašlaik tā ir izslēgta.</string>
-    <string name="layout_editor_number_row_off_caption">Tastatūra rāda šo rindu virs šī slāņa, kad sadaļā Izkārtojums un izmērs ir ieslēgta Ciparu rinda. Ciparu rinda pašlaik ir izslēgta.</string>
     <string name="layout_editor_number_row_title">Ciparu rinda</string>
     <string name="layout_editor_panel_inherited_caption">Šis izkārtojums izmanto koplietojamo %1$s paneli. Jebkādas izmaiņas šeit izveido kopiju tikai šim izkārtojumam. Koplietojamais panelis atrodas sadaļā Taustiņu izkārtojumi, Paneļu izkārtojumi.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Pārmantot izkārtojuma tēmu</string>
@@ -3996,11 +3990,8 @@
     <string name="layout_split_spacebar_title">Sadalīt atstarpes taustiņu</string>
     <string name="layout_split_subtitle">Sadaliet taustiņus kreisajā un labajā pusē</string>
     <string name="layout_split_title">Sadalītā tastatūra</string>
-    <string name="layout_summon_button_info">Kamēr tastatūra ir aizvērta, maza apaļa poga peld virs katras lietotnes. Pieskarieties tai, un tastatūra atvērsies pat ekrānā bez teksta ievades lauka un paliks tur atvērta, līdz to aizvērsiet. Taustiņi tad sasniedz lietotni kā taustiņu nospiedumi, tāpat kā ar \"Paturēt tastatūru ekrānā\". Velciet pogu, lai to pārvietotu; tā novietojas pie tuvākās malas. Nospiediet un turiet to, lai paslēptu līdz nākamajai tastatūras atvēršanas reizei. Nepieciešama Android atļauja \"Rādīt virs citām lietotnēm\".</string>
     <string name="layout_summon_button_permission_subtitle">Poga nevar parādīties, kamēr Android to neatļauj</string>
     <string name="layout_summon_button_permission_title">Atļaut rādīt virs citām lietotnēm</string>
-    <string name="layout_summon_button_subtitle">Poga virs citām lietotnēm, kas atver tastatūru ar vai bez teksta lauka</string>
-    <string name="layout_summon_button_title">Peldošā tastatūras poga</string>
     <string name="layout_swap_comma_globe_info">Divi taustiņi katrā atstarpes taustiņa pusē mainās vietām. Ja viens no tiem ir emocijzīmju taustiņš, tas pārvietojas uz ārējo pozīciju, bet komats paliek blakus atstarpes taustiņam. Izslēdziet šo, lai iegūtu parasto secību.</string>
     <string name="layout_swap_comma_globe_subtitle">Novietojiet komatu blakus atstarpes taustiņam</string>
     <string name="layout_swap_comma_globe_title">Mainīt komata un 🌐 taustiņus vietām</string>
@@ -5820,7 +5811,6 @@
     <string name="search_kw_layout_show_globe">paslēpt noņemt globusa valodu</string>
     <string name="search_kw_layout_size_position">mainīt izmēru samazināt kompaktēt palielināt</string>
     <string name="search_kw_layout_split">īkšķis ergonomisks planšetdators</string>
-    <string name="search_kw_layout_summon_button">burbuļa pārklājums rādīt izsaukt lauku nesaturoši hakeri</string>
     <string name="search_kw_layout_symbols_numpad_key">ciparu tastatūra tastatūra ciparnīca 1234 gboard</string>
     <string name="search_kw_learnedcorrections">iemācītie labojumi, mani labojumi, drukas kļūdu pāri, iemācītie labojumi, automātiskās labošanas mācīšanās, kļūdas, ieradumi</string>
     <string name="search_kw_licenses">atvērtā pirmkoda programmatūra, autorība, kredīti</string>
@@ -5859,7 +5849,7 @@
     <string name="search_kw_translate_engine">bezsaistes privāts internets lidmašīna lokāla ierīce ml kit google modeļa lejupielāde mākonis</string>
     <string name="search_kw_translate_models">bezsaistes tulkošanas modeļa lejupielāde dzēst krātuvi ml kit google</string>
     <string name="search_kw_translate_only_downloaded">paslēpt filtra bezsaistes modeļa atlasītāja izvēlni īsi</string>
-    <string name="search_kw_translate_server">openai saderīgs pašmitināts mitināts lokāls llm ai modelis ollama llama studio vllm localai tērzēšanas pabeigšana</string>
+    <string name="search_kw_translate_server">openai saderīgs pašmitināts mitināts lokāls llm ai modelis ollama llama studio vllm localai tērzēšanas pabeigšana mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">pareizrakstības pārbaude, automātiskā pabeigšana, paredzamais teksts, slīdēšana, vilkšanas rakstīšana, žesti, kontakti, atsaukšana</string>
     <string name="search_kw_typing_auto_capitalize">automātiskie lielie burti automātiskā lielo burtu lietošana</string>
     <string name="search_kw_typing_auto_close_brackets">automātiska iekavu aizvēršana pāra iekavu saskaņošana</string>
@@ -6831,7 +6821,6 @@
     <string name="theme_parts_strip_subtitle">Joslas aizpildījums, vārdu krāsas un izmērs</string>
     <string name="theme_parts_toolbar_subtitle">Rīku aizpildījums, ikonas, forma, apmale</string>
     <string name="theme_pick_hint">Nospiediet taustiņu, rīku vai joslu</string>
-    <string name="theme_pick_start_desc">Izvēlieties tastatūras daļu, kurai piešķirt stilu</string>
     <string name="theme_pick_start_subtitle">Nospiediet taustiņu, rīku vai ieteikumu joslu priekšskatījumā, lai to stilizētu</string>
     <string name="theme_pick_start_title">Izvēlieties uz tastatūras</string>
     <string name="theme_pick_strip_sample_words">Sveiki,Paldies,Labi</string>
@@ -7658,12 +7647,6 @@
     <string name="tooldetail_ocr_info">Atpazīšana darbojas jūsu ierīcē, izmantojot ML Kit. Neviens fotoattēls un teksts neatstāj jūsu ierīci, un tas darbojas bezsaistē. Tas nolasa latīņu alfabēta tekstu, piemēram, angļu valodu. ML Kit teksta atpazīšanas rīks vēl neatbalsta bengāļu valodu. Pēc uzņemšanas nospiediet uz vārdiem, lai precīzi atlasītu to, ko tastatūra raksta vai kopē.</string>
     <string name="tooldetail_ocr_online_group">Tiešsaistes teksta lasītājs</string>
     <string name="tooldetail_ocr_online_info">Fotoattēls tiek nosūtīts uz modeli, kas prot lasīt attēlus, uz jūsu izvēlētu adresi, un modelis pieraksta tajā redzamo tekstu. Tas nolasa jebkuru rakstību un tam nav nepieciešami valodas dati. Darbojas jebkurš pakalpojums ar OpenAI saderīgu API: OpenAI, OpenRouter, Gemini, Mistral vai modelis jūsu datorā ar Ollama vai LM Studio. Katra skenēšana nosūta fotoattēlu uz šo pakalpojumu, un pakalpojums var iekasēt maksu par to.</string>
-    <string name="tooldetail_ocr_online_key_hint">Atstājiet tukšu serverim, kuram nav nepieciešama atslēga</string>
-    <string name="tooldetail_ocr_online_key_label">API atslēga</string>
-    <string name="tooldetail_ocr_online_model_hint">Modelis, kas nolasa attēlus, piemēram, gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modelis</string>
-    <string name="tooldetail_ocr_online_url_hint">Piemēram, https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adrese</string>
     <string name="tooldetail_ocr_packs_header">Tesseract valodas</string>
     <string name="tooldetail_ocr_packs_info">Tesseract nolasa valodu tikai pēc tam, kad attiecīgās valodas dati atrodas jūsu ierīcē. Katrai valodai, kurā rakstāt, ir nepieciešama viena lejupielāde (no 0,4 MB līdz 12 MB). Dati nāk no Tesseract projekta tessdata_fast kopas vietnē GitHub. Valodu varat lejupielādēt arī no paša skenera.</string>
     <string name="tooldetail_ocr_packs_none_info">Nevienai no ieslēgtajām valodām nav Tesseract datu. Pievienojiet valodu valodu ekrānā. Pēc tam tās dati parādīsies šeit.</string>
@@ -8795,11 +8778,9 @@
     <string name="typing_trail_opacity_title">Pēdas necaurredzamība</string>
     <string name="typing_trail_width_subtitle">Slīdēšanas takas biezums</string>
     <string name="typing_trail_width_title">Takas platums</string>
-    <string name="typing_two_thumb_info">Izmantojiet abus īkšķus kopā. Katrs īkšķis var pieskarties vai pārvilkt vienlaikus ar otru, un katrs pieskāriens un pārvilkšana papildina to pašu vārdu. Piemēram, pieskarieties S ar kreiso īkšķi, pārvelciet O uz M ar labo, pieskarieties E ar kreiso, tad pārvelciet T H I N G ar labo, un jūs iegūsiet kaut ko. Pieskāriens, kas notiek, kamēr otrs īkšķis vēl velk, tiek ievietots vārdā tajā punktā, tāpēc pārvilkšana pāri H E L O un pieskāriens uz L dod hello. Atpakaļatkāpes taustiņš noņem pēdējo pieskārienu vai pārvilkšanu no vārda.</string>
     <string name="typing_two_thumb_subtitle">Pieskarieties un velciet ar abiem īkšķiem vienlaikus, lai izveidotu vienu vārdu</string>
     <string name="typing_two_thumb_title">Rakstīšana ar diviem īkšķiem</string>
     <string name="typing_two_thumb_word_end_all_up_label">Viss kārtībā</string>
-    <string name="typing_two_thumb_word_end_info">Ar atstarpi vārds paliek atvērts, kamēr jūs pieskaraties un velkat, un tastatūra to nolasa vēlreiz pēc katras darbības. Pieskarieties atstarpei vai pieturzīmei, lai to ievadītu. Kad abi īkšķi ir pacelti, vārds tiek ievadīts ar atstarpi, tiklīdz neviens īkšķis vairs nepieskaras tastatūrai, līdzīgi kā parastajā slīdošajā ievadē, tāpēc īkšķiem ir jāpārklājas, lai kopīgotu vārdu.</string>
     <string name="typing_two_thumb_word_end_space_label">Atstarpe</string>
     <string name="typing_two_thumb_word_end_subtitle">Kas ieraksta vārdu, kuru veidojat</string>
     <string name="typing_two_thumb_word_end_title">Pabeigt vārdu ar diviem īkšķiem</string>

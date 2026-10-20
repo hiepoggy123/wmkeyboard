@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
@@ -149,6 +150,7 @@ import androidx.compose.ui.layout.layout
 import kotlin.math.roundToInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -234,6 +236,9 @@ class MainActivity : FragmentActivity() {
          * through the search index, the screen holding it.
          */
         const val EXTRA_OPEN_SETTING = MainActivityContract.EXTRA_OPEN_SETTING
+
+        /** Saved-state key of an unanswered [PairLinkDialog][com.wasimaster.wmkeyboard.app.kdeconnect.PairLinkDialog]. */
+        private const val STATE_PENDING_PAIR = "pending_pair"
     }
 
     private lateinit var repository: SettingsRepository
@@ -271,6 +276,12 @@ class MainActivity : FragmentActivity() {
     private val missingLink = MutableStateFlow<MissingLink?>(null)
 
     /**
+     * A computer's pairing link waiting for the user's yes. A link alone never
+     * pairs: any page or app can open one, naming any address (#702).
+     */
+    private val pendingPair = MutableStateFlow<String?>(null)
+
+    /**
      * The app language (#322). On Android 12 and older nothing else applies
      * it, so the base context itself carries the chosen locale; on Android 13+
      * [AppLanguage.wrap] hands the context back as it came. On Play, the
@@ -295,6 +306,9 @@ class MainActivity : FragmentActivity() {
         // without a Context by the tool lists below, so it has to be answered
         // before the first screen composes.
         PlayServices.prime(applicationContext)
+        // The Google Home consent flow needs its launcher registered before
+        // the activity is started; the smart home editor asks for it later.
+        com.wasimaster.wmkeyboard.ime.homeassistant.googlehome.GoogleHomeSupport.register(this)
         repository = SettingsRepository(applicationContext)
         appLock = BiometricAppLock(this, repository)
         // The JSON asset layouts back the tail of the language list; the first
@@ -317,6 +331,7 @@ class MainActivity : FragmentActivity() {
         // comes back from the saved state, so one the user already closed
         // stays closed.
         missingLink.value = if (savedInstanceState != null) MissingLink.restore(savedInstanceState) else nav?.missing
+        if (savedInstanceState != null) pendingPair.value = savedInstanceState.getString(STATE_PENDING_PAIR)
         setContent {
             val stored = repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
@@ -348,12 +363,28 @@ class MainActivity : FragmentActivity() {
                     LocalAppUpdater provides updater,
                     LocalAppLock provides appLock,
                 ) {
-                    SettingsNavHost(
-                        repository = repository,
-                        settings = settings,
-                        pending = pending,
-                        onPendingHandled = { pendingNav.value = null },
-                    )
+                    // From Android 15 the window is edge to edge, the
+                    // keyboard's inset reaches the screens, and the pan the
+                    // fields below used to rely on lost races with a keyboard
+                    // that grows after the field is focused: Trigger words and
+                    // Try the rules stayed under the keys (#679). So the
+                    // screens stop at the keyboard instead, the window is told
+                    // not to pan, and a scrolling list keeps its focused field
+                    // in view as it shrinks, which Compose's scroll containers
+                    // do for the focused child. A screen that pads itself by the
+                    // keyboard already gets nothing twice: the padding here
+                    // consumes the inset. Before 15 the inset does not reach a
+                    // window that fits the system bars, so the pan stays.
+                    val stopAtKeyboard = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                    if (stopAtKeyboard) ResizeForKeyboard()
+                    Box(if (stopAtKeyboard) Modifier.imePadding() else Modifier) {
+                        SettingsNavHost(
+                            repository = repository,
+                            settings = settings,
+                            pending = pending,
+                            onPendingHandled = { pendingNav.value = null },
+                        )
+                    }
                     // Settings fields rely on the window panning; keep it in
                     // step with a keyboard that changes height under them.
                     RepanOnKeyboardResize()
@@ -365,7 +396,20 @@ class MainActivity : FragmentActivity() {
                     // the offer arrives.
                     val missing by missingLink.collectAsStateWithLifecycle()
                     val link = missing
-                    if (link != null) {
+                    // A pairing link asks first, and nothing else stacks on it.
+                    val pairState by pendingPair.collectAsStateWithLifecycle()
+                    val pairLink = pairState
+                    val pairCode = pairLink?.let { com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode.parse(it) }
+                    if (pairLink != null && pairCode != null) {
+                        com.wasimaster.wmkeyboard.app.kdeconnect.PairLinkDialog(
+                            pairCode,
+                            onPair = {
+                                pendingPair.value = null
+                                pairByLink(pairLink)
+                            },
+                            onDismiss = { pendingPair.value = null },
+                        )
+                    } else if (link != null) {
                         // Holds the update offer itself, so the ordinary
                         // prompt waits rather than stacking a second dialog.
                         NewerLinkDialog(link, settings) { missingLink.value = null }
@@ -389,6 +433,18 @@ class MainActivity : FragmentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         missingLink.value?.save(outState)
+        pendingPair.value?.let { outState.putString(STATE_PENDING_PAIR, it) }
+    }
+
+    /** Turns KDE Connect on and pairs with the computer [link] names; see KdeConnectHub.pairByCode. */
+    private fun pairByLink(link: String) {
+        val repository = com.wasimaster.wmkeyboard.core.settings.SettingsRepository(applicationContext)
+        lifecycleScope.launch {
+            repository.setKdeEnabled(true)
+            com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.attach(applicationContext)
+            com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.applySettings(repository.settings.first().kdeConnect)
+            com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.pairByCode(link)
+        }
     }
 
     override fun onResume() {
@@ -421,18 +477,25 @@ class MainActivity : FragmentActivity() {
         // An https /open/ address is one of ours wearing a web page's
         // clothes; unwrap it first and everything below treats it the same.
         val link = WebOpenLink.appLink(intent.data) ?: intent.data?.toString()
-        // A computer's pairing code: KDE Connect on, pairing under way, and
-        // the devices screen open to watch it happen. The code only pairs with
-        // the computer whose certificate it names; see KdeConnectHub.pairByCode.
+        // A computer's pairing code: the devices screen opens, and the phone
+        // pairs once the user says yes in PairLinkDialog. The code only pairs
+        // with the computer whose certificate it names, but the code itself can
+        // come from anyone, so it never pairs on its own.
         if (link != null && com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode.parse(link) != null) {
-            val repository = com.wasimaster.wmkeyboard.core.settings.SettingsRepository(applicationContext)
-            lifecycleScope.launch {
-                repository.setKdeEnabled(true)
-                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.attach(applicationContext)
-                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.applySettings(repository.settings.first().kdeConnect)
-                com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.pairByCode(link)
-            }
+            pendingPair.value = link
             return PendingNav(route = com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub.DEVICES_ROUTE)
+        }
+        // Home Assistant's browser sign-in coming back with its code: checked
+        // against the state saved when Sign in was pressed, exchanged for
+        // tokens, and the tool page shows the result.
+        com.wasimaster.wmkeyboard.core.homeassistant.HaAuth.parseCallback(link)?.let { callback ->
+            com.wasimaster.wmkeyboard.app.homeassistant.HaSignIn.finish(applicationContext, lifecycleScope, callback)
+            return PendingNav(route = "tool/${ToolbarTool.HOME_ASSISTANT.name}")
+        }
+        // The same for SmartThings, through the hosted /st/ page.
+        com.wasimaster.wmkeyboard.core.smarthome.smartthings.SmartThingsAuth.parseCallback(link)?.let { callback ->
+            com.wasimaster.wmkeyboard.app.homeassistant.SmartThingsSignIn.finish(applicationContext, lifecycleScope, callback)
+            return PendingNav(route = "tool/${ToolbarTool.HOME_ASSISTANT.name}")
         }
         AddonDeepLink.routeFor(link)?.let { return PendingNav(route = it) }
         SettingsDeepLink.parse(link)?.let { target -> return pendingFor(target) }
@@ -689,9 +752,19 @@ private fun SettingsNavHost(
     // pinned, or summoned by the floating button or the shade. Open the test
     // field as its button would, so the keys have somewhere to type and the
     // screen is padded clear of them rather than hiding its bottom rows.
+    // Once per visit, though: the field closes with the keyboard, and a
+    // pinned keyboard that an app hides comes straight back, so reopening on
+    // every return turned into a loop of the field and the keyboard going up
+    // and down that froze the phone's recent apps button (#665). Coming back
+    // to the app is a new visit.
     val upWithoutField by KeyboardControls.upOverOwnApp.collectAsStateWithLifecycle()
+    var previewAutoOpened by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { previewAutoOpened = false }
     LaunchedEffect(upWithoutField, previewWanted) {
-        if (upWithoutField && previewWanted) preview.open = true
+        if (upWithoutField && previewWanted && !previewAutoOpened) {
+            previewAutoOpened = true
+            preview.open = true
+        }
     }
     CloseOrphanedKeyboardPreview(preview)
     val context = LocalContext.current
@@ -944,6 +1017,10 @@ private fun SettingsNavGraph(
                 SettingsSearchScreen(
                     settings = settings,
                     onBack = { navController.popBackStack() },
+                    onAsk = { question ->
+                        com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantSession.pendingQuestion = question
+                        navController.navigate("settings_assistant")
+                    },
                     onOpen = { result ->
                         // Arm the flash before navigating: the destination's
                         // rows read it during their first composition.
@@ -1256,6 +1333,26 @@ private fun SettingsNavGraph(
                 com.wasimaster.wmkeyboard.app.kdeconnect.KdeDevicesScreen(repository, settings)
             }
         }
+        composable("send/instances") {
+            SettingsScreen(
+                stringResource(R.string.send_instances_screen_title),
+                { navController.popBackStack() },
+                route = "send/instances",
+                subtitle = stringResource(R.string.send_instances_screen_subtitle),
+            ) {
+                com.wasimaster.wmkeyboard.app.send.SendInstancesScreen(repository, settings)
+            }
+        }
+        composable("send/history") {
+            SettingsScreen(
+                stringResource(R.string.send_history_screen_title),
+                { navController.popBackStack() },
+                route = "send/history",
+                subtitle = stringResource(R.string.send_history_screen_subtitle),
+            ) {
+                com.wasimaster.wmkeyboard.app.send.SendHistoryScreen(repository, settings)
+            }
+        }
         composable("cliprules") {
             SettingsScreen(
                 stringResource(R.string.clipboard_copy_rules_title),
@@ -1544,6 +1641,11 @@ private fun SettingsNavGraph(
             val word = android.net.Uri.decode(backStackEntry.arguments?.getString("word").orEmpty())
             SettingsScreen(word, { navController.popBackStack() }, route = vocabWordRoute(packId, word)) {
                 VocabWordScreen(packId, word, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable("homeassistant/entities") {
+            SettingsScreen(stringResource(R.string.ha_entities_title), { navController.popBackStack() }, route = "homeassistant/entities") {
+                com.wasimaster.wmkeyboard.app.homeassistant.HaEntitiesScreen(repository, settings)
             }
         }
         composable("clock") {
@@ -1917,6 +2019,39 @@ private fun SettingsNavGraph(
                 )
             }
         }
+        composable("kaomoji") {
+            SettingsScreen(
+                stringResource(R.string.langemoji_kaomoji_title),
+                { navController.popBackStack() },
+                route = "kaomoji",
+                subtitle = stringResource(R.string.langemoji_kaomoji_subtitle),
+                subtitleMaxLines = 2,
+            ) {
+                KaomojiSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("kaomoji/faces") {
+            SettingsScreen(
+                stringResource(R.string.langemoji_kaomoji_faces_title),
+                { navController.popBackStack() },
+                route = "kaomoji/faces",
+                subtitle = stringResource(R.string.langemoji_kaomoji_faces_subtitle),
+                subtitleMaxLines = 2,
+            ) {
+                KaomojiFacesScreen(repository)
+            }
+        }
+        composable("kaomoji/tags") {
+            SettingsScreen(
+                stringResource(R.string.langemoji_kaomoji_tags_title),
+                { navController.popBackStack() },
+                route = "kaomoji/tags",
+                subtitle = stringResource(R.string.langemoji_kaomoji_tags_subtitle),
+                subtitleMaxLines = 2,
+            ) {
+                KaomojiTagsScreen(repository)
+            }
+        }
         composable("voice") {
             SettingsScreen(
                 stringResource(R.string.home_voice_title),
@@ -1989,13 +2124,24 @@ private fun SettingsNavGraph(
                 SnippetEditor(settings, snippetId) { navController.popBackStack() }
             }
         }
+        composable("ai") {
+            SettingsScreen(
+                stringResource(R.string.home_ai_title),
+                { navController.popBackStack() },
+                route = "ai",
+            ) {
+                AiHubSettings(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
         composable("tools") {
+            var query by rememberSaveable { mutableStateOf("") }
             SettingsScreen(
                 stringResource(R.string.home_tools_title),
                 { navController.popBackStack() },
                 route = "tools",
+                pinned = { ToolsSearchField(query) { query = it } },
             ) {
-                ToolsSettings(repository, settings) { tool -> navController.navigate("tool/${tool.name}") }
+                ToolsSettings(repository, settings, query) { tool -> navController.navigate("tool/${tool.name}") }
             }
         }
         composable("tool/{toolName}") { backStackEntry ->
@@ -2152,6 +2298,15 @@ private fun SettingsNavGraph(
                 SelectionMacroAiScreen(repository, settings) { navController.navigate(it) }
             }
         }
+        composable(SelectionMacroIconsRoute) {
+            SettingsScreen(
+                stringResource(R.string.selection_macros_icons_title),
+                { navController.popBackStack() },
+                route = SelectionMacroIconsRoute,
+            ) {
+                SelectionMacroIconsScreen(repository, settings)
+            }
+        }
         composable(SelectionMacroZonesRoute) {
             SettingsScreen(
                 stringResource(R.string.selection_macros_zones_title),
@@ -2168,6 +2323,15 @@ private fun SettingsNavGraph(
                 route = "advanced",
             ) {
                 AdvancedSettings { route -> navController.navigate(route) }
+            }
+        }
+        composable(FloatingButtonRoute) {
+            SettingsScreen(
+                stringResource(R.string.floating_button_title),
+                { navController.popBackStack() },
+                route = FloatingButtonRoute,
+            ) {
+                FloatingButtonSettingsScreen(repository, settings)
             }
         }
         composable("rows") {
@@ -2225,6 +2389,21 @@ private fun SettingsNavGraph(
         // gate has to be written out by hand. Both answer to the same target:
         // locking the list has to lock a deep link straight into one
         // conversation, or it locks nothing.
+        composable("settings_assistant") {
+            LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
+                com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantScreen(
+                    settings = settings,
+                    repository = repository,
+                    onBack = { navController.popBackStack() },
+                    onOpen = { entry ->
+                        // As a search result opens: flash the row, then go.
+                        SettingsHighlight.request(entry.titleRes)
+                        navController.navigate(entry.route)
+                    },
+                    onOpenAiSettings = { navController.navigate("tool/${ToolbarTool.AI.name}") },
+                )
+            }
+        }
         composable("ai_chat") {
             LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
                 AiChatListScreen(
@@ -2337,6 +2516,7 @@ private fun SettingsNavGraph(
                     repository = repository,
                     persona = settings.watch { it.onboarding },
                     onOpenLicenses = { navController.navigate("licenses") },
+                    onOpenSupporters = { navController.navigate("supporters") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
                     onOpenStorage = { navController.navigate("storage") },
@@ -2412,6 +2592,15 @@ private fun SettingsNavGraph(
                 route = "licenses",
             ) {
                 LicensesScreen { navController.navigate("license_text/$it") }
+            }
+        }
+        composable("supporters") {
+            SettingsScreen(
+                stringResource(R.string.about_supporters_title),
+                { navController.popBackStack() },
+                route = "supporters",
+            ) {
+                SupportersScreen()
             }
         }
         composable("license_text/{asset}") { backStackEntry ->
@@ -2829,6 +3018,13 @@ internal fun AdvancedSettings(onNavigate: (String) -> Unit) {
                 route = SelectionMacroRoute,
             ) { onNavigate(SelectionMacroRoute) }
         }
+        item {
+            NavRow(
+                R.string.floating_button_title,
+                stringResource(R.string.floating_button_subtitle),
+                route = FloatingButtonRoute,
+            ) { onNavigate(FloatingButtonRoute) }
+        }
     }
 }
 
@@ -2897,6 +3093,8 @@ private fun AnimatedVisibilityScope.SettingsScreen(
     subtitle: String? = null,
     subtitleInBar: Boolean = false,
     subtitleMaxLines: Int = 1,
+    /** Held under the bar while the body scrolls; see [WmScreen]'s own. */
+    pinned: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     // A highlight that found no matching row on this screen (the searched
@@ -2920,6 +3118,7 @@ private fun AnimatedVisibilityScope.SettingsScreen(
         subtitleInBar = subtitleInBar,
         subtitleMaxLines = subtitleMaxLines,
         anim = this,
+        pinned = pinned,
     ) {
         // The one place every settings destination passes through, and it
         // already knows its own route, so the fingerprint gate needs no new

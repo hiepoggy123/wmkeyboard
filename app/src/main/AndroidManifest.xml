@@ -50,8 +50,9 @@
     <uses-permission
         android:name="android.permission.MODIFY_AUDIO_SETTINGS"
         android:maxSdkVersion="30" />
-    <!-- Only used by the optional contact-name suggestions setting; names
-         are read into memory for the suggestion strip, never stored. -->
+    <!-- Used by the optional contact-name and contact-email suggestions, and
+         by the calendar tool's guest suggestions; read into memory, never
+         stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Only used by the optional location tool (#350), and by "Use my
@@ -64,13 +65,26 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- The Send files tool's direct link (#729): a Wi-Fi Direct group or a
+         local-only hotspot one phone opens for the other to join. From Android
+         13 that is the Nearby devices permission, declared never for location;
+         before it the same calls sit behind the location permission above.
+         The two normal permissions let the app open the group and ask for the
+         per-app network it joins. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
     <!-- Used by the optional calendar tool to list the day's events while it
          is open, and by the AI's calendar tool (#698) when the user allows it. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
 
-    <!-- Only used by the AI's "add it directly" for calendar events (#698),
-         which is off until the user picks it and grants this. Adds events
-         only; nothing in the app edits or deletes one. -->
+    <!-- Used by the calendar tool's Save, Edit and Delete, asked for on the
+         first save, and by the AI's "add it directly" for calendar events
+         (#698). Every write is one the user made or approved. -->
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <!-- Only used by the optional "Add words to the system dictionary" setting.
@@ -135,6 +149,8 @@
 
     <!-- The clock tool's alarms and timers. All of it only after the user
          sets an alarm or starts a timer; none of it does anything otherwise.
+         SCHEDULE_EXACT_ALARM also lets a reminder that a plugin set (a to-do
+         item that is due) show at its minute; the same grant, asked once. 
          - SCHEDULE_EXACT_ALARM: an alarm set for 6:30 rings at 6:30, not at
            whatever minute Doze lets through. From Android 12 a special grant
            the user gives on a system screen, asked after a disclosure; without
@@ -192,14 +208,28 @@
     <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 
+    <!-- AnkiDroid's own permission (#765): the Look up card adds a word to a
+         deck through AnkiDroid's content provider. A runtime permission that
+         AnkiDroid defines; asked for only when the user sends a word, behind
+         PermissionDisclosures.ANKIDROID. -->
+    <uses-permission android:name="com.ichi2.anki.permission.READ_WRITE_DATABASE" />
+
     <!-- The keyboard-mode editor lists installed apps (launcher activities)
          so a mode can be bound to specific apps; Android 11+ hides the app
          list without this. -->
     <queries>
+        <!-- AnkiDroid, its provider and its note editor, for the Look up card's
+             Add to Anki (#765). -->
+        <package android:name="com.ichi2.anki" />
+        <provider android:authorities="com.ichi2.anki.flashcards" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- The Google Home app, which the Home APIs run through; without this
+             entry API 30+ hides it from PackageManager and the smart home tool
+             would offer a Google Home row on a phone that cannot use one. -->
+        <package android:name="com.google.android.apps.chromecast.app" />
         <!-- Speech synthesisers, for the vocabulary card's speaker button when
              Wiktionary has no recording (or the network is not to be used). -->
         <intent>
@@ -338,6 +368,10 @@
                 <data android:scheme="wmkeyboard" android:host="addon" />
                 <!-- A computer's pairing code (WMK Desktop): KdeConnectHub.pairByCode. -->
                 <data android:scheme="wmkeyboard" android:host="pair" />
+                <!-- Home Assistant's browser sign-in coming back with its code: HaAuth.REDIRECT_URI. -->
+                <data android:scheme="wmkeyboard" android:host="ha-auth" />
+                <!-- SmartThings' sign-in, through the hosted /st/ page: SmartThingsAuth.REDIRECT_URI. -->
+                <data android:scheme="wmkeyboard" android:host="st-auth" />
             </intent-filter>
 
             <!--
@@ -886,9 +920,39 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- "Send with WM Keyboard" from another app's share sheet (#729): an
+             encrypted link through a Send instance, or a device nearby. The
+             alias is switched on by the keyboard while the tool and its share
+             sheet setting are on; never rename it, share targets remember
+             component names. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.send.SendShareActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.SendShareAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/send_share_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.send.SendShareActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Accept / Reject on a pair-request notification. -->
         <receiver
             android:name="com.wasimaster.wmkeyboard.ime.kdeconnect.KdeActionReceiver"
+            android:exported="false" />
+
+        <!-- Copy link / Open on the Send files tool's notifications (#729). -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.ime.send.SendActionReceiver"
             android:exported="false" />
 
         <!-- Same trampoline pattern for the voice input tool's
@@ -931,6 +995,24 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- The calendar tool's WRITE_CALENDAR, asked on the first Save. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.CalendarWritePermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The calendar tool's guest suggestions: READ_CONTACTS. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ContactGuestsPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!--
              The AI chat as a sheet over the app the user was in (#697). Opened
              by the floating AI button with the screen's text, and by "Ask AI"
@@ -953,6 +1035,31 @@
             </intent-filter>
         </activity>
 
+        <!--
+             The Look up card (#765): a word from another app, defined over it.
+             Opened by the floating button's Look up with the text around a
+             tapped word, and by "Look up" in the text selection menu (the alias
+             below, which the Look up settings can switch off).
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.LookupActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/lookup_label"
+            android:taskAffinity="com.wasimaster.wmkeyboard.lookup"
+            android:theme="@style/Theme.WMKeyboard.Sheet" />
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.LookupSelectionMenu"
+            android:exported="true"
+            android:label="@string/lookup_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.LookupActivity">
+            <intent-filter android:label="@string/lookup_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Same trampoline pattern for the screenshot setting's
              android.permission.READ_MEDIA_IMAGES (or READ_EXTERNAL_STORAGE). -->
         <activity
@@ -972,6 +1079,15 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- The Send files tool's Nearby devices (or location) grant for a direct link (#729), same trampoline. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.SendNearbyPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- The gallery tool's system pickers (#708): Android's photo picker
              (the whole tool in a Play build) and the document picker. No
              noHistory, for the scanner's reason below: the picker's result
@@ -981,6 +1097,25 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The Send files tool's document picker (#729), the same shape. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.SendPickActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery editor's "Replace the original" (#708): Android's consent
+             dialog for changing a photo another app made, which only an
+             activity can ask for. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryWriteActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
@@ -1209,6 +1344,14 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- The wake-up for reminders that plugins set (wm.reminders). Not
+             exported: only the app's own alarm sends it. Not direct-boot aware:
+             plugins live in storage that stays locked until the first unlock,
+             and the unlock re-arms (PluginReminderAlarms.rearmOnStart). -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.core.plugins.PluginReminderReceiver"
+            android:exported="false" />
 
         <!-- Plays an alarm or a timer while it rings, and only then. -->
         <service

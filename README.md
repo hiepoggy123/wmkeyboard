@@ -12,12 +12,13 @@ An open source multilingual Android keyboard with prediction, glide typing, tran
 emoji search and a 75+ tool toolbox that all run on the phone and never phone home.
 
 <a href="https://github.com/wasi-master/wmkeyboard/releases/latest"><img src="https://img.shields.io/github/v/release/wasi-master/wmkeyboard?style=flat-square&label=Release&color=3DDC84&logo=android&logoColor=white" alt="Latest release"></a>
-<a href="https://play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard"><img src="https://img.shields.io/badge/Google%20Play-Get%20it-01875F?style=flat-square&logo=googleplay&logoColor=white" alt="Google Play"></a>
+<a href="https://play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwasi-master%2Fwmkeyboard%2Fbadges%2Fplay.json&style=flat-square&logo=googleplay&logoColor=white" alt="Google Play"></a>
 <a href="https://f-droid.org/packages/com.wasimaster.wmkeyboard/"><img src="https://img.shields.io/f-droid/v/com.wasimaster.wmkeyboard?style=flat-square&label=F-Droid&color=1976D2&logo=fdroid&logoColor=white" alt="F-Droid"></a>
 <a href="https://github.com/wasi-master/wmkeyboard/releases"><img src="https://img.shields.io/github/downloads/wasi-master/wmkeyboard/total?style=flat-square&label=Downloads&color=6C5CE7&logo=rolldown&logoColor=white" alt="Downloads"></a>
 <a href="https://github.com/wasi-master/wmkeyboard/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wasi-master/wmkeyboard/ci.yml?style=flat-square&label=CI&logo=githubactions&logoColor=white" alt="CI"></a>
 <a href="https://wmkeyboard.pages.dev"><img src="https://img.shields.io/badge/Docs-wmkeyboard.pages.dev-F38020?style=flat-square&logo=cloudflarepages&logoColor=white" alt="Docs"></a>
 <a href="https://t.me/wmkeyboard"><img src="https://img.shields.io/badge/Telegram-Join%20Chat-24A1DE?style=flat-square&logo=telegram&logoColor=white" alt="Telegram Group"></a>
+<a href="https://supportkori.com/wasimaster"><img src="https://img.shields.io/badge/SupportKori-Donate-FFDD00?style=flat-square&logo=data%3Aimage/svg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNS41IiBmaWxsPSIjRkZERDAwIi8%2BPGNpcmNsZSBjeD0iOC44IiBjeT0iOC4yIiByPSIxLjgiIGZpbGw9IiMxMDE4MjgiLz48Y2lyY2xlIGN4PSIxNS4yIiBjeT0iOC4yIiByPSIxLjgiIGZpbGw9IiMxMDE4MjgiLz48cGF0aCBkPSJNMy40IDkuOGMuMiA1LjUgMy44IDkuMiA4LjYgOS4yczguNC0zLjcgOC42LTkuMmMuMS0uOC0uNi0xLjQtMS40LTEuMy0uOC4xLTEuMy44LTEuNCAxLjUtLjIgMy44LTIuNiA2LjMtNS44IDYuM3MtNS42LTIuNS01LjgtNi4zYy0uMS0uNy0uNi0xLjQtMS40LTEuNS0uOC0uMS0xLjUuNS0xLjQgMS4zeiIgZmlsbD0iIzEwMTgyOCIvPjwvc3ZnPg%3D%3D&labelColor=101828" alt="Support on SupportKori"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-1f6feb?style=flat-square&logo=spdx&logoColor=white" alt="MIT license"></a>
 
 <a href="#install">Install</a> · <a href="#the-tour">Tour</a> · <a href="#languages">Languages</a> · <a href="#privacy">Privacy</a> · <a href="#editions">Editions</a> · <a href="#faq">FAQ</a> · <a href="#build-it-yourself">Build</a> · <a href="https://wmkeyboard.pages.dev"><b>Read the docs</b></a>
@@ -104,7 +105,7 @@ The features the keyboard has
 
 ### Languages
 
-- **826 languages, 1,700+ layouts** from one data-driven registry: native scripts, InScript
+- **955 languages, 1,900+ layouts** from one data-driven registry: native scripts, InScript
   variants, romanised entries, CJK, minority Cyrillic alphabets, and a dozen constructed ones. A
   fresh install starts in whatever your phone is already set to.
 - **Bangla, done properly.** Avro phonetic, Probhat with aspirates on shift, Jatiya, Khipro Classic and Dark,
@@ -195,7 +196,7 @@ learning behave identically with the radio off.
 | Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 219 |
 | Languages, scripts, layouts, transliteration | 11 | 64 | 213 |
 | Themes and appearance | 14 | 73 | 183 |
-| Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
+| Emoji, GIFs, stickers, kaomoji | 16 | 96 | 94 |
 | Toolbar and the tool set | 10 | 85 | 311 |
 | Clipboard, snippets, text expansion | 7 | 37 | 191 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
@@ -203,7 +204,7 @@ learning behave identically with the radio off.
 | Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
-| **Total** | **133** | **807** | **2,229** |
+| **Total** | **133** | **815** | **2,229** |
 
 Entries marked `RARE` there are things few or no mainstream keyboards ship. There are over 400.
 
@@ -243,8 +244,8 @@ words the settings app shows you. Every layout and dictionary is in both.
 - **Google Play** carries the Full edition. Play delivers the heavier on-device parts (the local
   LLM runtime, the translation engine, handwriting, the offline-voice interpreter) the first time
   you use them, so the install stays small, and updates it like any other app.
-- **F-Droid** carries the Lite edition, built from source and checked byte-for-byte against the
-  `-fdroid.apk` on the matching GitHub release.
+- **F-Droid** carries the Lite edition, built from source as one APK per CPU architecture and
+  checked byte-for-byte against the matching `-fdroid.apk` on the GitHub release.
 - **GitHub releases** carry both editions, each in English-only and all-languages builds, for
   `arm64-v8a`, `armeabi-v7a`, `x86_64` and a universal APK. Almost every phone made since 2017
   wants `arm64-v8a`. A `SHA256SUMS.txt` sits next to them.
@@ -409,6 +410,7 @@ core/
 ├── content/          Clipboard, snippets, fonts, media, stickers
 ├── tools/            Offline tool engines: calc, units, currency, symbols, calendars
 ├── kdeconnect/       KDE Connect client
+├── send/             Send (Firefox Send fork) client: encrypted file links
 ├── icons/            Icon packs and the SVG parser
 ├── theme/            ThemeSpec, palettes, rendering
 ├── emoji/            Catalog loader, semantic search, usage tracking

@@ -148,6 +148,9 @@ export const ROUTES: RouteSpec[] = [
 
 	{ pattern: 'emoji', label: 'Emoji', group: 'Emoji, clipboard and stickers' },
 	{ pattern: 'emoji/panel', label: 'Emoji panel', group: 'Emoji, clipboard and stickers' },
+	{ pattern: 'kaomoji', label: 'Kaomoji', group: 'Emoji, clipboard and stickers' },
+	{ pattern: 'kaomoji/faces', label: 'Your kaomoji, to add, change, sort and delete', group: 'Emoji, clipboard and stickers' },
+	{ pattern: 'kaomoji/tags', label: 'Kaomoji tags, in the order the tag strip shows them', group: 'Emoji, clipboard and stickers' },
 	{ pattern: 'emojikeywords', label: 'Emoji keywords', group: 'Emoji, clipboard and stickers' },
 	{ pattern: 'emojicategories', label: 'Emoji categories', group: 'Emoji, clipboard and stickers' },
 	{
@@ -203,6 +206,7 @@ export const ROUTES: RouteSpec[] = [
 		],
 	},
 	{ pattern: 'clock', label: 'Clock', group: 'Tools' },
+	{ pattern: 'homeassistant/entities', label: 'Favourites and rooms', group: 'Tools' },
 	{ pattern: 'notes', label: 'Notes', group: 'Tools' },
 	{
 		pattern: 'notes/edit/{noteId}',
@@ -235,6 +239,8 @@ export const ROUTES: RouteSpec[] = [
 	{ pattern: 'musicapps', label: 'Music players', group: 'Tools' },
 	{ pattern: 'launchercombos', label: 'Split screen pairs, for the app launcher', group: 'Tools' },
 	{ pattern: 'kdeconnect/devices', label: 'KDE Connect devices', group: 'Tools' },
+	{ pattern: 'send/instances', label: 'Send instances', group: 'Tools' },
+	{ pattern: 'send/history', label: 'Send history', group: 'Tools' },
 	{ pattern: 'ai_actions', label: 'AI actions', group: 'Tools' },
 	{
 		pattern: 'ai_action_edit/{actionId}',
@@ -267,6 +273,7 @@ export const ROUTES: RouteSpec[] = [
 	},
 
 	{ pattern: 'advanced', label: 'Advanced', group: 'Advanced' },
+	{ pattern: 'floating_button', label: 'Floating button', group: 'Advanced' },
 	{ pattern: 'modes', label: 'Keyboard modes', group: 'Advanced' },
 	{
 		pattern: 'mode_edit/{modeId}',
@@ -309,6 +316,7 @@ export const ROUTES: RouteSpec[] = [
 	{ pattern: 'notifications', label: 'Notifications', group: 'Advanced' },
 	{ pattern: 'selection_macros', label: 'Selection actions', group: 'Advanced' },
 	{ pattern: 'selection_macros/actions', label: 'Selection actions: the list and its order', group: 'Advanced' },
+	{ pattern: 'selection_macros/icons', label: 'Selection actions: the icon-only actions', group: 'Advanced' },
 	{ pattern: 'selection_macros/ai', label: 'Selection actions: the AI buttons', group: 'Advanced' },
 	{ pattern: 'selection_macros/zones', label: 'Selection actions: the time zones', group: 'Advanced' },
 
@@ -334,6 +342,7 @@ export const ROUTES: RouteSpec[] = [
 	{ pattern: 'statistics', label: 'Statistics', group: 'About' },
 	{ pattern: 'debug_log', label: 'Diagnostics', group: 'About' },
 	{ pattern: 'licenses', label: 'Open-source licences', group: 'About' },
+	{ pattern: 'supporters', label: 'Supporters', group: 'About' },
 	{
 		pattern: 'license_text/{asset}',
 		label: "One licence's full text",
@@ -354,7 +363,8 @@ export const TOOL_NAMES = [
 	'CURSOR_RIGHT', 'CURSOR_UP', 'CURSOR_DOWN', 'CURSOR_HOME', 'CURSOR_END', 'PAGE_UP', 'PAGE_DOWN',
 	'CURSOR_WORD_LEFT', 'CURSOR_WORD_RIGHT', 'SELECT_WORD', 'SELECT_LINE', 'SELECT_ALL', 'SELECT_MODE', 'COPY',
 	'CUT', 'PASTE', 'HIDE_KEYBOARD', 'PERSISTENT', 'SELECTION_ACTIONS', 'LEARN_FROM_TEXT',
-	'PHONETIC_ENGLISH', 'KDE_CONNECT', 'STATISTICS', 'FIND_REPLACE', 'NOTES', 'AI_REPLY', 'LOCATION', 'CLOCK', 'GALLERY', 'LANGUAGE',
+	'PHONETIC_ENGLISH', 'KDE_CONNECT', 'STATISTICS', 'FIND_REPLACE', 'NOTES', 'AI_REPLY', 'LOCATION', 'CLOCK', 'HOME_ASSISTANT', 'GALLERY', 'LANGUAGE',
+	'TEXT_REPEAT', 'SEND_FILES',
 ];
 
 /**

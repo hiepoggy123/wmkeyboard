@@ -10,9 +10,11 @@ import com.wasimaster.wmkeyboard.app.llm.llmSplitCompat
 import com.wasimaster.wmkeyboard.app.modules.installOnDemandDelivery
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
+import com.wasimaster.wmkeyboard.core.providers.ProviderEnvironment
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 import com.wasimaster.wmkeyboard.core.settings.sync.SyncWatcher
+import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
 
 /**
  * Exists for one reason: to install the crash handler before anything else in
@@ -85,6 +87,18 @@ open class WMApplication : Application() {
             dropbox = BuildConfig.DROPBOX_APP_KEY,
             oneDrive = BuildConfig.ONEDRIVE_CLIENT_ID,
         )
+        // Whether the translate list can offer the on-device engine: ML Kit
+        // sits above the module that keeps the provider lists.
+        ProviderEnvironment.install(
+            onDeviceTranslate = OnDeviceTranslator.AVAILABLE,
+            googleHome = com.wasimaster.wmkeyboard.config.BuildConfig.ENABLE_GOOGLE_HOME,
+        )
+        // Where the Dictionary tool's offline dictionaries live, for a
+        // look-up from the keyboard or the AI tool alike. Only a path: before
+        // the unlock nothing is read, and a look-up then finds nothing.
+        com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries.attach(filesDir)
+        // The same for the dictionaries the user imported (#765).
+        com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries.attach(filesDir)
         // Sync between devices: keeps its jobs in step with the settings and
         // pushes shortly after a synced setting changes. Here because the
         // keyboard and the settings app share this process, and either may be
@@ -96,5 +110,8 @@ open class WMApplication : Application() {
         // Free for anyone who never set one (one file-exists check), and off
         // the main thread for those who did.
         com.wasimaster.wmkeyboard.core.clock.ClockEngine.rearmOnStart(this)
+        // The same for the reminders plugins set, for the same reason. Free
+        // for anyone with no plugin that declares reminders.
+        com.wasimaster.wmkeyboard.core.plugins.PluginReminderAlarms.rearmOnStart(this)
     }
 }

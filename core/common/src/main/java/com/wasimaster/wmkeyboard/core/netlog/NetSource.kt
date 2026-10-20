@@ -81,6 +81,9 @@ enum class NetSource(
     DOWNLOAD_WHISPER("download_whisper", ToolbarTool.VOICE),
     DOWNLOAD_LLM("download_llm", ToolbarTool.AI),
     DOWNLOAD_VOCAB("download_vocab", ToolbarTool.VOCABULARY),
+
+    /** An offline dictionary for the Dictionary tool (#665). */
+    DOWNLOAD_DICTIONARY("download_dictionary", ToolbarTool.DICTIONARY),
     DOWNLOAD_FONT("download_font"),
     DOWNLOAD_CUTOUT("download_cutout", ToolbarTool.STICKER),
 
@@ -99,7 +102,22 @@ enum class NetSource(
     LINK_IMPORT("link_import"),
     BACKUP("backup"),
     UPDATES("updates", background = true),
+
+    /** About › Supporters, when its refresh button is pressed. */
+    SUPPORTERS("supporters"),
+    /** A file sent or received by the Send files tool (#729): a link or a device nearby. */
+    SEND("send", ToolbarTool.SEND_FILES),
     KDE_CONNECT("kde_connect", ToolbarTool.KDE_CONNECT),
+
+    /** The user's own Home Assistant server: its socket, its REST calls, a camera picture. */
+    HOME_ASSISTANT("home_assistant", ToolbarTool.HOME_ASSISTANT),
+
+    /** The other homes of the smart home tool: Samsung's cloud, a Hue bridge on the LAN, an openHAB server, Tuya's and SwitchBot's clouds. */
+    SMARTTHINGS("smartthings", ToolbarTool.HOME_ASSISTANT),
+    HUE("hue", ToolbarTool.HOME_ASSISTANT),
+    OPENHAB("openhab", ToolbarTool.HOME_ASSISTANT),
+    TUYA("tuya", ToolbarTool.HOME_ASSISTANT),
+    SWITCHBOT("switchbot", ToolbarTool.HOME_ASSISTANT),
     OTHER("other"),
     ;
 

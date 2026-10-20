@@ -1150,7 +1150,7 @@
     <string name="clipboard_key_row_info">Illessz be egy linket, és nyomj entert a megnyitásához, vagy illessz be több vágólap-elemet szóközzel vagy új sorral elválasztva anélkül, hogy visszamennél a billentyűzetre. Az ABC visszavisz a betűkhöz. Ha módosítottad a panel elrendezését, ez a beállítás nem csinál semmit: inkább add hozzá a billentyűket az elrendezésszerkesztőben. A sor nem látható, amíg a vágólap a billentyűk felett van. Ez a beállítás alapértelmezés szerint ki van kapcsolva.</string>
     <string name="clipboard_key_row_subtitle">Egy billentyűsor a vágólap panel alján</string>
     <string name="clipboard_key_row_title">ABC, szóköz és enter billentyűk</string>
-    <string name="clipboard_line_spacing_info">100%-on a vágólap-elem sorai olyan közel vannak egymáshoz, amennyire a betűtípus engedi. Növelje az értékét a széthúzásukhoz. Az alapértelmezett 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">100%-on a vágólap-elem sorai olyan közel vannak egymáshoz, amennyire a betűtípus engedi. Növelje az értékét a széthúzásukhoz. Az alapértelmezett 130%.</string>
     <string name="clipboard_line_spacing_subtitle">A vágólapi szöveg sorai közötti távolság</string>
     <string name="clipboard_line_spacing_title">Sorköz</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2397,9 +2397,7 @@
     <string name="import_sticker_editor_border_white_option">Fehér</string>
     <string name="import_sticker_editor_border_width_label">Szegély szélessége</string>
     <string name="import_sticker_editor_brush_size_label">Ecsetméret</string>
-    <string name="import_sticker_editor_caption">A billentyűzet egy 512x512-es matricát ment el. Mozgassa és nagyítsa a képet a megtartandó rész kiválasztásához, majd távolítsa el a hátteret és adjon hozzá szegélyt. Az alkalmazás megőrzi ezt a képet a telefonon, így később újra szerkesztheti a matricát.</string>
     <string name="import_sticker_editor_crop_action">Körbevágás</string>
-    <string name="import_sticker_editor_crop_hint">Húzza a kép mozgatásához. Csippentse össze a nagyításhoz.</string>
     <string name="import_sticker_editor_cutout_action">Háttér eltávolítása</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Először töltse le a háttéreltávolítót. Ez egy 5 MB-os letöltés.</string>
     <string name="import_sticker_editor_cutout_download_progress">Az alkalmazás letölti a háttéreltávolítót…</string>
@@ -3511,7 +3509,6 @@
     <string name="layout_editor_alternate_columns_default">Beállításokból</string>
     <string name="layout_editor_alternate_columns_subtitle">Hány alternatívát helyez el ez a billentyű egy sorban</string>
     <string name="layout_editor_alternate_columns_title">Oszlopok a felugró ablakban</string>
-    <string name="layout_editor_alternate_hint_badge">tipp</string>
     <string name="layout_editor_alternates_field_hint">Válaszd el a bejegyzéseket szóközzel, így egy alternatíva nem lehet szóköz. Az egynél több karakterből álló bejegyzések, mint például a .com, helyesek. Az alkalmazás az elsőt a billentyű sarkában is megjeleníti.</string>
     <string name="layout_editor_alternates_field_label">Alternatívák a lenyomva tartáshoz</string>
     <string name="layout_editor_apply_action">Alkalmaz</string>
@@ -3607,7 +3604,6 @@
     <string name="layout_editor_field_row_title">Összetevő</string>
     <string name="layout_editor_fill_row_action">Sor kitöltése (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">A számok sora már mutatja a számjegyeket, ezért a billentyűzet ezt a sort jeleníti meg e réteg első sora helyett.</string>
-    <string name="layout_editor_fill_row_off_caption">Amikor a Számok sora be van kapcsolva, a billentyűzet ezt a sort jeleníti meg e réteg első sora helyett, mivel a számok sora már mutatja a számjegyeket. A Számok sora jelenleg ki van kapcsolva.</string>
     <string name="layout_editor_fill_row_title">Sor a számjegyek helyett</string>
     <string name="layout_editor_fit_row_action">Sor igazítása a rácshoz (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Nincs pöccintés ebben az irányban. Koppintson egy művelet kiválasztásához.</string>
@@ -3782,8 +3778,6 @@
     <string name="layout_editor_new_secondary_title">Másodlagos elrendezés indítása</string>
     <string name="layout_editor_not_live_caption">Az itt végzett módosítások csak akkor lépnek érvénybe gépeléskor, ha bekapcsolja a kiosztást a Nyelvek menüpont alatt.</string>
     <string name="layout_editor_number_row_caption">A billentyűzet ezt a sort jeleníti meg e réteg felett. Koppintson egy billentyűre a módosításához. Tartson lenyomva egy billentyűt és húzza az áthelyezéséhez.</string>
-    <string name="layout_editor_number_row_hidden_caption">A billentyűzet ezt a sort jeleníti meg e réteg felett, ha a Számok sora a szimbólumokban be van kapcsolva az Elrendezés és méret menüben. Jelenleg ki van kapcsolva.</string>
-    <string name="layout_editor_number_row_off_caption">A billentyűzet ezt a sort jeleníti meg e réteg felett, ha a Számok sora be van kapcsolva az Elrendezés és méret menüben. A Számok sora jelenleg ki van kapcsolva.</string>
     <string name="layout_editor_number_row_title">Számok sora</string>
     <string name="layout_editor_panel_inherited_caption">Ez az elrendezés a megosztott %1$s panelt használja. Bármilyen módosítás itt csak erre az elrendezésre vonatkozó másolatot hoz létre. A megosztott panel a Billentyűzet-elrendezések, Panel-elrendezések alatt található.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Az elrendezés témájának öröklése</string>
@@ -3986,11 +3980,8 @@
     <string name="layout_split_spacebar_title">Szóköz felosztása</string>
     <string name="layout_split_subtitle">Ossza a billentyűket egy bal és egy jobb félre</string>
     <string name="layout_split_title">Osztott billentyűzet</string>
-    <string name="layout_summon_button_info">Amíg a billentyűzet zárva van, egy kis kerek gomb lebeg minden alkalmazás felett. Koppintson rá, és a billentyűzet megnyílik, még akkor is, ha nincs szövegmező a képernyőn, és nyitva marad, amíg be nem zárja. A billentyűleütések így eljutnak az alkalmazáshoz, ugyanúgy, mint a „Billentyűzet a képernyőn tartása” beállításnál. Húzza el a gombot az áthelyezéséhez; a közelebbi oldalhoz igazodik. Nyomja meg és tartsa lenyomva az elrejtéséhez, amíg a billentyűzet legközelebb meg nem nyílik. Szükséges hozzá az Android „Megjelenés más alkalmazások felett” engedélye.</string>
     <string name="layout_summon_button_permission_subtitle">A gomb nem jelenhet meg, amíg az Android nem engedélyezi</string>
     <string name="layout_summon_button_permission_title">Megjelenítés más alkalmazások felett</string>
-    <string name="layout_summon_button_subtitle">Egy gomb más alkalmazások felett, amely megnyitja a billentyűzetet, szövegmezővel vagy anélkül</string>
-    <string name="layout_summon_button_title">Lebegő billentyűzet gomb</string>
     <string name="layout_swap_comma_globe_info">A szóköz két oldalán lévő billentyűk helyet cserélnek. Ha az egyik egy hangulatjel-billentyű, az a külső pozícióba kerül, a vessző pedig a szóköz mellett marad. Kapcsolja ki ezt a szokásos sorrend visszaállításához.</string>
     <string name="layout_swap_comma_globe_subtitle">Tegye a vesszőt a szóköz mellé</string>
     <string name="layout_swap_comma_globe_title">A vessző és a 🌐 billentyűk felcserélése</string>
@@ -5809,7 +5800,6 @@
     <string name="search_kw_layout_show_globe">földgömb nyelv eltávolítása elrejtése</string>
     <string name="search_kw_layout_size_position">átméretezés zsugorítás tömörítés növelés</string>
     <string name="search_kw_layout_split">hüvelykujj ergonomikus táblagép</string>
-    <string name="search_kw_layout_summon_button">buborék átfedés megjelenítése hívás mező nélküli hackerek</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad számbillentyűzet tárcsázó 1234 gboard</string>
     <string name="search_kw_learnedcorrections">tanult javítások, saját javítások, elírási párok, megtanított javítások, automatikus javítás tanulása, elütések, szokások</string>
     <string name="search_kw_licenses">nyílt forráskód, forrásmegjelölés, kreditek</string>
@@ -5848,7 +5838,7 @@
     <string name="search_kw_translate_engine">offline privát internet repülőgép helyi eszköz ml kit google modell letöltés felhő</string>
     <string name="search_kw_translate_models">offline fordítómodell letöltés törlés tárhely ml kit google</string>
     <string name="search_kw_translate_only_downloaded">szűrő elrejtése offline modellválasztó menü nyelvi lista rövid</string>
-    <string name="search_kw_translate_server">openai kompatibilis saját üzemeltetésű helyi llm ai modell ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai kompatibilis saját üzemeltetésű helyi llm ai modell ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">helyesírás-ellenőrzés, automatikus kiegészítés, prediktív szövegbevitel, csúsztatás, gesztusok, névjegyek, visszavonás</string>
     <string name="search_kw_typing_auto_capitalize">automatikus nagybetűs írás automatikus nagybetűsítés</string>
     <string name="search_kw_typing_auto_close_brackets">zárójelek automatikus bezárása párosítás kiegészítése</string>
@@ -6819,7 +6809,6 @@
     <string name="theme_parts_strip_subtitle">Kitöltés, szószín és méret eltávolítása</string>
     <string name="theme_parts_toolbar_subtitle">Eszközkitöltések, ikonok, alakzat, szegély</string>
     <string name="theme_pick_hint">Nyomjon meg egy billentyűt, egy eszközt vagy a sávot</string>
-    <string name="theme_pick_start_desc">Válassza ki a billentyűzet egy részét a stílushoz</string>
     <string name="theme_pick_start_subtitle">Nyomj meg egy billentyűt, egy eszközt vagy a javaslatsávot az előnézeten a stílus beállításához</string>
     <string name="theme_pick_start_title">Válasszon a billentyűzeten</string>
     <string name="theme_pick_strip_sample_words">Helló,Köszönöm,Rendben</string>
@@ -7646,12 +7635,6 @@
     <string name="tooldetail_ocr_info">A felismerés az eszközödön fut az ML Kit segítségével. Semmilyen fénykép vagy szöveg nem hagyja el az eszközt, és offline is működik. Latin betűs szövegeket olvas, például angolt. Az ML Kit szövegfelismerője még nem támogatja a bengáli nyelvet. Rögzítés után koppints a szavakra, hogy pontosan kiválaszd, mit gépeljen vagy másoljon a billentyűzet.</string>
     <string name="tooldetail_ocr_online_group">Online szövegolvasó</string>
     <string name="tooldetail_ocr_online_info">A fénykép egy olyan modellhez kerül, amely képes képeket olvasni az Ön által választott címen, és a modell kiírja a látott szöveget. Bármilyen írásrendszert elolvas, és nincs szüksége nyelvi adatokra. Bármely OpenAI-kompatibilis API-val rendelkező szolgáltatás működik: OpenAI, OpenRouter, Gemini, Mistral, vagy egy saját számítógépen futó modell az Ollama vagy az LM Studio segítségével. Minden szkennelés elküldi a fényképet az adott szolgáltatásnak, és a szolgáltatás díjat számíthat fel érte.</string>
-    <string name="tooldetail_ocr_online_key_hint">Hagyja üresen olyan szerverhez, amely nem kér kulcsot</string>
-    <string name="tooldetail_ocr_online_key_label">API-kulcs</string>
-    <string name="tooldetail_ocr_online_model_hint">Képeket olvasó modell, például gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modell</string>
-    <string name="tooldetail_ocr_online_url_hint">Például: https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Cím</string>
     <string name="tooldetail_ocr_packs_header">Tesseract nyelvek</string>
     <string name="tooldetail_ocr_packs_info">A Tesseract csak akkor olvassa a nyelvet, ha a nyelvi adatfájl a készülékén van. Minden begépelt nyelvhez külön letöltés szükséges, mely 0,4 MB és 12 MB közötti méretű. Az adatok a Tesseract projekt GitHubon található tessdata_fast készletéből származnak. A nyelvet közvetlenül a lapolvasóból is letöltheti.</string>
     <string name="tooldetail_ocr_packs_none_info">Egyik bekapcsolt nyelv sem rendelkezik Tesseract-adatokkal. Adjon hozzá egy nyelvet a Nyelvek képernyőn. Az adatai ezután itt fognak megjelenni.</string>
@@ -8776,11 +8759,9 @@
     <string name="typing_trail_opacity_title">Nyomvonal átlátszósága</string>
     <string name="typing_trail_width_subtitle">A csúsztatási nyomvonal vastagsága</string>
     <string name="typing_trail_width_title">Nyomvonal szélessége</string>
-    <string name="typing_two_thumb_info">Használd mindkét hüvelykujjadat egyszerre. Mindkét hüvelykujjaddal koppinthatsz vagy húzhatsz, akár egyszerre is, és minden koppintás és húzás ugyanahhoz a szóhoz adódik hozzá. Például koppints az S betűre a bal hüvelykujjaddal, húzz az O-tól az M-ig a jobbossal, koppints az E-re a balossal, majd húzz a T H I N G betűkön a jobbossal, és megkapod a „something” szót. Ha egy koppintás akkor történik, amikor a másik hüvelykujjad éppen húz, az a koppintás az adott ponton kerül be a szóba, így a H E L O betűkön való húzás és egy L-re történő koppintás a „hello” szót adja. A visszatörlés a szó utolsó koppintását vagy húzását távolítja el.</string>
     <string name="typing_two_thumb_subtitle">Koppintson és húzza mindkét hüvelykujjával egyszerre egy szó létrehozásához</string>
     <string name="typing_two_thumb_title">Két hüvelykujjas gépelés</string>
     <string name="typing_two_thumb_word_end_all_up_label">Minden hüvelykujj felfelé</string>
-    <string name="typing_two_thumb_word_end_info">Szóközzel a szó nyitva marad, miközben koppint és csúsztat, és a billentyűzet mindegyik után újra elolvassa. Koppintson a szóközre vagy az írásjelre a beíráshoz. Ha minden hüvelykujj felemelkedik, a szó szóközzel együtt íródik be, amint egyetlen hüvelykujj sem érinti a billentyűzetet, mint a szokásos csúsztatásnál, így a hüvelykujjainak át kell fedniük egymást a szó megosztásához.</string>
     <string name="typing_two_thumb_word_end_space_label">Szóköz</string>
     <string name="typing_two_thumb_word_end_subtitle">Mi írja be az éppen épített szót</string>
     <string name="typing_two_thumb_word_end_title">Két hüvelykujjas szó befejezése</string>

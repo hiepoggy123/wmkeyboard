@@ -26,9 +26,14 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.localllm.ModelFormat
 import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
 import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
+import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.stickers.CutoutModel
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.tools.offlinegif.OfflineGifPacks
+import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries
+import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanImport
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelStore
@@ -75,6 +80,26 @@ internal object OfflineImport {
     )
 
     /**
+     * Whether [name] is one of the published files this installs, by name
+     * alone: a word list, a word-pair half, an emoji name list, a conversion
+     * dictionary, a Bengali phonetic table or an offline dictionary. What
+     * opening a file from outside the app goes by, to send a language pack
+     * here rather than call it nobody's file. Models are left out: their
+     * extensions are too common to claim a file on.
+     */
+    fun recognises(name: String): Boolean {
+        val leaf = name.substringAfterLast('/').substringAfterLast('\\')
+        return DictionaryCatalog.byFileName(leaf) != null ||
+            NgramPackCatalog.byFileName(leaf) != null ||
+            EmojiDictCatalog.byFileName(leaf) != null ||
+            CjkDictCatalog.byFileName(leaf) != null ||
+            leaf == AvroDictionaryDownloads.PUBLISHED_NAME ||
+            leaf == KhiproGlideDownloads.PUBLISHED_NAME ||
+            PhoneticIndexDownloads.languageOfPublishedName(leaf) != null ||
+            OfflineDictionaries.recognises(leaf)
+    }
+
+    /**
      * Installs what [uris] hold and reports on each file, in order.
      * [wordlistSize] is how much of a word list to keep, as a download would
      * ask. [onFile] names the file being worked on, for a progress line.
@@ -108,8 +133,13 @@ internal object OfflineImport {
                     return@forEachIndexed
                 }
                 val isGifPack = runCatching { ZipFile(staged).use { OfflineGifPacks.isPack(it) } }.getOrDefault(false)
+                val isYomichan = !isGifPack &&
+                    runCatching { ZipFile(staged).use { YomichanDictionaries.isDictionary(it) } }.getOrDefault(false)
                 if (isGifPack) {
                     outcomes += installGifPack(context, name, staged)
+                } else if (isYomichan) {
+                    outcomes += installYomichan(context, name, staged, onFile)
+                    staged.delete()
                 } else {
                     runCatching { files += unzip(staged, File(dir, "zip")) }
                         .onFailure { outcomes += Outcome(name, false, R.string.offline_import_unreadable_zip) }
@@ -244,6 +274,15 @@ internal object OfflineImport {
                 }
             }
         }
+        PaddleOcrModel.partOf(name)?.let { part ->
+            return attempt(name) {
+                if (OcrPacks.installPaddle(filesDir, part, file)) {
+                    Outcome(name, true, R.string.offline_import_ocr_done, listOf(OcrLanguages.nameOf(PaddleOcrModel.PACK)))
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
         OcrPacks.packOf(name)?.let { pack ->
             return attempt(name) {
                 OcrPacks.install(filesDir, pack, file)
@@ -266,6 +305,13 @@ internal object OfflineImport {
             return attempt(name, busy = PhoneticIndexDownloads.isBusy(langId)) {
                 PhoneticIndexDownloads.install(filesDir, langId, file)
                 Outcome(name, true, R.string.offline_import_phonetic_index_done, listOf(languageName(langId)))
+            }
+        }
+        if (OfflineDictionaries.recognises(name)) {
+            return attempt(name) {
+                val installed = OfflineDictionaries.install(filesDir, file)
+                OfflineDictionaryDownloads.refresh(filesDir)
+                Outcome(name, true, R.string.offline_import_dictionary_done, listOf(installed.pack.name))
             }
         }
         if (name == CutoutModel.FILE_NAME) {
@@ -317,6 +363,23 @@ internal object OfflineImport {
         }
     }
 
+    /**
+     * A Yomichan / Yomitan dictionary (#765): a zip that is itself the thing
+     * installed, as a GIF pack is. Large ones take minutes, so the progress
+     * line carries a percentage.
+     */
+    private fun installYomichan(context: Context, name: String, zip: File, onFile: (String) -> Unit): Outcome = attempt(name) {
+        var shown = -1
+        val info = YomichanDictionaries.import(context.filesDir, zip) { done, total ->
+            val percent = if (total > 0) (done * 100 / total).toInt() else 0
+            if (percent != shown) {
+                shown = percent
+                onFile("$name · $percent%")
+            }
+        }
+        Outcome(name, true, R.string.offline_import_yomichan_done, listOf(info.title, count(info.terms)))
+    }
+
     private fun installGifPack(context: Context, name: String, zip: File): Outcome = attempt(name) {
         when (val result = OfflineGifPacks.import(context.filesDir, zip)) {
             is OfflineGifPacks.ImportResult.Imported -> Outcome(
@@ -346,6 +409,9 @@ internal object OfflineImport {
 
     private fun failure(name: String, error: Throwable): Outcome = when (error) {
         is NoSpaceException -> Outcome(name, false, R.string.offline_import_no_space)
+        is YomichanImport.NoSpaceException -> Outcome(name, false, R.string.offline_import_no_space)
+        is YomichanImport.NotADictionaryException -> Outcome(name, false, R.string.offline_import_mismatch)
+        is OfflineDictionaries.NotAPackException -> Outcome(name, false, R.string.offline_import_mismatch)
         else -> Outcome(name, false, R.string.offline_import_failed)
     }
 

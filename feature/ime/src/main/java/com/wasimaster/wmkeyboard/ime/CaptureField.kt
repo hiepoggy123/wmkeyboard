@@ -191,6 +191,15 @@ data class CaretText(
         // A pick with text selected replaces the selection, as typing would.
         if (hasSelection) return withoutSelection().typed(if (spaceAfter) "$word " else word)
         val span = wordAtCaret()
+        // Letters typed in front of a word already there (#612): `ab|out` in
+        // a clip being edited is a new word written before `out`, unless the
+        // pick ends the way the word does and so finishes it. Swallowing the
+        // tail overwrote text the user never touched.
+        val rest = text.substring(at, span.end)
+        if (rest.isNotEmpty() && !word.endsWith(rest, ignoreCase = true)) {
+            val head = text.substring(0, span.start) + word
+            return CaretText("$head ${text.substring(at)}", head.length + 1)
+        }
         val tail = text.substring(span.end)
         val head = text.substring(0, span.start) + word
         if (!spaceAfter) return CaretText(head + tail, head.length)
@@ -381,17 +390,60 @@ enum class CaptureTarget(
     /** A label in the Clock panel: an alarm's, a timer's, a countdown's, a city's own name. */
     CLOCK_LABEL(takesWords = true),
 
+    /** The Home Assistant panel's search: filters tiles as it is typed, Enter opens the first. */
+    HA_SEARCH(takesWords = true),
+
+    /** A sentence for Home Assistant's Assist: Enter sends it. */
+    HA_ASSIST(takesWords = true),
+
+    /** A lock or alarm code, or a text entity's value, in the Home Assistant panel. */
+    HA_TEXT(takesWords = true),
+
     /**
      * The gallery panel's text (#708): the caption that goes with what is
      * sent, or a text box being written on a photo in the editor.
      */
     GALLERY_TEXT(takesWords = true),
 
+    /** A calendar event's title in the Calendar composer: one line, Enter moves on to the place. */
+    CALENDAR_TITLE(takesWords = true),
+
+    /** An event's place: one line. */
+    CALENDAR_LOCATION(takesWords = true),
+
+    /** An event's notes: free text, newlines and all, like [CLIP_EDIT]. */
+    CALENDAR_NOTES(takesWords = true),
+
+    /** A guest being added: a name to look up in the contacts, or an address. Enter adds it. */
+    CALENDAR_GUEST(takesWords = false),
+    /**
+     * The Send files panel's boxes (#729). None takes words: a password must
+     * not be guessed at, and a link or an address is not prose.
+     */
+    SEND_PASSWORD(takesWords = false),
+    SEND_LINK(takesWords = false),
+    SEND_INSTANCE(takesWords = false),
+
     /** The toolbox's search (#687): matches tool names as it is typed, Enter opens the first. */
     TOOLBOX_SEARCH(takesWords = true),
 
     /** A toolbox folder's name (#709): one line, Enter keeps it. */
     TOOLBOX_FOLDER_NAME(takesWords = true),
+
+    /** The kaomoji tab's search: filters by tag and face as it is typed, Enter puts the first in. */
+    KAOMOJI_SEARCH(takesWords = true),
+
+    /** A face being added or changed in the kaomoji tab. Punctuation, not words. */
+    KAOMOJI_FACE(takesWords = false),
+
+    /** A kaomoji tag's name: a new one in the editor, or a rename. Enter keeps it. */
+    KAOMOJI_TAG(takesWords = true),
+
+    /** The Text repeat panel's text: free text, newlines and all, like [CLIP_EDIT]. */
+    REPEAT_TEXT(takesWords = true),
+
+    /** The Text repeat panel's custom separator: punctuation and spaces, not words. */
+    REPEAT_SEPARATOR(takesWords = false),
     ;
 
     /**
@@ -416,7 +468,8 @@ enum class CaptureTarget(
     val isSearch: Boolean
         get() = this == EMOJI_SEARCH || this == MEDIA_SEARCH || this == DICTIONARY_SEARCH ||
             this == CLIPBOARD_SEARCH || this == FIND_QUERY || this == SNIPPET_SEARCH ||
-            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH || this == TOOLBOX_SEARCH
+            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH || this == TOOLBOX_SEARCH ||
+            this == HA_SEARCH || this == KAOMOJI_SEARCH || this == KAOMOJI_TAG
 }
 
 /**
@@ -438,14 +491,20 @@ enum class CaptureTarget(
 data class CaptureCaret(val key: String, val at: Int, val text: String, val anchor: Int = at)
 
 /** What the selection bar over a keyboard-owned field can do with its text (#352). */
-enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL, UNDO }
+enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL, UNDO, REDO }
 
 /**
- * A keyboard-owned field that has edits to undo (#665): the field's key and the
- * text it held when the history last saw it. The undo button shows only while
- * both still describe the field that has the keys.
+ * A keyboard-owned field that has edits to undo or redo (#665): the field's key
+ * and the text it held when the history last saw it. The buttons show only
+ * while both still describe the field that has the keys, each while it has a
+ * step to take.
  */
-data class CaptureUndoMark(val key: String, val text: String)
+data class CaptureUndoMark(
+    val key: String,
+    val text: String,
+    val canUndo: Boolean = true,
+    val canRedo: Boolean = false,
+)
 
 /** What the microphone on a keyboard-owned field's strip was asked to do (#353). */
 enum class CaptureVoiceAction {

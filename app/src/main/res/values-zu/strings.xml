@@ -1156,7 +1156,7 @@
     <string name="clipboard_key_row_info">Namathisela isixhumanisi bese ucindezela u-enter ukuze uye kuso, noma unamathisele ezinye iziqeshana ngesikhala noma umugqa omusha phakathi kwazo, ngaphandle kokubuyela kukhibhodi. I-ABC ibuyela ezinhlamvwini. Uma ushintshe isakhiwo sephaneli, lesi silungiselelo asenzi lutho: engeza okhiye kumhleli wesakhiwo esikhundleni salokho. Umugqa awuboniswa ngenkathi ibhodi lokunamathisela liphezu kokhiye. Lesi silungiselelo sivaliwe ngokuzenzakalelayo.</string>
     <string name="clipboard_key_row_subtitle">Ulayini wezikhiye ngezansi kwepaneli yebhodi lokunamathisela</string>
     <string name="clipboard_key_row_title">ABC, okhiye besikhala nokufaka</string>
-    <string name="clipboard_line_spacing_info">Ku-100% imigqa ye-clip ihlala iseduze ngangokunokwenzeka ifonti. Yiphakamise ukuze uyisabalalise. Okuzenzakalelayo ngu-130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Ku-100% imigqa ye-clip ihlala iseduze ngangokunokwenzeka ifonti. Yiphakamise ukuze uyisabalalise. Okuzenzakalelayo ngu-130%.</string>
     <string name="clipboard_line_spacing_subtitle">Isikhala phakathi kwemigqa yombhalo we-clip</string>
     <string name="clipboard_line_spacing_title">Isikhala phakathi kwemigqa</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2401,9 +2401,7 @@
     <string name="import_sticker_editor_border_white_option">Mhlophe</string>
     <string name="import_sticker_editor_border_width_label">Ububanzi bomngcele</string>
     <string name="import_sticker_editor_brush_size_label">Usayizi webhulashi</string>
-    <string name="import_sticker_editor_caption">Ikhibhodi ilondoloza isitikha esingu-512 ngo-512. Hambisa futhi ucindezele isithombe ukuze ukhethe ingxenye ofuna ukuyigcina, bese ususa ingemuva bese wengeza umngcele. Uhlelo lokusebenza lugcina lesi sithombe ocingweni, ukuze ukwazi ukuhlela isitikha futhi kamuva.</string>
     <string name="import_sticker_editor_crop_action">Nqampuna</string>
-    <string name="import_sticker_editor_crop_hint">Hudula ukuze uhambise isithombe. Phina ukuze usenze sibe sikhulu.</string>
     <string name="import_sticker_editor_cutout_action">Susa ingemuva</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Thola isisusi sangemuva kuqala. Ukulanda okungama-5 MB.</string>
     <string name="import_sticker_editor_cutout_download_progress">Uhlelo lokusebenza luthola isisusi sangemuva…</string>
@@ -3527,7 +3525,6 @@
     <string name="layout_editor_alternate_columns_info">Lokhu ukubalwa kwekholomu kwalesi sikhiye sodwa. Izikhiye ziyahluka: isikhiye esinezikhiye ezishintshanayo eziyishumi nambili sifundeka kangcono njengegridi, kanti esinezintathu noma ezine sifundeka kangcono njengomugqa owodwa. Kusuka kuzilungiselelo kushiya isikhiye kusilungiselelo esithi \"Izikholomu zesikhiye esishintshanayo\" ngaphansi kokuthi Ukucindezela isikhiye, okuyinto ezenzakalelayo ngaphandle uma uyishintshile. Inombolo esuka ku-3 iye ku-11 inika lesi sikhiye lezo zikholomu eziningi noma ngabe izilungiselelo zithini.</string>
     <string name="layout_editor_alternate_columns_subtitle">Mangaki amanye amagama lesi sikhi esiwabeka emgqeni</string>
     <string name="layout_editor_alternate_columns_title">Izikholamu ku-popup</string>
-    <string name="layout_editor_alternate_hint_badge">isikhumbuzi</string>
     <string name="layout_editor_alternates_field_hint">Hlukanisa okufakiwe ngezikhala, ukuze okunye kungabi yisikhala. Okufakiwe okunezinhlamvu ezingaphezu kweyodwa, njenge-.com, kulungile. Uhlelo lokusebenza luphinde ludwebe eyokuqala ekhoneni lokhiye.</string>
     <string name="layout_editor_alternates_field_label">Okunye okungakhethwa ngokucindezela nokubamba</string>
     <string name="layout_editor_apply_action">Sebenzisa</string>
@@ -3623,7 +3620,6 @@
     <string name="layout_editor_field_row_title">Ingxenye</string>
     <string name="layout_editor_fill_row_action">Gcwalisa umugqa (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Umugqa wezinombolo usuvele ukhombisa amadijithi, ngakho ikhibhodi ikhombisa lo mugqa esikhundleni somugqa wokuqala wale ngqimba.</string>
-    <string name="layout_editor_fill_row_off_caption">Uma umugqa wezinombolo uvuliwe, ikhibhodi ikhombisa lo mugqa esikhundleni somugqa wokuqala wale ngqimba, ngoba umugqa wezinombolo usuvele ukhombisa amadijithi. Umugqa wezinombolo uvaliwe manje.</string>
     <string name="layout_editor_fill_row_title">Umugqa esikhundleni samadijithi</string>
     <string name="layout_editor_fit_row_action">Linganisa umugqa kugridi (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Ayikho i-flick ngale ndlela. Thepha ukuze ukhethe isenzo.</string>
@@ -3798,8 +3794,6 @@
     <string name="layout_editor_new_secondary_title">Qala isakhiwo sesibili</string>
     <string name="layout_editor_not_live_caption">Izinguquko zakho lapha azithinti ukuthayipha kuze kube yilapho uvula isakhiwo ngaphansi kwezilimi.</string>
     <string name="layout_editor_number_row_caption">Ikhibhodi ikhombisa lo mugqa ngaphezu kwale ngqimba. Thepha ukhiye ukuze uwushintshe. Bamba ukhiye bese uwuhudula ukuze uwuhambise.</string>
-    <string name="layout_editor_number_row_hidden_caption">Ikhibhodi ikhombisa lo mugqa ngaphezu kwale ngqimba uma umugqa wezinombolo ezimpawini uvuliwe kokuthi Isakhiwo nosayizi. Manje uvaliwe.</string>
-    <string name="layout_editor_number_row_off_caption">Ikhibhodi ikhombisa lo mugqa ngaphezu kwale ngqimba uma umugqa wezinombolo uvuliwe kokuthi Isakhiwo nosayizi. Umugqa wezinombolo uvaliwe manje.</string>
     <string name="layout_editor_number_row_title">Umugqa wezinombolo</string>
     <string name="layout_editor_panel_inherited_caption">Lesi sakhiwo sisebenzisa iphaneli eyabiwe engu-%1$s. Ukushintsha noma yini lapha kwenza ikhophi yalesi sakhiwo kuphela. Iphaneli eyabiwe ingaphansi kwezikhala zokhiye, Izakhiwo zepaneli.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Thatha itimu yesakhiwo</string>
@@ -4002,11 +3996,8 @@
     <string name="layout_split_spacebar_title">Hlukanisa ibha yesikhala</string>
     <string name="layout_split_subtitle">Hlukanisa okhiye babe yingxenye yesobunxele nengxenye yesokudla</string>
     <string name="layout_split_title">Ikhibhodi ehlukanisiwe</string>
-    <string name="layout_summon_button_info">Ngenkathi ikhibhodi ivaliwe, inkinobho encane eyindilinga intanta phezu kwayo yonke inhlelo zokusebenza. Ithepha bese ikhibhodi ivuleka, ngisho nasesikrinini esingenayo inkambu yombhalo, futhi ihlala ivulekile lapho uze uyivale. Okhiye bese befika kuhlelo lokusebenza njengokucindezela okhiye, okufana nokuthi Gcina ikhibhodi esikrinini. Hudula inkinobho ukuze uyihambise; ihlala ohlangothini oluseduze. Cindezela bese ubamba ukuze uyifihle kuze kube yilapho ikhibhodi ivuleka ngokulandelayo. Idinga imvume ye-Android yokubonisa phezu kwezinye izinhlelo zokusebenza.</string>
     <string name="layout_summon_button_permission_subtitle">Inkinobho ayikwazi ukuvela kuze kube yilapho i-Android ikuvumela</string>
     <string name="layout_summon_button_permission_title">Vumela ukuboniswa phezu kwezinye izinhlelo zokusebenza</string>
-    <string name="layout_summon_button_subtitle">Inkinobho phezu kwezinye izinhlelo zokusebenza evula ikhibhodi, enenkambu yombhalo noma ngaphandle kwayo</string>
-    <string name="layout_summon_button_title">Inkinobho yekhibhodi entantayo</string>
     <string name="layout_swap_comma_globe_info">Okhiye ababili ohlangothini ngalunye lwebha yesikhala bayashintsha izindawo. Uma omunye wabo engukhiye we-emoji, uthuthela endaweni engaphandle kanti ukhefana uhlala eduze kwebha yesikhala. Vala lokhu ukuze uthole ukuhleleka okuvamile.</string>
     <string name="layout_swap_comma_globe_subtitle">Beka ukhefana eduze kwesikhala</string>
     <string name="layout_swap_comma_globe_title">Shintsha ukhiye wesikawu kanye noka-🌐</string>
@@ -5827,7 +5818,6 @@
     <string name="search_kw_layout_show_globe">fihla susa ulimi lomhlaba</string>
     <string name="search_kw_layout_size_position">shintsha usayizi nciphisa compact khulisa</string>
     <string name="search_kw_layout_split">isithupha ergonomic ithebhulethi</string>
-    <string name="search_kw_layout_summon_button">bubble overlay show summon fieldless hackers</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad keypad dialpad 1234 gboard</string>
     <string name="search_kw_learnedcorrections">ukulungiswa okufundiwe, ukulungisa kwami, amabhangqa amaphutha, ukulungisa okufundisiwe, ukufunda okuzenzakalelayo, ukushelela, imikhuba</string>
     <string name="search_kw_licenses">umthombo ovulekile, ukunikezwa kwesikweletu, amakhredithi</string>
@@ -5866,7 +5856,7 @@
     <string name="search_kw_translate_engine">okungaxhunyiwe ku-inthanethi okuyimfihlo i-inthanethi indiza idivayisi yendawo ml kit google ukulanda kwemodeli ifu</string>
     <string name="search_kw_translate_models">ukuhumusha okungaxhunyiwe ku-inthanethi ukulanda imodeli susa isitoreji ml kit google</string>
     <string name="search_kw_translate_only_downloaded">fihla imenyu yokukhetha imodeli engaxhunyiwe ku-inthanethi yesihlungi</string>
-    <string name="search_kw_translate_server">openai ehambisanayo ezibusingathayo ngokwakho ebusingathwe kwendawo llm ai imodeli ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai ehambisanayo ezibusingathayo ngokwakho ebusingathwe kwendawo llm ai imodeli ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">ukuhlola isipelingi, ukuqedela ngokuzenzakalelayo, umbhalo obikezelayo, ukuslayida, ukuthayipha ngokuslayida, ukuthinta, oxhumana nabo, hlehlisa</string>
     <string name="search_kw_typing_auto_capitalize">izinhlamvu ezinkulu ezizenzakalelayo</string>
     <string name="search_kw_typing_auto_close_brackets">ukuvala ngokuzenzakalelayo abakaki ababili abafanayo ukuvala okuphelele</string>
@@ -6837,7 +6827,6 @@
     <string name="theme_parts_strip_subtitle">Hlubula ukugcwalisa, imibala yamagama nosayizi</string>
     <string name="theme_parts_toolbar_subtitle">Ukugcwaliswa kwamathuluzi, izithonjana, ukuma, umngcele</string>
     <string name="theme_pick_hint">Cindezela ukhiye, ithuluzi noma umugqa</string>
-    <string name="theme_pick_start_desc">Khetha ingxenye yekhibhodi ozoyenza isitayela</string>
     <string name="theme_pick_start_subtitle">Cindezela ukhiye, ithuluzi noma umugqa wesiphakamiso ekubukeni kuqala ukuze uwunikeze isitayela</string>
     <string name="theme_pick_start_title">Khetha kukhibhodi</string>
     <string name="theme_pick_strip_sample_words">Sawubona,Ngiyabonga,Kulungile</string>
@@ -7664,12 +7653,6 @@
     <string name="tooldetail_ocr_info">Ukubona kwenzeka kudivayisi yakho nge-ML Kit. Ayikho isithombe noma umbhalo oshiya idivayisi yakho, futhi kusebenza ungaxhunyiwe ku-inthanethi. Kufunda umbhalo wombhalo wesiLatini, isibonelo isiNgisi. Isibonisi sombhalo se-ML Kit asikayisekeli isiBengali. Ngemuva kokuthwebula, cindezela amagama ukuze ukhethe ngqo lokho ikhibhodi ekuthayiphayo noma ekukopishayo.</string>
     <string name="tooldetail_ocr_online_group">Isifundi sombhalo esiku-inthanethi</string>
     <string name="tooldetail_ocr_online_info">Isithombe siya kumodeli engakwazi ukufunda izithombe, ekhelini olikhethayo, futhi imodeli ibhala umbhalo ewubonayo. Ifunda noma yimuphi umbhalo futhi ayidingi idatha yolimi. Noma iyiphi isevisi ene-API ehambisana ne-OpenAI iyasebenza: OpenAI, OpenRouter, Gemini, Mistral, noma imodeli kukhompyutha yakho nge-Ollama noma i-LM Studio. Ukuskena ngakunye kuthumela isithombe kuleyo sevisi, futhi isevisi ingase ikukhokhise ngakho.</string>
-    <string name="tooldetail_ocr_online_key_hint">Shiya kungenalutho kuseva engaceli ukhiye</string>
-    <string name="tooldetail_ocr_online_key_label">Ukhiye we-API</string>
-    <string name="tooldetail_ocr_online_model_hint">Imodeli efunda izithombe, isibonelo i-gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Imodeli</string>
-    <string name="tooldetail_ocr_online_url_hint">Isibonelo https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Ikheli</string>
     <string name="tooldetail_ocr_packs_header">Izilimi ze-Tesseract</string>
     <string name="tooldetail_ocr_packs_info">I-Tesseract ifunda ulimi kuphela emva kokuba idatha yalolo limi ikudivayisi yakho. Kunokulandwayo okukodwa kwalo lonke ulimi olubhala ngalo, kusukela ku-0.4 MB kuya ku-12 MB. Idatha ivela kusethi ye-tessdata_fast yephrojekthi ye-Tesseract ku-GitHub. Ungakwazi futhi ukulanda ulimi kusukela kushesheni ngokwalo.</string>
     <string name="tooldetail_ocr_packs_none_info">Azikho izilimi ovule ukuvuma ukuthola idatha ye-Tesseract. Faka ulimi esikrinini sezilimi. Idatha yalo izovele ibonakale lapha.</string>
@@ -8511,7 +8494,7 @@
     <string name="typing_letter_swipe_select_key_label">Slayida uye ekhiye</string>
     <string name="typing_letter_swipe_type_words_desc">Ukuswayipha phezu kokhiye kupela igama elilodwa</string>
     <string name="typing_letter_swipe_type_words_label">Thayipha amagama</string>
-    <string name="typing_mistype_tolerance_info">Ukuthepha ngakunye kufundwa ngokumelene nalapho kuhlale khona, hhayi kuphela ngokumelene nokhiye okushaywe kuwo, ngakho ukuthepha eduze konqenqema lokhiye kungase kusafundwa njengokhiye olandelayo. Lokhu kubeka ukuthi lokho kufunda kunomusa kangakanani. Ngaphezu kuka-100%, ukuthepha ngaphakathi kokhiye onomakhelwane kusengukushelela okungenzeka, okufanele ukuthayipha okusheshayo noma okumatasa neminwe emikhulu. Ngaphansi kuka-100%, ukhiye owushayile uthenjwa kakhulu, okufanele ukuthayipha ngokucophelela. Kushintsha ukuthi yimaphi amagama umugqa owunikezayo nokuthi yini i-autocorrect ekhethayo. Okuzenzakalelayo ngu-100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Ukuthepha ngakunye kufundwa ngokumelene nalapho kuhlale khona, hhayi kuphela ngokumelene nokhiye okushaywe kuwo, ngakho ukuthepha eduze konqenqema lokhiye kungase kusafundwa njengokhiye olandelayo. Lokhu kubeka ukuthi lokho kufunda kunomusa kangakanani. Ngaphezu kuka-100%, ukuthepha ngaphakathi kokhiye onomakhelwane kusengukushelela okungenzeka, okufanele ukuthayipha okusheshayo noma okumatasa neminwe emikhulu. Ngaphansi kuka-100%, ukhiye owushayile uthenjwa kakhulu, okufanele ukuthayipha ngokucophelela. Kushintsha ukuthi yimaphi amagama umugqa owunikezayo nokuthi yini i-autocorrect ekhethayo. Okuzenzakalelayo ngu-100%.</string>
     <string name="typing_mistype_tolerance_subtitle">Kude kangakanani ukhiye onomakhelwane lapho ukuthepha kungahlala khona futhi kusabalwa njengokushelela</string>
     <string name="typing_mistype_tolerance_title">Ukubekezelela ukuthayipha kabi</string>
     <string name="typing_new_word_sightings_info">Amagama kuphela angaziwa isichazamazwi abalwayo. Igama elivele likusichazamazwi lifundwa ngesikhathi ulibhala. Ukusetshenziswa kubalwa kuphela uma usudlule futhi walishiya igama, ngakho iphutha lokubhala obuyela emuva ulilungise alibalwa neze. Yehlisa lokhu uma amagama akho kanye nezinkulumo ezijwayelekile kuthatha isikhathi eside ukubambeka. Yibeke ku-1 ukuze ulondoloze igama elisha ngokushesha, okuyilokho okwakwenziwa izinguqulo ezindala. Lesi silungiselelo siba ku-3 ngokuzenzakalelayo.</string>
@@ -8806,11 +8789,9 @@
     <string name="typing_trail_opacity_title">Ukukhanya komkhondo</string>
     <string name="typing_trail_width_subtitle">Ubugqinsi bomkhondo wokushibilika</string>
     <string name="typing_trail_width_title">Ububanzi bomkhondo</string>
-    <string name="typing_two_thumb_info">Sebenzisa izithupha zombili ndawonye. Isithupha ngasinye singathepha noma siswayiphe, ngesikhathi esisodwa nesinye, futhi konke ukuthepha nokuswayipha kwengeza egameni elifanayo. Isibonelo, thepha u-S ngesithupha sobunxele, swayiphela u-O ku-M ngesokudla, thepha u-E ngesobunxele, bese uswayiphela u-T H I N G ngesokudla, futhi uthola okuthile. Ukuthepha okufika ngenkathi esinye isithupha sisaswayipha kungena egameni ngaleso sikhathi, ngakho ukuswayipha phezu kuka-H E L O nokuthepha ku-L kunikeza u-hello. I-Backspace isusa ukuthepha noma ukuswayipha kokugcina egameni.</string>
     <string name="typing_two_thumb_subtitle">Thepha futhi uswayiphe ngeminwe emibili ngesikhathi esisodwa ukuze wakhe igama elilodwa</string>
     <string name="typing_two_thumb_title">Ukuthayipha ngeminwe emibili</string>
     <string name="typing_two_thumb_word_end_all_up_label">Zonke izithupha phezulu</string>
-    <string name="typing_two_thumb_word_end_info">Ngesikhala, igama lihlala livulekile ngenkathi uthepha futhi uswayipha, futhi ikhibhodi ilifunda futhi ngemva kokunye ngakunye. Thepha isikhala noma izimpawu zokuloba ukuze uzithayiphe. Ngazo zonke izithupha phezulu, igama lithayiphelwa isikhala ngokushesha nje lapho kungekho sithupha esithinta ikhibhodi, njengokuswayipha okuvamile, ngakho izithupha zakho kufanele zihlangane ukuze zabelane ngegama.</string>
     <string name="typing_two_thumb_word_end_space_label">Isikhala</string>
     <string name="typing_two_thumb_word_end_subtitle">Yini ethayipha igama olakhayo</string>
     <string name="typing_two_thumb_word_end_title">Qeda igama lezithupha ezimbili</string>

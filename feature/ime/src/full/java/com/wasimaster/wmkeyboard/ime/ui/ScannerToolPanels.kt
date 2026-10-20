@@ -1,5 +1,9 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
+import com.wasimaster.wmkeyboard.core.settings.ResolvedProvider
+import com.wasimaster.wmkeyboard.core.tools.OnlineOcr
+import com.wasimaster.wmkeyboard.ime.ProviderPicks
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -53,6 +57,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Deselect
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
@@ -97,6 +102,8 @@ import com.wasimaster.wmkeyboard.core.clipboard.LinkPreview
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
 import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
+import com.wasimaster.wmkeyboard.core.ocr.PaddleOcr
+import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import com.wasimaster.wmkeyboard.core.settings.OcrEngine
 import com.wasimaster.wmkeyboard.core.ocr.TesseractException
 import com.wasimaster.wmkeyboard.core.ocr.TesseractOcr
@@ -105,12 +112,12 @@ import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.MeteredFeature
 import com.wasimaster.wmkeyboard.core.tools.EggLinks
 import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
-import com.wasimaster.wmkeyboard.core.tools.VisionOcrClient
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.TextRecognizer
+import com.wasimaster.wmkeyboard.core.ocr.MlKitScript
+import com.wasimaster.wmkeyboard.ime.ocr.MlKitRecognizers
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardClipboard
@@ -119,6 +126,9 @@ import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub
 import com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode
+import com.wasimaster.wmkeyboard.core.media.gallery.MediaPrep
+import com.wasimaster.wmkeyboard.app.GalleryPickActivity
+import android.net.Uri
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -155,11 +165,13 @@ private sealed interface OcrStage {
 /**
  * OCR tool: point the camera at printed text, capture, and get the words
  * back as tappable chips — deselect the parts you don't want, then insert
- * or copy just the rest. Reads with ML Kit's on-device Latin recognizer or
- * with Tesseract, which covers most other scripts once a language's data is
- * downloaded; the setting and the text's language pick which
- * ([OcrLanguages.tesseractPack]). Either way the photo never leaves the
- * phone. Unlike the other tool panels this one covers
+ * or copy just the rest. Reads with ML Kit's on-device recognizer for the
+ * text's script (Latin, Chinese, Japanese, Korean or Devanagari), with
+ * PaddleOCR for Chinese and Japanese where ML Kit has no recognizer for them
+ * (#757), or with Tesseract, which covers most other scripts; both of those
+ * once their data is downloaded. The setting and the text's language pick
+ * which ([OcrLanguages.offlinePack], [OcrLanguages.mlKitRecognizer]). Either
+ * way the photo never leaves the phone. Unlike the other tool panels this one covers
  * the toolbar too ([keyRowsHeight] + [TopBarHeight]): reading text off a
  * photo needs all the room the keyboard has.
  *
@@ -244,21 +256,29 @@ private fun OcrContent(
             value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
         }
     }
-    val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    // One ML Kit recognizer per script read so far, made on first use.
+    val recognizers = remember { mutableMapOf<MlKitScript, TextRecognizer>() }
     DisposableEffect(Unit) {
         onDispose {
-            recognizer.close()
+            recognizers.values.forEach { runCatching { it.close() } }
+            recognizers.clear()
             TesseractOcr.release()
+            PaddleOcr.release()
         }
     }
 
-    // The text's language, which picks the engine and, for Tesseract, the
-    // pack. Starts as the keyboard's language; the chip steps through the
-    // other enabled languages without switching the keyboard.
+    // The text's language, which picks the engine and, for Tesseract and
+    // Paddle, the pack. Starts as the keyboard's language; the chip steps
+    // through the other enabled languages without switching the keyboard.
     val filesDir = context.filesDir
     val engine = state.settings.scanner.ocrEngine
-    val chipLanguages = remember(state.settings.enabledLanguages, engine) {
-        OcrLanguages.chipLanguages(engine, state.settings.enabledLanguages, TesseractOcr.available)
+    val packStates by OcrPacks.states.collectAsState()
+    // Which packs are on disk decides between Paddle and an older Tesseract
+    // pack for Chinese and Japanese; packStates keys it so a finished
+    // download is seen.
+    val onDisk: (String) -> Boolean = remember(packStates) { { OcrPacks.isDownloaded(filesDir, it) } }
+    val chipLanguages = remember(state.settings.enabledLanguages, engine, onDisk) {
+        OcrLanguages.chipLanguages(engine, state.settings.enabledLanguages, TesseractOcr.available, onDisk)
     }
     var ocrLanguage by remember(chipLanguages) {
         mutableStateOf(
@@ -266,13 +286,16 @@ private fun OcrContent(
             else chipLanguages.firstOrNull() ?: state.language
         )
     }
-    val pack = OcrLanguages.tesseractPack(engine, ocrLanguage, TesseractOcr.available)
-    val packStates by OcrPacks.states.collectAsState()
+    val pack = remember(engine, ocrLanguage, onDisk) {
+        OcrLanguages.offlinePack(engine, ocrLanguage, TesseractOcr.available, onDisk)
+    }
+    val paddle = pack == PaddleOcrModel.PACK
     LaunchedEffect(pack) { if (pack != null) OcrPacks.refresh(filesDir, listOf(pack)) }
     val packStatus = pack?.let { packStates[it] }
-    // Play: a pack on disk reads only once Tesseract's own split is here too;
-    // until then the prompt's download fetches the split.
-    val ocrModule by TesseractOcr.moduleState.collectAsState()
+    // Play: a pack on disk reads only once the split with its reader is here
+    // too (Tesseract's own, or the LiteRT interpreter for Paddle); until then
+    // the prompt's download fetches the split.
+    val ocrModule by (if (paddle) PaddleOcr.moduleState else TesseractOcr.moduleState).collectAsState()
     val packReady = remember(pack, packStatus, ocrModule) {
         pack == null || (
             ocrModule == ModuleState.Installed && (
@@ -346,8 +369,16 @@ private fun OcrContent(
         if (stage !is OcrStage.Viewfinder || viewSize == IntSize.Zero || !packReady) return
         if (!auto) feedback()
         val readPack = pack
-        val scanner = state.settings.scanner
         val online = engine == OcrEngine.ONLINE
+        val mlKit = if (!online && readPack == null) {
+            OcrLanguages.mlKitRecognizer(ocrLanguage).let { script ->
+                recognizers.getOrPut(script) { MlKitRecognizers.client(script) }
+            }
+        } else {
+            null
+        }
+        // The online readers (#469, #727), or in pick mode the one the chooser is on.
+        val readers = if (online) OnlineOcr.rows(state.settings, ProviderPicks.of(ProviderTool.OCR)) else emptyList()
         scope.launch {
             val bitmap = if (clipImage != null) {
                 clipBitmap?.getOrNull()
@@ -362,12 +393,14 @@ private fun OcrContent(
             val read = withContext(Dispatchers.Default) {
                 runCancellable {
                     if (online) {
-                        readOnline(scanner.ocrOnlineUrl, scanner.ocrOnlineModel, scanner.ocrOnlineKey, bitmap)
+                        readOnline(readers, bitmap)
+                    } else if (readPack == PaddleOcrModel.PACK) {
+                        wordsOf(PaddleOcr.recognize(context, bitmap))
                     } else if (readPack != null) {
                         readWithTesseract(filesDir, readPack, bitmap)
                     } else {
                         var id = 0
-                        recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
+                        checkNotNull(mlKit).process(InputImage.fromBitmap(bitmap, 0)).await()
                             .textBlocks
                             .flatMap { block ->
                                 block.lines.map { line ->
@@ -399,7 +432,7 @@ private fun OcrContent(
                         OcrResult(
                             bitmap,
                             emptyList(),
-                            if (scanner.ocrOnlineUrl.isBlank() || scanner.ocrOnlineModel.isBlank()) {
+                            if (readers.isEmpty()) {
                                 R.string.ime_scanner_ocr_online_unset
                             } else {
                                 R.string.ime_scanner_ocr_online_error
@@ -407,6 +440,10 @@ private fun OcrContent(
                         ),
                     )
                 }
+                // Play: the script's model is still on its way from Play services.
+                MlKitRecognizers.isDownloading(failure) -> OcrStage.Done(
+                    OcrResult(bitmap, emptyList(), R.string.ime_scanner_ocr_model_downloading),
+                )
                 else -> {
                     Log.w(OCR_LOG_TAG, "text recognition failed", failure)
                     OcrStage.Done(OcrResult(bitmap, emptyList(), R.string.ime_scanner_ocr_read_error))
@@ -491,7 +528,7 @@ private fun OcrContent(
         val nextLanguage: (() -> Unit)? = if (chipLanguages.size > 1) {
             {
                 feedback()
-                fun route(l: LanguageDef) = OcrLanguages.tesseractPack(engine, l, TesseractOcr.available)
+                fun route(l: LanguageDef) = OcrLanguages.route(engine, l, TesseractOcr.available, onDisk)
                 val at = chipLanguages.indexOfFirst { route(it) == route(ocrLanguage) }
                 ocrLanguage = chipLanguages[(at + 1).mod(chipLanguages.size)]
             }
@@ -577,12 +614,21 @@ private fun OcrContent(
                 .padding(5.dp)
                 .clip(CircleShape)
                 .background(Color.White)
-                // Keyed on the pack: capture() reads it, and a Unit key would
-                // keep the first language's capture after the chip moved on.
-                .pointerInput(pack, packReady) { detectTapGestures { capture() } },
+                // Keyed on the language and pack: capture() reads both, and a
+                // Unit key would keep the first language's capture after the
+                // chip moved on.
+                .pointerInput(ocrLanguage, pack, packReady) { detectTapGestures { capture() } },
         )
         nextLanguage?.let {
             OcrLanguageChip(ocrLanguage, it, Modifier.align(Alignment.BottomStart).padding(12.dp))
+        }
+        if (engine == OcrEngine.ONLINE) {
+            ProviderChooser(
+                ProviderTool.OCR,
+                state.settings,
+                Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                overPhoto = true,
+            )
         }
     }
 }
@@ -612,8 +658,8 @@ private fun OcrLanguageChip(language: LanguageDef, onClick: () -> Unit, modifier
 }
 
 /**
- * Stands in for the viewfinder while the language's Tesseract data is not on
- * the phone: what it costs, the button that fetches it, then its progress.
+ * Stands in for the viewfinder while the language's Tesseract or Paddle data
+ * is not on the phone: what it costs, the button that fetches it, then its progress.
  * Data saver is asked here, on the button, the way the translate panel does:
  * the first press explains, the second is the yes.
  */
@@ -761,12 +807,13 @@ private fun decodeClipImage(file: File): Bitmap {
 private const val OCR_LOG_TAG = "WMKB-OCR"
 
 /**
- * The online reader's text as the panel's lines of words (#469). The photo is
- * scaled to [ONLINE_OCR_MAX_SIDE] first: enough for small print, and a
- * full-sensor picture would only cost upload time and the model's tokens.
+ * The online readers' text as the panel's lines of words (#469, #727): the
+ * first of [readers] that reads it. The photo is scaled to
+ * [ONLINE_OCR_MAX_SIDE] first: enough for small print, and a full-sensor
+ * picture would only cost upload time and the model's tokens.
  */
-private fun readOnline(url: String, model: String, key: String, bitmap: Bitmap): List<List<OcrWord>> {
-    require(url.isNotBlank() && model.isNotBlank()) { "the online text reader is not set up" }
+private fun readOnline(readers: List<ResolvedProvider>, bitmap: Bitmap): List<List<OcrWord>> {
+    if (readers.isEmpty()) throw OnlineOcr.NoReaderException()
     val scale = ONLINE_OCR_MAX_SIDE.toFloat() / maxOf(bitmap.width, bitmap.height)
     val sized = if (scale < 1f) {
         Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
@@ -778,7 +825,7 @@ private fun readOnline(url: String, model: String, key: String, bitmap: Bitmap):
         out.toByteArray()
     }
     if (sized !== bitmap) sized.recycle()
-    val text = VisionOcrClient.read(url, model, key, jpeg)
+    val text = OnlineOcr.read(readers, jpeg)
     var id = 0
     return text.lines()
         .map { line -> line.split(WHITESPACE).filter { it.isNotEmpty() } }
@@ -793,8 +840,11 @@ private const val ONLINE_OCR_JPEG_QUALITY = 85
  * Tesseract's text as the panel's lines of words. Throws
  * [TesseractException] when the read failed rather than found nothing.
  */
-private suspend fun readWithTesseract(filesDir: File, pack: String, bitmap: Bitmap): List<List<OcrWord>> {
-    val text = TesseractOcr.recognize(filesDir, pack, bitmap)
+private suspend fun readWithTesseract(filesDir: File, pack: String, bitmap: Bitmap): List<List<OcrWord>> =
+    wordsOf(TesseractOcr.recognize(filesDir, pack, bitmap))
+
+/** Lines of space-separated words, as Tesseract and Paddle read them, as the panel's lines of words. */
+private fun wordsOf(text: String): List<List<OcrWord>> {
     var id = 0
     return text.lines()
         .map { line -> line.split(WHITESPACE).filter { it.isNotEmpty() } }
@@ -1025,7 +1075,9 @@ private class ScannedCode(val value: String, @StringRes val formatLabelRes: Int)
  * Barcode & QR scanner: a live viewfinder that decodes continuously
  * (ML Kit, on-device); the first hit freezes into a result card with
  * insert and copy actions. Insert types the barcode's text into the
- * editor, like any other key press.
+ * editor, like any other key press. The button in the bottom-left corner
+ * reads a code off a saved picture instead, picked with Android's photo
+ * picker, and lands on the same card.
  */
 @Composable
 internal fun QrScanPanel(
@@ -1091,11 +1143,14 @@ private fun QrScanContent(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val feedback = LocalKeyPressFeedback.current
+    val scope = rememberCoroutineScope()
 
     var result by remember { mutableStateOf<ScannedCode?>(null) }
     // A computer's pairing code (WMK Desktop): pairs straight away rather
     // than typing the link. The name it shows while that happens.
     var pairingWith by remember { mutableStateOf<String?>(null) }
+    // A picked picture being decoded and read.
+    var readingPicture by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var torchOn by remember { mutableStateOf(false) }
     // Current zoom, driven by pinch and shown as a pill. Zooming into a
@@ -1121,6 +1176,45 @@ private fun QrScanContent(
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
     }
+
+    // A decoded code, from the camera or a picture: freeze into the result
+    // card either way. With auto-insert the text is already committed and
+    // the card shows what went in (Rescan re-arms).
+    fun found(hit: Barcode) {
+        val raw = hit.rawValue
+        if (raw.isNullOrEmpty() || result != null) return
+        if (haptics) feedback()
+        result = ScannedCode(raw, barcodeFormatLabelRes(hit.format))
+        val pair = KdePairCode.parse(raw)
+        if (pair != null) {
+            KdeConnectHub.attach(context)
+            if (KdeConnectHub.pairByCode(raw)) pairingWith = pair.name
+        } else if (autoInsert) {
+            onInsert(raw)
+        }
+    }
+
+    // A picture back from the photo picker. Collected on every resume: the
+    // picker is its own activity, so the keyboard comes back with the pick.
+    fun readPicture(uri: Uri) {
+        readingPicture = true
+        scope.launch {
+            val hit = withContext(Dispatchers.Default) {
+                val bitmap = MediaPrep.decode(context, uri, QR_PICTURE_MAX_SIDE) ?: return@withContext null
+                runCancellable {
+                    scanner.process(InputImage.fromBitmap(bitmap, 0)).await()
+                        .firstOrNull { !it.rawValue.isNullOrEmpty() }
+                }.getOrNull()
+            }
+            readingPicture = false
+            if (hit == null) {
+                Toast.makeText(context, R.string.ime_scanner_qr_picture_none, Toast.LENGTH_SHORT).show()
+            } else {
+                found(hit)
+            }
+        }
+    }
+    PermissionRecheck { GalleryPickActivity.consumeQr()?.let(::readPicture) }
 
     // Decode frames only while there's no result on screen. A frame is
     // skipped when the previous one is still being decoded (busy flag)
@@ -1158,22 +1252,7 @@ private fun QrScanContent(
                 proxy.close()
                 scanner.process(InputImage.fromBitmap(bitmap, rotation))
                     .addOnSuccessListener { barcodes ->
-                        val hit = barcodes.firstOrNull { !it.rawValue.isNullOrEmpty() }
-                        val raw = hit?.rawValue
-                        if (hit != null && raw != null && result == null) {
-                            if (haptics) feedback()
-                            // Freeze into the result card either way — with
-                            // auto-insert the text is already committed and
-                            // the card shows what went in (Rescan re-arms).
-                            result = ScannedCode(raw, barcodeFormatLabelRes(hit.format))
-                            val pair = KdePairCode.parse(raw)
-                            if (pair != null) {
-                                KdeConnectHub.attach(context)
-                                if (KdeConnectHub.pairByCode(raw)) pairingWith = pair.name
-                            } else if (autoInsert) {
-                                onInsert(raw)
-                            }
-                        }
+                        barcodes.firstOrNull { !it.rawValue.isNullOrEmpty() }?.let(::found)
                     }
                     .addOnCompleteListener { busy = false }
             }
@@ -1386,11 +1465,30 @@ private fun QrScanContent(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp)
+                // Clear of the picture button in the corner.
+                .padding(start = 60.dp, end = 60.dp, bottom = 10.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.Black.copy(alpha = 0.35f))
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         )
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)) {
+            CameraChipButton(
+                icon = Icons.Outlined.PhotoLibrary,
+                description = stringResource(R.string.ime_scanner_qr_picture_desc),
+                active = false,
+            ) {
+                feedback()
+                runCatching { context.startActivity(GalleryPickActivity.qrIntent(context)) }
+            }
+        }
+        if (readingPicture) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
         if (camera?.cameraInfo?.hasFlashUnit() == true) {
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                 CameraChipButton(
@@ -1406,6 +1504,9 @@ private fun QrScanContent(
         }
     }
 }
+
+/** The longest side a picked picture is read at: plenty for a code, and never the full camera frame. */
+private const val QR_PICTURE_MAX_SIDE = 2048
 
 /**
  * The fetched page title/site/description for a scanned link, shown above

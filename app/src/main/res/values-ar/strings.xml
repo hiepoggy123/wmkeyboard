@@ -1155,7 +1155,7 @@
     <string name="clipboard_key_row_info">الصق رابطاً واضغط على إدخال للانتقال إليه، أو الصق المزيد من المقاطع مع مسافة أو سطر جديد بينها، دون العودة إلى لوحة المفاتيح. يعود زر ABC إلى الحروف. إذا قمت بتغيير تخطيط اللوحة، فلن يؤدي هذا الإعداد إلى أي شيء: أضف المفاتيح في محرر التخطيط بدلاً من ذلك. لا يظهر الصف أثناء تكديس الحافظة فوق المفاتيح. هذا الإعداد معطل افتراضياً.</string>
     <string name="clipboard_key_row_subtitle">صف من المفاتيح على طول الجزء السفلي من لوحة الحافظة</string>
     <string name="clipboard_key_row_title">مفاتيح ABC، والمسافة، والإدخال</string>
-    <string name="clipboard_line_spacing_info">عند 100%، تكون أسطر المقتطف قريبة من بعضها بقدر ما يسمح به الخط. ارفع النسبة لزيادة التباعد بينها. القيمة الافتراضية هي 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">عند 100%، تكون أسطر المقتطف قريبة من بعضها بقدر ما يسمح به الخط. ارفع النسبة لزيادة التباعد بينها. القيمة الافتراضية هي 130%.</string>
     <string name="clipboard_line_spacing_subtitle">المسافة بين أسطر نص المقطع</string>
     <string name="clipboard_line_spacing_title">تباعد الأسطر</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2402,9 +2402,7 @@
     <string name="import_sticker_editor_border_white_option">أبيض</string>
     <string name="import_sticker_editor_border_width_label">عرض الحدود</string>
     <string name="import_sticker_editor_brush_size_label">حجم الفرشاة</string>
-    <string name="import_sticker_editor_caption">تحفظ لوحة المفاتيح ملصقاً بحجم 512 في 512. قم بتحريك الصورة وتكبيرها لتحديد الجزء الذي تريد الاحتفاظ به، ثم قم بإزالة الخلفية وإضافة إطار. يحتفظ التطبيق بهذه الصورة على الهاتف، حتى تتمكن من تعديل الملصق مرة أخرى لاحقاً.</string>
     <string name="import_sticker_editor_crop_action">قص</string>
-    <string name="import_sticker_editor_crop_hint">اسحب لتحريك الصورة. استخدم إصبعين للتكبير.</string>
     <string name="import_sticker_editor_cutout_action">إزالة الخلفية</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">احصل على أداة إزالة الخلفية أولاً. إنه تنزيل بحجم 5 ميجابايت.</string>
     <string name="import_sticker_editor_cutout_download_progress">يقوم التطبيق بجلب أداة إزالة الخلفية...</string>
@@ -3521,7 +3519,6 @@
     <string name="layout_editor_alternate_columns_info">هذا هو عدد الأعمدة لهذا المفتاح وحده. تختلف المفاتيح: المفتاح الذي يحتوي على عشرات البدائل يبدو أفضل كشبكة، والمفتاح الذي يحتوي على ثلاثة أو أربعة يبدو أفضل كصف واحد. من الإعدادات يترك المفتاح لإعداد \"أعمدة المفاتيح البديلة\" تحت ضغط المفتاح، والذي يكون تلقائيًا ما لم تقم بتغييره. رقم من 3 إلى 11 يعطي هذا المفتاح ذلك العدد من الأعمدة مهما كان الإعداد.</string>
     <string name="layout_editor_alternate_columns_subtitle">عدد البدائل التي يضعها هذا المفتاح في صف واحد</string>
     <string name="layout_editor_alternate_columns_title">الأعمدة في النافذة المنبثقة</string>
-    <string name="layout_editor_alternate_hint_badge">تلميح</string>
     <string name="layout_editor_alternates_field_hint">افصل الإدخالات بمسافات، بحيث لا يمكن أن يكون البديل مسافة. الإدخالات المكونة من أكثر من حرف، مثل .com، صحيحة. يرسم التطبيق أيضاً الإدخال الأول في زاوية المفتاح.</string>
     <string name="layout_editor_alternates_field_label">بدائل للضغط المطول</string>
     <string name="layout_editor_apply_action">تطبيق</string>
@@ -3617,7 +3614,6 @@
     <string name="layout_editor_field_row_title">مكون</string>
     <string name="layout_editor_fill_row_action">ملء الصف (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">يعرض صف الأرقام الأرقام بالفعل، لذا تعرض لوحة المفاتيح هذا الصف بدلاً من الصف الأول من هذه الطبقة.</string>
-    <string name="layout_editor_fill_row_off_caption">عند تفعيل صف الأرقام، تعرض لوحة المفاتيح هذا الصف بدلاً من الصف الأول من هذه الطبقة، لأن صف الأرقام يعرض الأرقام بالفعل. صف الأرقام متوقف الآن.</string>
     <string name="layout_editor_fill_row_title">صف بديل للأرقام</string>
     <string name="layout_editor_fit_row_action">ملاءمة الصف مع الشبكة (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">لا يوجد تمرير في هذا الاتجاه. اضغط لاختيار إجراء.</string>
@@ -3792,8 +3788,6 @@
     <string name="layout_editor_new_secondary_title">بدء تخطيط ثانوي</string>
     <string name="layout_editor_not_live_caption">تغييراتك هنا لا تؤثر على الكتابة حتى تقوم بتفعيل التخطيط ضمن اللغات.</string>
     <string name="layout_editor_number_row_caption">تعرض لوحة المفاتيح هذا الصف فوق هذه الطبقة. اضغط على مفتاح لتغييره. اضغط مع الاستمرار على مفتاح واسحبه لتحريكه.</string>
-    <string name="layout_editor_number_row_hidden_caption">تعرض لوحة المفاتيح هذا الصف فوق هذه الطبقة عند تفعيل \"صف الأرقام في الرموز\" في \"التخطيط والحجم\". هو متوقف الآن.</string>
-    <string name="layout_editor_number_row_off_caption">تعرض لوحة المفاتيح هذا الصف فوق هذه الطبقة عند تفعيل صف الأرقام في \"التخطيط والحجم\". صف الأرقام متوقف الآن.</string>
     <string name="layout_editor_number_row_title">صف الأرقام</string>
     <string name="layout_editor_panel_inherited_caption">يستخدم هذا التخطيط لوحة %1$s المشتركة. سيؤدي تغيير أي شيء هنا إلى إنشاء نسخة لهذا التخطيط فقط. توجد اللوحة المشتركة تحت تخطيطات المفاتيح، تخطيطات اللوحة.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">ورث سمة التخطيط</string>
@@ -3996,11 +3990,8 @@
     <string name="layout_split_spacebar_title">تقسيم شريط المسافة</string>
     <string name="layout_split_subtitle">قسّم المفاتيح إلى نصف أيسر ونصف أيمن</string>
     <string name="layout_split_title">لوحة مفاتيح مقسمة</string>
-    <string name="layout_summon_button_info">بينما لوحة المفاتيح مغلقة، يطفو زر دائري صغير فوق كل تطبيق. اضغط عليه لتفتح لوحة المفاتيح، حتى على شاشة لا تحتوي على حقل نص، وتبقى مفتوحة هناك حتى تغلقها. تصل المفاتيح بعد ذلك إلى التطبيق كضغطات مفاتيح، تماماً كما هو الحال مع إبقاء لوحة المفاتيح على الشاشة. اسحب الزر لتحريكه؛ يستقر مقابل الجانب الأقرب. اضغط مع الاستمرار عليه لإخفائه حتى تفتح لوحة المفاتيح في المرة القادمة. يتطلب إذن أندرويد \'العرض فوق التطبيقات الأخرى\'.</string>
     <string name="layout_summon_button_permission_subtitle">لا يمكن للزر الظهور حتى يسمح نظام أندرويد بذلك</string>
     <string name="layout_summon_button_permission_title">السماح بالعرض فوق التطبيقات الأخرى</string>
-    <string name="layout_summon_button_subtitle">زر فوق التطبيقات الأخرى يفتح لوحة المفاتيح، مع أو بدون حقل نصي</string>
-    <string name="layout_summon_button_title">زر لوحة المفاتيح العائمة</string>
     <string name="layout_swap_comma_globe_info">يتبادل المفتاحان الموجودان على جانبي شريط المسافة أماكنهما. إذا كان أحدهما مفتاح رموز تعبيرية، فسينتقل إلى الموضع الخارجي وتبقى الفاصلة بجوار شريط المسافة. أوقف هذا الخيار للحصول على الترتيب المعتاد.</string>
     <string name="layout_swap_comma_globe_subtitle">ضع الفاصلة بجوار مفتاح المسافة</string>
     <string name="layout_swap_comma_globe_title">تبديل مفتاحي الفاصلة و 🌐</string>
@@ -5820,7 +5811,6 @@
     <string name="search_kw_layout_show_globe">إخفاء إزالة لغة الكرة الأرضية</string>
     <string name="search_kw_layout_size_position">تغيير الحجم تقليص مدمج تكبير</string>
     <string name="search_kw_layout_split">إبهام مريح جهاز لوحي</string>
-    <string name="search_kw_layout_summon_button">فقاعة تراكب تظهر حقل الاستدعاء</string>
     <string name="search_kw_layout_symbols_numpad_key">لوحة أرقام لوحة مفاتيح لوحة اتصال 1234 gboard</string>
     <string name="search_kw_learnedcorrections">تصحيحات متعلمة، إصلاحاتي، أزواج الأخطاء المطبعية، إصلاحات تم تعليمها، تعلم التصحيح التلقائي، زلات، عادات</string>
     <string name="search_kw_licenses">مفتوح المصدر، الإسناد، الحقوق</string>
@@ -5859,7 +5849,7 @@
     <string name="search_kw_translate_engine">غير متصل خاص إنترنت وضع الطيران جهاز محلي مجموعة أدوات تعلم الآلة نموذج جوجل تنزيل سحابة</string>
     <string name="search_kw_translate_models">تنزيل نموذج الترجمة دون اتصال حذف التخزين مجموعة أدوات تعلم الآلة جوجل</string>
     <string name="search_kw_translate_only_downloaded">إخفاء قائمة اختيار النموذج غير المتصل بالإنترنت</string>
-    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai compatible selfhosted hosted local llm ai model ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">تدقيق إملائي، إكمال تلقائي، نص تنبؤي، كتابة بالإيماءات، تمرير، جهات اتصال، تراجع</string>
     <string name="search_kw_typing_auto_capitalize">تكبير تلقائي تكبير الحروف تلقائياً</string>
     <string name="search_kw_typing_auto_close_brackets">إغلاق تلقائي للأقواس المتطابقة</string>
@@ -6830,7 +6820,6 @@
     <string name="theme_parts_strip_subtitle">تعبئة الشريط، ألوان الكلمات والحجم</string>
     <string name="theme_parts_toolbar_subtitle">تعبئة الأدوات، الأيقونات، الشكل، الحدود</string>
     <string name="theme_pick_hint">اضغط على مفتاح أو أداة أو الشريط</string>
-    <string name="theme_pick_start_desc">اختر جزءاً من لوحة المفاتيح لتنسيقه</string>
     <string name="theme_pick_start_subtitle">اضغط على مفتاح أو أداة أو شريط الاقتراحات في المعاينة لتنسيقه</string>
     <string name="theme_pick_start_title">اختر على لوحة المفاتيح</string>
     <string name="theme_pick_strip_sample_words">مرحباً،شكراً،حسناً</string>
@@ -7657,12 +7646,6 @@
     <string name="tooldetail_ocr_info">يعمل التعرف على جهازك باستخدام ML Kit. لا تغادر أي صورة أو نص جهازك، ويعمل دون اتصال بالإنترنت. يقرأ النص المكتوب بالخط اللاتيني، مثل الإنجليزية. لا يدعم متعرف النصوص في ML Kit اللغة البنغالية بعد. بعد الالتقاط، اضغط على الكلمات لتحديد ما تكتبه لوحة المفاتيح أو تنسخه بالضبط.</string>
     <string name="tooldetail_ocr_online_group">قارئ النصوص عبر الإنترنت</string>
     <string name="tooldetail_ocr_online_info">تنتقل الصورة إلى نموذج قادر على قراءة الصور، في عنوان تختاره، ويكتب النموذج النص الذي يراه. يقرأ أي نص ولا يحتاج إلى بيانات لغة. تعمل أي خدمة ذات واجهة برمجة تطبيقات متوافقة مع OpenAI: OpenAI أو OpenRouter أو Gemini أو Mistral أو نموذج على جهاز الكمبيوتر الخاص بك باستخدام Ollama أو LM Studio. يرسل كل مسح ضوئي الصورة إلى تلك الخدمة، وقد تفرض الخدمة رسوماً مقابل ذلك.</string>
-    <string name="tooldetail_ocr_online_key_hint">اتركه فارغاً لخادم لا يطلب مفتاحاً</string>
-    <string name="tooldetail_ocr_online_key_label">مفتاح API</string>
-    <string name="tooldetail_ocr_online_model_hint">نموذج يقرأ الصور، على سبيل المثال gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">النموذج</string>
-    <string name="tooldetail_ocr_online_url_hint">على سبيل المثال https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">العنوان</string>
     <string name="tooldetail_ocr_packs_header">لغات Tesseract</string>
     <string name="tooldetail_ocr_packs_info">يقرأ Tesseract اللغة فقط بعد أن تصبح بيانات تلك اللغة على جهازك. يوجد تنزيل واحد لكل لغة تكتب بها، يتراوح حجمه من 0.4 ميجابايت إلى 12 ميجابايت. تأتي البيانات من مجموعة tessdata_fast الخاصة بمشروع Tesseract على GitHub. يمكنك أيضاً تنزيل لغة من الماسح الضوئي نفسه.</string>
     <string name="tooldetail_ocr_packs_none_info">لا توجد بيانات Tesseract لأي من اللغات التي فعلتها. أضف لغة من شاشة اللغات، وستظهر بياناتها هنا.</string>
@@ -8503,7 +8486,7 @@
     <string name="typing_letter_swipe_select_key_label">اسحب إلى مفتاح</string>
     <string name="typing_letter_swipe_type_words_desc">تمريرة عبر المفاتيح تهجئ كلمة واحدة</string>
     <string name="typing_letter_swipe_type_words_label">كتابة الكلمات</string>
-    <string name="typing_mistype_tolerance_info">تتم قراءة كل نقرة مقابل المكان الذي هبطت فيه، وليس فقط مقابل المفتاح الذي أصابته، لذا يمكن قراءة نقرة بالقرب من حافة مفتاح على أنها المفتاح المجاور له. يحدد هذا مدى سخاء تلك القراءة. فوق 100%، لا تزال النقرة داخل مفتاح مجاور خطأ محتملاً، وهو ما يناسب الكتابة السريعة أو المحمومة والأصابع الكبيرة. تحت 100%، يتم الوثوق بالمفتاح الذي أصبتَه أكثر، وهو ما يناسب الكتابة الدقيقة. يغير هذا الكلمات التي يقدمها الشريط وما يختاره التصحيح التلقائي. الافتراضي هو 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">تتم قراءة كل نقرة مقابل المكان الذي هبطت فيه، وليس فقط مقابل المفتاح الذي أصابته، لذا يمكن قراءة نقرة بالقرب من حافة مفتاح على أنها المفتاح المجاور له. يحدد هذا مدى سخاء تلك القراءة. فوق 100%، لا تزال النقرة داخل مفتاح مجاور خطأ محتملاً، وهو ما يناسب الكتابة السريعة أو المحمومة والأصابع الكبيرة. تحت 100%، يتم الوثوق بالمفتاح الذي أصبتَه أكثر، وهو ما يناسب الكتابة الدقيقة. يغير هذا الكلمات التي يقدمها الشريط وما يختاره التصحيح التلقائي. الافتراضي هو 100%.</string>
     <string name="typing_mistype_tolerance_subtitle">إلى أي مدى يمكن أن تقع النقرة داخل مفتاح مجاور وتظل تُحسب كخطأ مطبعي</string>
     <string name="typing_mistype_tolerance_title">تسامح الأخطاء المطبعية</string>
     <string name="typing_new_word_sightings_info">يتم احتساب الكلمات التي لا يعرفها أي قاموس فقط. يتم تعلم الكلمة الموجودة بالفعل في القاموس بمجرد كتابتها. لا يتم احتساب الاستخدام إلا بعد المضي قدماً وترك الكلمة، لذا لا يتم احتساب الخطأ المطبعي الذي تعود لإصلاحه أبداً. قلل هذا إذا كانت أسماؤك الخاصة ولغتك العامية تستغرق وقتاً طويلاً لتثبت. اضبطه على 1 لحفظ كل كلمة جديدة على الفور، وهو ما كانت تفعله الإصدارات الأقدم. هذا الإعداد هو 3 افتراضياً.</string>
@@ -8797,11 +8780,9 @@
     <string name="typing_trail_opacity_title">شفافية أثر الكتابة</string>
     <string name="typing_trail_width_subtitle">سمك مسار التمرير</string>
     <string name="typing_trail_width_title">عرض أثر الكتابة</string>
-    <string name="typing_two_thumb_info">استخدم كلا الإبهامين معاً. يمكن لكل إبهام النقر أو التمرير في نفس وقت الإبهام الآخر، وكل نقرة وتمريرة تضاف إلى نفس الكلمة. على سبيل المثال، انقر على حرف S بالإبهام الأيسر، ومرر من O إلى M بالإبهام الأيمن، ثم انقر على E بالإبهام الأيسر، ثم مرر على T H I N G بالإبهام الأيمن، وستحصل على كلمة something. النقرة التي تحدث بينما لا يزال الإبهام الآخر يمرر يتم إضافتها إلى الكلمة في تلك النقطة، لذا فإن التمرير فوق H E L O والنقر على L يعطي كلمة hello. مفتاح المسافة الخلفية (Backspace) يزيل آخر نقرة أو تمريرة من الكلمة.</string>
     <string name="typing_two_thumb_subtitle">انقر واسحب بكلتا الإبهامين في وقت واحد لتكوين كلمة واحدة</string>
     <string name="typing_two_thumb_title">الكتابة بإبهامين</string>
     <string name="typing_two_thumb_word_end_all_up_label">كل الإبهام مرفوعة</string>
-    <string name="typing_two_thumb_word_end_info">مع المسافة، تظل الكلمة مفتوحة أثناء النقر والسحب، وتقرأها لوحة المفاتيح مرة أخرى بعد كل نقرة. انقر على المسافة أو علامات الترقيم لكتابتها. عند رفع كل الإبهام، يتم كتابة الكلمة مع مسافة بمجرد عدم لمس أي إبهام للوحة المفاتيح، مثل الانزلاق العادي، لذا يجب أن تتداخل إبهامك لمشاركة كلمة.</string>
     <string name="typing_two_thumb_word_end_space_label">مسافة</string>
     <string name="typing_two_thumb_word_end_subtitle">ما يكتب الكلمة التي تقوم بإنشائها</string>
     <string name="typing_two_thumb_word_end_title">أنهِ كلمة باستخدام إبهامين</string>

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,7 +42,7 @@ import com.wasimaster.wmkeyboard.core.tools.ReplyEmoji
 import com.wasimaster.wmkeyboard.core.tools.ReplyImageMode
 import com.wasimaster.wmkeyboard.core.tools.ReplyLength
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
-import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.TextRepeat
 import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
@@ -59,7 +58,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,7 +76,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material3.Switch
 import androidx.compose.ui.text.style.TextOverflow
 import com.wasimaster.wmkeyboard.core.tools.DictionarySource
-import com.wasimaster.wmkeyboard.core.tools.DictionarySourceChoice
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
 import com.wasimaster.wmkeyboard.core.ui.toolAccentEndColorArgb
@@ -87,6 +84,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
+import com.wasimaster.wmkeyboard.core.settings.providerChain
+import com.wasimaster.wmkeyboard.core.providers.ProviderTypes
+import com.wasimaster.wmkeyboard.core.settings.deeplLive
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -100,7 +101,6 @@ import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.WMKeyboardService
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
-import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GrammarCategory
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
@@ -112,6 +112,8 @@ import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.settings.StickerSuggestStyle
 import com.wasimaster.wmkeyboard.core.settings.StickerTriggerAction
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
+import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
+import com.wasimaster.wmkeyboard.core.settings.CalendarSaveMode
 import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.isSouthernHemisphere
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -129,6 +131,7 @@ import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.OcrEngine
 import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
 import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
+import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import androidx.compose.runtime.collectAsState
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.settings.DeepLWriteStyle
@@ -162,9 +165,6 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TimerOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectActual
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectLarge
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectSmall
-import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
-import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
-import androidx.compose.foundation.lazy.rememberLazyListState
 
 /**
  * What a press and hold on this tool does while it is pinned to the toolbar.
@@ -254,6 +254,7 @@ private fun ToolHoldRow(
                 editing = false
                 scope.launch { repository.setToolHoldAction(tool, ToolHoldAction.None) }
             },
+            memoryKey = "tool-hold",
         )
     }
 }
@@ -288,66 +289,81 @@ internal fun ToolPickerDialog(
     settingsSubtitle: String? = null,
     settingsSelected: Boolean = false,
     onPickSettings: () -> Unit = {},
+    /** Which remembered folds and scroll the page opens with; see [ActionPickerPage]. */
+    memoryKey: String = "tools",
 ) {
-    val list = rememberLazyListState()
-    val rail = rememberScrollRailState(list)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            ScrollRailBox(state = rail, modifier = Modifier.heightIn(max = 420.dp)) { rows ->
-                LazyColumn(state = list, modifier = rows) {
-                    if (noneSubtitle != null) item {
-                        WmRow(
-                            title = noneTitle ?: stringResource(CommonR.string.common_none),
-                            supporting = { CaptionText(noneSubtitle) },
-                            trailing = {
-                                RadioButton(
-                                    selected = current == null && !nothingSelected && !settingsSelected,
-                                    onClick = { onPick(null) },
-                                )
-                            },
-                            onClick = { onPick(null) },
-                        )
-                    }
-                    if (nothingSubtitle != null) item {
-                        WmRow(
-                            title = stringResource(R.string.tooldetail_hold_nothing_value),
-                            supporting = { CaptionText(nothingSubtitle) },
-                            trailing = {
-                                RadioButton(selected = nothingSelected, onClick = onPickNothing)
-                            },
-                            onClick = onPickNothing,
-                        )
-                    }
-                    if (settingsSubtitle != null) item {
-                        WmRow(
-                            title = stringResource(R.string.tooldetail_hold_settings_title),
-                            supporting = { CaptionText(settingsSubtitle) },
-                            trailing = {
-                                RadioButton(selected = settingsSelected, onClick = onPickSettings)
-                            },
-                            onClick = onPickSettings,
-                        )
-                    }
-                    items(options, key = { it.name }) { tool ->
-                        WmRow(
-                            title = stringResource(toolTitle(tool)),
-                            leading = { SlotIcon(IconSlots.forTool(tool), contentDescription = null) },
-                            trailing = {
-                                RadioButton(selected = current == tool, onClick = { onPick(tool) })
-                            },
-                            onClick = { onPick(tool) },
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
-        },
-    )
+    // A page of its own now (#665), grouped the way the Tools screen groups
+    // them, with the answers that are not a tool above the groups.
+    val special = buildList {
+        if (noneSubtitle != null) {
+            add(
+                PickerRow(
+                    key = "none",
+                    title = noneTitle ?: stringResource(CommonR.string.common_none),
+                    subtitle = noneSubtitle,
+                    selected = current == null && !nothingSelected && !settingsSelected,
+                    onPick = { onPick(null) },
+                ),
+            )
+        }
+        if (nothingSubtitle != null) {
+            add(
+                PickerRow(
+                    key = "nothing",
+                    title = stringResource(R.string.tooldetail_hold_nothing_value),
+                    subtitle = nothingSubtitle,
+                    selected = nothingSelected,
+                    onPick = onPickNothing,
+                ),
+            )
+        }
+        if (settingsSubtitle != null) {
+            add(
+                PickerRow(
+                    key = "settings",
+                    title = stringResource(R.string.tooldetail_hold_settings_title),
+                    subtitle = settingsSubtitle,
+                    selected = settingsSelected,
+                    onPick = onPickSettings,
+                ),
+            )
+        }
+    }
+    val offered = options.toSet()
+    val grouped = ToolGroups.map { (titleRes, tools) -> titleRes to tools.filter { it in offered } }
+    val placed = grouped.flatMapTo(HashSet()) { it.second }
+    val leftovers = options.filter { it !in placed }
+    val groups = buildList {
+        if (special.isNotEmpty()) add(PickerGroup("special", null, special))
+        for ((titleRes, tools) in grouped) {
+            if (tools.isEmpty()) continue
+            add(PickerGroup("group-$titleRes", stringResource(titleRes), tools.map { toolPickerRow(it, current, onPick) }))
+        }
+        if (leftovers.isNotEmpty()) {
+            add(
+                PickerGroup(
+                    "group-other",
+                    stringResource(R.string.tools_group_other_title),
+                    leftovers.map { toolPickerRow(it, current, onPick) },
+                ),
+            )
+        }
+    }
+    ActionPickerPage(memoryKey = memoryKey, title = title, groups = groups, onDismiss = onDismiss)
 }
+
+/** One tool as a picker row: its name, what it does, and its glyph. */
+@Composable
+private fun toolPickerRow(tool: ToolbarTool, current: ToolbarTool?, onPick: (ToolbarTool?) -> Unit): PickerRow =
+    PickerRow(
+        key = tool.name,
+        title = stringResource(toolTitle(tool)),
+        subtitle = stringResource(toolDescription(tool)),
+        selected = current == tool,
+        leading = { SlotIcon(IconSlots.forTool(tool), contentDescription = null) },
+        onPick = { onPick(tool) },
+    )
+
 /** One tool's screen: the enable switch plus every setting the tool has. */
 /**
  * Where Word left, Word right and Select word stop (#662): the app's own idea
@@ -392,6 +408,14 @@ private fun WordStepsGroup(repository: SettingsRepository, settings: LiveSetting
                 settings.watch { it.textEditing.cursorWordStopsAtCapitals },
                 default = SettingsDefaults.textEditing.cursorWordStopsAtCapitals,
             ) { scope.launch { repository.setCursorWordStopsAtCapitals(it) } }
+        }
+        item(visible = steps != CursorWordSteps.APP) {
+            ToggleSetting(
+                R.string.tooldetail_word_steps_digits_title,
+                stringResource(R.string.tooldetail_word_steps_digits_subtitle),
+                settings.watch { it.textEditing.cursorWordStopsAtDigits },
+                default = SettingsDefaults.textEditing.cursorWordStopsAtDigits,
+            ) { scope.launch { repository.setCursorWordStopsAtDigits(it) } }
         }
     }
 }
@@ -787,6 +811,20 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.SNIPPETS -> SettingsGroup(stringResource(R.string.tooldetail_snippets_group)) {
+            // The panel's gear lands here, so the panel's own layout setting
+            // sits here too rather than one screen deeper (#471). Same key as
+            // the row on the Text expansion screen.
+            item {
+                SliderSetting(
+                    R.string.expander_grid_columns_title,
+                    subtitle = stringResource(R.string.expander_grid_columns_subtitle),
+                    value = settings.watch { it.suggestionStrip.snippetGridColumns }.toFloat(),
+                    range = 1f..4f,
+                    display = { it.roundToInt().toString() },
+                    info = stringResource(R.string.expander_grid_columns_info),
+                    default = SettingsDefaults.suggestionStrip.snippetGridColumns.toFloat(),
+                ) { scope.launch { repository.setSnippetGridColumns(it.roundToInt()) } }
+            }
             item {
                 NavRow(
                     R.string.tooldetail_snippets_all_title,
@@ -996,6 +1034,7 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
                 }
             }
+            CalendarNewEventRows(repository, settings)
         }
         ToolbarTool.CAMERA -> {
             // What decides which rows the search group holds; each row reads
@@ -1187,6 +1226,15 @@ internal fun ToolDetailSettings(
                     ) { repository.setCameraSearchCustomField(it) }
                 }
             }
+            // Issue #727: a Translate button on the confirm step, shown once
+            // a provider here can take the photo.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.PHOTO_TRANSLATE,
+                titleRes = R.string.tooldetail_camera_translate_group,
+                info = stringResource(R.string.tooldetail_camera_translate_info),
+            )
             SettingsGroup(
                 stringResource(R.string.tooldetail_camera_feedback_group),
                 info = stringResource(R.string.tooldetail_camera_info),
@@ -1223,48 +1271,15 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
                 }
+                // The packs source is only as good as the packs installed, and
+                // this list's switch alone said nothing about where they come
+                // from (#665).
                 item {
-                    // Where the tool looks, in the order it asks: a source is
-                    // only asked when those above it did not know the word or
-                    // were unreachable.
-                    val sources = settings.watch { it.dictionarySources }
-                    val save: (List<DictionarySourceChoice>) -> Unit = { scope.launch { repository.setDictionarySources(it) } }
-                    ControlSetting(
-                        R.string.tooldetail_dictionary_sources_title,
-                        subtitle = stringResource(R.string.tooldetail_dictionary_sources_subtitle),
-                        info = stringResource(R.string.tooldetail_dictionary_sources_info),
-                    ) {
-                        val names = DictionarySource.entries.associateWith { stringResource(it.labelRes) }
-                        ReorderableColumn(
-                            items = sources,
-                            label = { names[it.source].orEmpty() },
-                            onReorder = save,
-                            modifier = Modifier.padding(top = 8.dp),
-                            rowHeight = DictionarySourceRowHeight,
-                        ) { choice ->
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    names[choice.source].orEmpty(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    stringResource(choice.source.descriptionRes),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Switch(
-                                checked = choice.enabled,
-                                onCheckedChange = { on ->
-                                    save(sources.map { if (it.source == choice.source) it.copy(enabled = on) else it })
-                                },
-                            )
-                        }
-                    }
+                    NavRow(
+                        R.string.tooldetail_dictionary_packs_title,
+                        stringResource(R.string.tooldetail_dictionary_packs_subtitle),
+                        onClick = { onNavigate("vocab/packs") },
+                    )
                 }
                 serverItems(
                     repository,
@@ -1272,6 +1287,22 @@ internal fun ToolDetailSettings(
                     endpoints = listOf(ServiceEndpoint.KAIKKI, ServiceEndpoint.WIKTIONARY, ServiceEndpoint.DICTIONARY_API),
                 )
             }
+            DictionaryTranslationsGroup(repository, settings)
+            // Where the tool looks, in the order it asks: a provider is only
+            // asked when those above it did not know the word or were unreachable.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.DICTIONARY,
+                titleRes = R.string.tooldetail_dictionary_sources_title,
+                info = stringResource(R.string.tooldetail_dictionary_sources_info),
+            )
+            // The words the packs above do not know, with no network (#665).
+            OfflineDictionariesGroup(settings)
+            // Yomichan / Yomitan dictionaries, in any language (#765).
+            ImportedDictionariesGroup()
+            // The same look-up as a card over other apps (#765).
+            LookupSettingsGroup(repository, settings, onNavigate)
         }
         ToolbarTool.TEXT_EDIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
@@ -2054,64 +2085,48 @@ internal fun ToolDetailSettings(
                 }
             }
             if (onDevice) TranslateModelManager(settings)
+            // Who translates, in order: on the device, the user's own server,
+            // DeepL, LibreTranslate, Google. The engine switch above decides
+            // which part of the list a translation asks.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.TRANSLATE,
+                info = stringResource(R.string.tooldetail_translate_providers_info),
+            )
             if (BuildConfig.ENABLE_FDROID) {
-                // This build translates against a LibreTranslate server the
-                // user runs or trusts, so the field is an address rather than
-                // a key. The key below it is optional and often unused.
                 SettingsGroup(
-                    stringResource(R.string.tooldetail_translate_instance_group),
-                    info = stringResource(R.string.tooldetail_translate_instance_info),
+                    stringResource(R.string.servers_group_title),
+                    info = stringResource(R.string.servers_group_info),
                 ) {
-                    item {
-                        TextFieldSetting(
-                            label = stringResource(R.string.tooldetail_translate_instance_label),
-                            value = settings.watch { it.selfHosted.libreTranslateUrl },
-                            hint = stringResource(R.string.tooldetail_translate_instance_hint),
-                            default = SettingsDefaults.selfHosted.libreTranslateUrl,
-                        ) { repository.setLibreTranslateUrl(it) }
-                    }
-                    item {
-                        ApiKeyField(
-                            label = stringResource(R.string.tooldetail_translate_instance_key_label),
-                            value = settings.watch { it.selfHosted.libreTranslateApiKey },
-                            builtInAvailable = false,
-                            emptyHint = stringResource(R.string.tooldetail_translate_instance_key_hint),
-                        ) { repository.setLibreTranslateApiKey(it) }
-                    }
                     serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.TRANSLATE_GOOGLE, ServiceEndpoint.TRANSLATE_CLOUD))
                 }
             }
-            SettingsGroup(
-                stringResource(R.string.tooldetail_translate_key_group),
-                info = stringResource(R.string.tooldetail_translate_info),
-            ) {
-                item {
-                    ApiKeyField(
-                        label = stringResource(R.string.tooldetail_translate_key_label),
-                        value = settings.watch { it.translateApiKey },
-                        builtInAvailable = ToolApiKeys.builtInTranslate,
-                        emptyHint = stringResource(R.string.tooldetail_translate_key_hint),
-                    ) { repository.setTranslateApiKey(it) }
-                }
-            }
-            TranslateServerSettingsGroup(repository, settings)
-            DeepLSettingsGroup(repository, settings)
+            DeepLWriteSettingsGroup(repository, settings)
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            // Who the panel asks: KLIPY, GIPHY, Commons or another wiki,
+            // GifCities, packs on the phone. Keys are shared between the two
+            // tools, so a key set up here works on the other page too.
+            ProvidersGroup(
+                repository,
+                settings,
+                if (tool == ToolbarTool.STICKER) ProviderTool.STICKER else ProviderTool.GIF,
+                info = stringResource(R.string.tooldetail_media_providers_info),
+                // Categories were fetched with the old key; they are not the new key's answer.
+                onChanged = { MediaCategoryCache.clear() },
+            )
             if (BuildConfig.ENABLE_FDROID && tool == ToolbarTool.GIF) {
                 SettingsGroup(
-                    stringResource(R.string.tooldetail_media_wiki_group),
-                    info = stringResource(R.string.tooldetail_media_wiki_info),
+                    stringResource(R.string.servers_group_title),
+                    info = stringResource(R.string.servers_group_info),
                 ) {
-                    item {
-                        TextFieldSetting(
-                            label = stringResource(R.string.tooldetail_media_wiki_label),
-                            value = settings.watch { it.selfHosted.commonsUrl },
-                            hint = stringResource(R.string.tooldetail_media_wiki_hint),
-                            default = SettingsDefaults.selfHosted.commonsUrl,
-                        ) { repository.setCommonsUrl(it) }
-                    }
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.KLIPY, ServiceEndpoint.GIPHY))
+                    serverItems(repository, settings, endpoints = listOf(
+                        ServiceEndpoint.KLIPY,
+                        ServiceEndpoint.GIPHY,
+                        ServiceEndpoint.GIFCITIES,
+                        ServiceEndpoint.WAYBACK_MACHINE,
+                    ))
                 }
             }
             if (tool == ToolbarTool.STICKER) {
@@ -2342,35 +2357,6 @@ internal fun ToolDetailSettings(
                 }
                 OfflineGifPacksGroup()
             }
-            SettingsGroup(
-                stringResource(R.string.tooldetail_media_keys_group),
-                info = stringResource(R.string.tooldetail_media_info),
-            ) {
-                item {
-                    ApiKeyField(
-                        label = stringResource(R.string.tooldetail_media_klipy_label),
-                        value = settings.watch { it.gif.klipyApiKey },
-                        builtInAvailable = ToolApiKeys.builtInKlipy,
-                        emptyHint = stringResource(R.string.tooldetail_media_klipy_hint),
-                    ) {
-                        repository.setKlipyApiKey(it)
-                        // Categories were fetched with the old key; they are
-                        // not this key's answer.
-                        MediaCategoryCache.clear()
-                    }
-                }
-                item {
-                    ApiKeyField(
-                        label = stringResource(R.string.tooldetail_media_giphy_label),
-                        value = settings.watch { it.gif.giphyApiKey },
-                        builtInAvailable = ToolApiKeys.builtInGiphy,
-                        emptyHint = stringResource(R.string.tooldetail_media_giphy_hint),
-                    ) {
-                        repository.setGiphyApiKey(it)
-                        MediaCategoryCache.clear()
-                    }
-                }
-            }
             // Resolved out here: the group builder lambda is not composable.
             val stickerOption = stringResource(R.string.tooldetail_media_send_sticker_option)
             val imageOption = stringResource(R.string.tooldetail_media_send_image_option)
@@ -2430,18 +2416,6 @@ internal fun ToolDetailSettings(
                     }
                 }
             }
-            SectionHeader(stringResource(R.string.tooldetail_media_sources_header))
-            ChoiceControl(
-                options = GifSourceMode.entries.map { mode ->
-                    mode to when (mode) {
-                        GifSourceMode.TABS -> stringResource(R.string.tooldetail_media_source_tabs)
-                        GifSourceMode.MIX -> stringResource(R.string.tooldetail_media_source_mixed)
-                    }
-                },
-                selected = settings.watch { it.gif.sourceMode },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                detail = { mode -> ChoiceDetail(stringResource(gifSourceDescRes(mode))) },
-            ) { mode -> scope.launch { repository.setGifSourceMode(mode) } }
             SectionHeader(
                 stringResource(R.string.tooldetail_media_filter_header),
                 info = stringResource(R.string.tooldetail_media_filter_info),
@@ -2474,48 +2448,29 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
-            SettingsGroup(
-                stringResource(R.string.tooldetail_search_group),
-                info = stringResource(R.string.tooldetail_search_info),
-            ) {
-                if (BuildConfig.ENABLE_FDROID) {
-                    // Offered first, because it is the one that needs no key —
-                    // but the Brave field stays below it for anyone who has one.
-                    item {
-                        TextFieldSetting(
-                            label = stringResource(R.string.tooldetail_search_instance_label),
-                            value = settings.watch { it.selfHosted.searxUrl },
-                            hint = stringResource(R.string.tooldetail_search_instance_hint),
-                            default = SettingsDefaults.selfHosted.searxUrl,
-                        ) { repository.setSearxUrl(it) }
-                    }
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.BRAVE_SEARCH))
-                }
-                item {
-                    ApiKeyField(
-                        label = stringResource(R.string.tooldetail_search_key_label),
-                        value = settings.watch { it.webSearch.braveApiKey },
-                        builtInAvailable = ToolApiKeys.builtInBrave,
-                        emptyHint = stringResource(R.string.tooldetail_search_key_hint),
-                    ) { repository.setBraveApiKey(it) }
+            // Who answers, in order: a SearXNG instance, Tavily, Brave. One
+            // list for both tools, as one service always answered both.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.SEARCH,
+                info = stringResource(R.string.tooldetail_search_providers_info),
+            )
+            if (BuildConfig.ENABLE_FDROID) {
+                SettingsGroup(
+                    stringResource(R.string.servers_group_title),
+                    info = stringResource(R.string.servers_group_info),
+                ) {
+                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.BRAVE_SEARCH, ServiceEndpoint.TAVILY))
                 }
             }
+            // Tavily's own option, once Tavily is in the list.
+            val tavilyListed = settings.watch { it.providerChain(ProviderTool.SEARCH).has(ProviderTypes.TAVILY.id) }
             SettingsGroup(
                 stringResource(R.string.tooldetail_tavily_group),
                 info = stringResource(R.string.tooldetail_tavily_info),
             ) {
-                if (BuildConfig.ENABLE_FDROID) {
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.TAVILY))
-                }
-                item {
-                    ApiKeyField(
-                        label = stringResource(R.string.tooldetail_tavily_key_label),
-                        value = settings.watch { it.webSearch.tavilyApiKey },
-                        builtInAvailable = false,
-                        emptyHint = stringResource(R.string.tooldetail_tavily_key_hint),
-                    ) { repository.setTavilyApiKey(it) }
-                }
-                item {
+                item(visible = tavilyListed) {
                     ToggleSetting(
                         R.string.tooldetail_tavily_advanced_title,
                         stringResource(R.string.tooldetail_tavily_advanced_subtitle),
@@ -2603,37 +2558,17 @@ internal fun ToolDetailSettings(
                 }
             }
             // Issue #469: a model that reads images, behind an
-            // OpenAI-compatible address of the user's choosing.
+            // OpenAI-compatible address of the user's choosing; #727 adds
+            // Rens servers. Readers are a provider list, asked in order or
+            // chosen in the panel.
             if (settings.watch { it.scanner.ocrEngine == OcrEngine.ONLINE }) {
-                SettingsGroup(
-                    stringResource(R.string.tooldetail_ocr_online_group),
+                ProvidersGroup(
+                    repository,
+                    settings,
+                    ProviderTool.OCR,
+                    titleRes = R.string.tooldetail_ocr_online_group,
                     info = stringResource(R.string.tooldetail_ocr_online_info),
-                ) {
-                    item {
-                        TextFieldSetting(
-                            label = stringResource(R.string.tooldetail_ocr_online_url_label),
-                            value = settings.watch { it.scanner.ocrOnlineUrl },
-                            hint = stringResource(R.string.tooldetail_ocr_online_url_hint),
-                            default = SettingsDefaults.scanner.ocrOnlineUrl,
-                        ) { repository.setOcrOnlineUrl(it) }
-                    }
-                    item {
-                        TextFieldSetting(
-                            label = stringResource(R.string.tooldetail_ocr_online_model_label),
-                            value = settings.watch { it.scanner.ocrOnlineModel },
-                            hint = stringResource(R.string.tooldetail_ocr_online_model_hint),
-                            default = SettingsDefaults.scanner.ocrOnlineModel,
-                        ) { repository.setOcrOnlineModel(it) }
-                    }
-                    item {
-                        ApiKeyField(
-                            label = stringResource(R.string.tooldetail_ocr_online_key_label),
-                            value = settings.watch { it.scanner.ocrOnlineKey },
-                            builtInAvailable = false,
-                            emptyHint = stringResource(R.string.tooldetail_ocr_online_key_hint),
-                        ) { repository.setOcrOnlineKey(it) }
-                    }
-                }
+                )
             }
             if (settings.watch { it.scanner.ocrEngine != OcrEngine.ML_KIT && it.scanner.ocrEngine != OcrEngine.ONLINE }) {
                 SectionHeader(
@@ -2987,17 +2922,16 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.currencyCacheHours.toFloat(),
                     ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
                 }
-                item {
-                    RateSourceSetting(
-                        title = R.string.tooldetail_currency_source_title,
-                        subtitle = stringResource(R.string.tooldetail_currency_source_subtitle),
-                        providers = settings.watch { it.rateSources.fiatProviders },
-                        defaultProviders = SettingsDefaults.rateSources.fiatProviders,
-                        candidates = CurrencyClient.Provider.entries.filter { it.fiat },
-                    ) { scope.launch { repository.setFiatProviders(it) } }
-                }
                 serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.CURRENCY_API, ServiceEndpoint.CURRENCY_API_MIRROR, ServiceEndpoint.FRANKFURTER, ServiceEndpoint.ER_API))
             }
+            // Where rates come from, best first; the next is asked when one fails.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.CURRENCY_FIAT,
+                titleRes = R.string.tooldetail_currency_source_title,
+                info = stringResource(R.string.tooldetail_currency_source_subtitle),
+            )
             SettingsGroup(
                 stringResource(R.string.tooldetail_crypto_group_title),
                 info = stringResource(R.string.tooldetail_crypto_info),
@@ -3035,18 +2969,18 @@ internal fun ToolDetailSettings(
                             default = SettingsDefaults.rateSources.cryptoCacheMinutes.toFloat(),
                         ) { scope.launch { repository.setCryptoCacheMinutes(it.toInt()) } }
                     }
-                    item {
-                        RateSourceSetting(
-                            title = R.string.tooldetail_crypto_source_title,
-                            subtitle = stringResource(R.string.tooldetail_crypto_source_subtitle),
-                            providers = settings.watch { it.rateSources.cryptoProviders },
-                            defaultProviders = SettingsDefaults.rateSources.cryptoProviders,
-                            candidates = CurrencyClient.Provider.entries.filter { it.crypto },
-                        ) { scope.launch { repository.setCryptoProviders(it) } }
-                    }
                     serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.COINBASE, ServiceEndpoint.COINGECKO))
                     item { CryptoCoinPicker(repository, settings) }
                 }
+            }
+            if (cryptoOn) {
+                ProvidersGroup(
+                    repository,
+                    settings,
+                    ProviderTool.CURRENCY_CRYPTO,
+                    titleRes = R.string.tooldetail_crypto_source_title,
+                    info = stringResource(R.string.tooldetail_crypto_source_subtitle),
+                )
             }
         }
         ToolbarTool.QR_GEN -> {
@@ -3223,6 +3157,7 @@ internal fun ToolDetailSettings(
                 }
             }
         }
+        ToolbarTool.TEXT_REPEAT -> TextRepeatToolSettings(repository, settings)
         ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
         ToolbarTool.AI -> AiToolSettings(repository, settings, onNavigate)
         ToolbarTool.AI_REPLY -> AiReplyToolSettings(repository, settings, onNavigate)
@@ -3230,7 +3165,9 @@ internal fun ToolDetailSettings(
         ToolbarTool.NOTES -> NotesToolSettings(repository, settings, onNavigate)
         ToolbarTool.LOCATION -> LocationToolSettings(repository, settings)
         ToolbarTool.CLOCK -> ClockToolSettings(onNavigate)
+        ToolbarTool.HOME_ASSISTANT -> com.wasimaster.wmkeyboard.app.homeassistant.SmartHomeToolSettings(repository, settings, onNavigate)
         ToolbarTool.GALLERY -> GalleryToolSettings(repository, settings)
+        ToolbarTool.SEND_FILES -> com.wasimaster.wmkeyboard.app.send.SendToolSettings(repository, settings, onNavigate)
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
@@ -3242,57 +3179,6 @@ internal fun ToolDetailSettings(
         }
         else -> {}
     }
-}
-/** The display name of a rate provider. Ids are stored, names are shown. */
-@Composable
-private fun providerLabel(provider: CurrencyClient.Provider): String = stringResource(
-    when (provider) {
-        CurrencyClient.Provider.ER_API -> R.string.tooldetail_rate_source_er_api
-        CurrencyClient.Provider.FRANKFURTER -> R.string.tooldetail_rate_source_frankfurter
-        CurrencyClient.Provider.COINBASE -> R.string.tooldetail_rate_source_coinbase
-        CurrencyClient.Provider.CURRENCY_API -> R.string.tooldetail_rate_source_currency_api
-        CurrencyClient.Provider.COINGECKO -> R.string.tooldetail_rate_source_coingecko
-    },
-)
-/**
- * Which source to fetch from, and whether the rest stand behind it. Both
- * answers are one stored list: the head is the source that is tried and the
- * tail is the fallback chain, so switching fallbacks off simply drops the
- * tail.
- */
-@Composable
-private fun RateSourceSetting(
-    @StringRes title: Int,
-    subtitle: String,
-    providers: List<String>,
-    defaultProviders: List<String>,
-    candidates: List<CurrencyClient.Provider>,
-    onChange: (List<String>) -> Unit,
-) {
-    val primary = providers.firstNotNullOfOrNull { CurrencyClient.Provider.of(it) }
-        ?: candidates.first()
-    val fallback = providers.size > 1
-    // Both rows are views onto the one stored list, so both read their default
-    // off the list the app shipped with rather than off a constant of their own.
-    val defaultPrimary = defaultProviders.firstNotNullOfOrNull { CurrencyClient.Provider.of(it) }
-        ?: candidates.first()
-    fun write(head: CurrencyClient.Provider, withFallback: Boolean) {
-        val rest = if (withFallback) candidates.filter { it != head }.map { it.name } else emptyList()
-        onChange(listOf(head.name) + rest)
-    }
-    ChoiceSetting(
-        title = title,
-        subtitle = subtitle,
-        options = candidates.map { it to providerLabel(it) },
-        selected = primary,
-        default = defaultPrimary,
-    ) { write(it, fallback) }
-    ToggleSetting(
-        R.string.tooldetail_rate_fallback_title,
-        stringResource(R.string.tooldetail_rate_fallback_subtitle),
-        fallback,
-        default = defaultProviders.size > 1,
-    ) { write(primary, it) }
 }
 /**
  * The coins the keyboard reads and offers. An empty stored set means the
@@ -3385,6 +3271,179 @@ private fun CryptoCoinPicker(repository: SettingsRepository, settings: LiveSetti
  * chip row edits — this screen is the slower way round to them, plus the
  * records the panel only shows one config of at a time.
  */
+/**
+ * The Text repeat tool's options. The panel edits most of them live, so they
+ * are also where it was last left. The recent texts live in their own file
+ * (see FindHistoryPrefs), read and written here directly like Find's history.
+ */
+@Composable
+private fun TextRepeatToolSettings(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val numberFormat = stringResource(R.string.values_number)
+    // What decides which rows the groups hold; each row reads its own value.
+    val mode = settings.watch { it.textRepeat.mode }
+    val separator = settings.watch { it.textRepeat.separator }
+    val hasCopies = mode != TextRepeat.Mode.STRETCH
+    SettingsGroup(
+        stringResource(R.string.tooldetail_repeat_group),
+        info = stringResource(R.string.tooldetail_repeat_group_info),
+    ) {
+        item {
+            SliderSetting(
+                R.string.tooldetail_repeat_count_title,
+                subtitle = stringResource(R.string.tooldetail_repeat_count_subtitle),
+                value = settings.watch { it.textRepeat.count }.toFloat(),
+                range = TextRepeat.MIN_COUNT.toFloat()..TextRepeat.MAX_COUNT.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.textRepeat.count.toFloat(),
+            ) { scope.launch { repository.setTextRepeatCount(it.roundToInt()) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_repeat_mode_title,
+                subtitle = stringResource(R.string.tooldetail_repeat_mode_subtitle),
+                options = listOf(
+                    TextRepeat.Mode.REPEAT to stringResource(R.string.tooldetail_repeat_mode_repeat),
+                    TextRepeat.Mode.STRETCH to stringResource(R.string.tooldetail_repeat_mode_stretch),
+                    TextRepeat.Mode.STAIRS to stringResource(R.string.tooldetail_repeat_mode_stairs),
+                ),
+                selected = mode,
+                default = SettingsDefaults.textRepeat.mode,
+                detail = { candidate ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (candidate) {
+                                TextRepeat.Mode.REPEAT -> R.string.tooldetail_repeat_mode_repeat_desc
+                                TextRepeat.Mode.STRETCH -> R.string.tooldetail_repeat_mode_stretch_desc
+                                TextRepeat.Mode.STAIRS -> R.string.tooldetail_repeat_mode_stairs_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setTextRepeatMode(it) } }
+        }
+        item(visible = hasCopies) {
+            ChoiceSetting(
+                R.string.tooldetail_repeat_separator_title,
+                subtitle = stringResource(R.string.tooldetail_repeat_separator_subtitle),
+                options = listOf(
+                    TextRepeat.Separator.NONE to stringResource(R.string.tooldetail_repeat_sep_none),
+                    TextRepeat.Separator.SPACE to stringResource(R.string.tooldetail_repeat_sep_space),
+                    TextRepeat.Separator.NEWLINE to stringResource(R.string.tooldetail_repeat_sep_newline),
+                    TextRepeat.Separator.COMMA to stringResource(R.string.tooldetail_repeat_sep_comma),
+                    TextRepeat.Separator.CUSTOM to stringResource(R.string.tooldetail_repeat_sep_custom),
+                ),
+                selected = separator,
+                default = SettingsDefaults.textRepeat.separator,
+            ) { scope.launch { repository.setTextRepeatSeparator(it) } }
+        }
+        item(visible = hasCopies && separator == TextRepeat.Separator.CUSTOM) {
+            TextFieldSetting(
+                label = stringResource(R.string.tooldetail_repeat_custom_label),
+                value = settings.watch { it.textRepeat.customSeparator },
+                hint = stringResource(R.string.tooldetail_repeat_custom_hint),
+                default = SettingsDefaults.textRepeat.customSeparator,
+            ) { repository.setTextRepeatCustomSeparator(it) }
+        }
+        item(visible = hasCopies) {
+            ToggleSetting(
+                R.string.tooldetail_repeat_numbered_title,
+                stringResource(R.string.tooldetail_repeat_numbered_subtitle),
+                settings.watch { it.textRepeat.numbered },
+                default = SettingsDefaults.textRepeat.numbered,
+            ) { scope.launch { repository.setTextRepeatNumbered(it) } }
+        }
+        item(visible = hasCopies) {
+            ToggleSetting(
+                R.string.tooldetail_repeat_alternate_title,
+                stringResource(R.string.tooldetail_repeat_alternate_subtitle),
+                settings.watch { it.textRepeat.alternateCase },
+                default = SettingsDefaults.textRepeat.alternateCase,
+            ) { scope.launch { repository.setTextRepeatAlternateCase(it) } }
+        }
+    }
+    SettingsGroup(stringResource(R.string.tooldetail_repeat_limits_group)) {
+        item {
+            SliderSetting(
+                R.string.tooldetail_repeat_max_chars_title,
+                subtitle = stringResource(R.string.tooldetail_repeat_max_chars_subtitle),
+                value = settings.watch { it.toolLimits.textRepeatMaxChars }.toFloat(),
+                range = TextRepeat.MIN_MAX_CHARS.toFloat()..TextRepeat.MAX_MAX_CHARS.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.toolLimits.textRepeatMaxChars.toFloat(),
+            ) { scope.launch { repository.setTextRepeatMaxChars(it.roundToInt()) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_repeat_chip_insert_title,
+                subtitle = stringResource(R.string.tooldetail_repeat_chip_insert_subtitle),
+                options = listOf(
+                    TextRepeat.ChipInsert.REPLACE_RUN to stringResource(R.string.tooldetail_repeat_chip_insert_replace),
+                    TextRepeat.ChipInsert.APPEND to stringResource(R.string.tooldetail_repeat_chip_insert_append),
+                ),
+                selected = settings.watch { it.textRepeat.chipInsert },
+                default = SettingsDefaults.textRepeat.chipInsert,
+                detail = { candidate ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (candidate) {
+                                TextRepeat.ChipInsert.REPLACE_RUN -> R.string.tooldetail_repeat_chip_insert_replace_desc
+                                TextRepeat.ChipInsert.APPEND -> R.string.tooldetail_repeat_chip_insert_append_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setTextRepeatChipInsert(it) } }
+        }
+        // The same row as Typing → Smart chips; the chip is this tool's door.
+        item {
+            StepperSetting(
+                R.string.tooldetail_repeat_chip_after_title,
+                stringResource(R.string.tooldetail_repeat_chip_after_subtitle),
+                value = settings.watch { it.smartChips.repeatAfter },
+                range = (TextRepeat.MIN_REPEAT_AFTER..TextRepeat.MAX_REPEAT_AFTER).toList(),
+                display = { numberFormat.format(it) },
+                default = SettingsDefaults.smartChips.repeatAfter,
+            ) { scope.launch { repository.setSmartChipRepeatAfter(it) } }
+        }
+    }
+    val recentsContext = LocalContext.current
+    val recents = remember {
+        com.wasimaster.wmkeyboard.ime.FindHistoryPrefs(
+            recentsContext,
+            com.wasimaster.wmkeyboard.ime.FindHistoryPrefs.TEXT_REPEAT_FILE,
+        )
+    }
+    var remembering by remember { mutableStateOf(recents.enabled) }
+    var count by remember { mutableStateOf(recents.entries().size) }
+    SettingsGroup(stringResource(R.string.tooldetail_repeat_recents_group)) {
+        item {
+            ToggleSetting(
+                R.string.tooldetail_repeat_recents_title,
+                stringResource(R.string.tooldetail_repeat_recents_subtitle),
+                remembering,
+                info = stringResource(R.string.tooldetail_repeat_recents_info),
+                default = true,
+            ) {
+                recents.enabled = it
+                remembering = it
+                count = recents.entries().size
+            }
+        }
+        item(visible = remembering) {
+            ActionRow(
+                R.string.tooldetail_repeat_recents_clear_title,
+                subtitle = pluralStringResource(R.plurals.tooldetail_repeat_recents_count, count, count),
+                action = stringResource(R.string.tooldetail_repeat_recents_clear_action),
+                enabled = count > 0,
+            ) {
+                recents.clear()
+                count = 0
+            }
+        }
+    }
+}
+
 @Composable
 private fun TypingTestToolSettings(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
@@ -3701,84 +3760,24 @@ private fun ToolKeywordSetting(
         StateBanner(stringResource(R.string.toolai_keyword_off_info))
     }
 }
-/**
- * A translation server the user runs that answers OpenAI chat-completions
- * requests (#435). The address is the switch: blank, the tool is as it was.
- */
-@Composable
-private fun TranslateServerSettingsGroup(repository: SettingsRepository, settings: LiveSettings) {
-    val defaults = SettingsDefaults.translate.server
-    SettingsGroup(
-        stringResource(R.string.tooldetail_translate_server_group),
-        info = stringResource(R.string.tooldetail_translate_server_info),
-    ) {
-        item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_translate_server_url_label),
-                value = settings.watch { it.translate.server.url },
-                hint = stringResource(R.string.tooldetail_translate_server_url_hint),
-                default = defaults.url,
-            ) { repository.setTranslateServerUrl(it) }
-        }
-        item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_translate_server_model_label),
-                value = settings.watch { it.translate.server.model },
-                hint = stringResource(R.string.tooldetail_translate_server_model_hint),
-                default = defaults.model,
-            ) { repository.setTranslateServerModel(it) }
-        }
-        item {
-            ApiKeyField(
-                label = stringResource(R.string.tooldetail_translate_server_key_label),
-                value = settings.watch { it.translate.server.apiKey },
-                builtInAvailable = false,
-                emptyHint = stringResource(R.string.tooldetail_translate_server_key_hint),
-            ) { repository.setTranslateServerKey(it) }
-        }
-    }
-}
 
 /**
- * DeepL, the user's own opt-in service (#331): a key or a server, and then
- * what to use it for. Until one of the two fields is filled in the switches
- * stay out of sight, because they would switch nothing.
+ * DeepL Write (#331), for the grammar panel and the selection bar. Its key
+ * and proxy are the DeepL provider of the translate list, so the group only
+ * shows once that is set up; the rows here are what DeepL is used for
+ * besides translating.
  */
 @Composable
-private fun DeepLSettingsGroup(repository: SettingsRepository, settings: LiveSettings) {
+private fun DeepLWriteSettingsGroup(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
     val defaults = SettingsDefaults.translate.deepl
     // What decides which rows the group holds; each row reads its own value.
-    val configured = settings.watch { it.translate.deepl.configured }
-    val writeActive = settings.watch { it.translate.deepl.writeActive }
+    val configured = settings.watch { it.deeplLive.configured }
+    val writeActive = settings.watch { it.deeplLive.writeActive }
     SettingsGroup(
         stringResource(R.string.tooldetail_deepl_group),
-        info = stringResource(R.string.tooldetail_deepl_info),
+        info = stringResource(R.string.tooldetail_deepl_write_group_info),
     ) {
-        item {
-            ApiKeyField(
-                label = stringResource(R.string.tooldetail_deepl_key_label),
-                value = settings.watch { it.translate.deepl.apiKey },
-                builtInAvailable = false,
-                emptyHint = stringResource(R.string.tooldetail_deepl_key_hint),
-            ) { repository.setDeepLApiKey(it) }
-        }
-        item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_deepl_endpoint_label),
-                value = settings.watch { it.translate.deepl.endpoint },
-                hint = stringResource(R.string.tooldetail_deepl_endpoint_hint),
-                default = defaults.endpoint,
-            ) { repository.setDeepLEndpoint(it) }
-        }
-        item(visible = configured) {
-            ToggleSetting(
-                R.string.tooldetail_deepl_translate_title,
-                stringResource(R.string.tooldetail_deepl_translate_subtitle),
-                settings.watch { it.translate.deepl.translate },
-                default = defaults.translate,
-            ) { scope.launch { repository.setDeepLTranslate(it) } }
-        }
         item(visible = configured) {
             ToggleSetting(
                 R.string.tooldetail_deepl_write_title,
@@ -4275,9 +4274,11 @@ private fun HandwritingModelManager(settings: LiveSettings) {
 }
 
 /**
- * Download/delete for the Tesseract data of every language the user types in.
- * Several languages can share one pack (both Norwegians, or a language that
- * borrows its script's main pack), so a row is a pack and names them all.
+ * Download/delete for the Tesseract data of every language the user types in,
+ * and under Automatic PaddleOCR's models for Chinese and Japanese instead.
+ * Several languages can share one pack (both Norwegians, a language that
+ * borrows its script's main pack, or Chinese and Japanese with Paddle), so a
+ * row is a pack and names them all.
  * Progress comes from [OcrPacks], which the keyboard's own download button
  * feeds too.
  */
@@ -4286,7 +4287,8 @@ private fun OcrPackManager(settings: LiveSettings) {
     val context = LocalContext.current
     val filesDir = context.filesDir
     val enabledLanguages = settings.watch { it.enabledLanguages }
-    val packs = remember(enabledLanguages) { OcrLanguages.packsFor(enabledLanguages) }
+    val engine = settings.watch { it.scanner.ocrEngine }
+    val packs = remember(enabledLanguages, engine) { OcrLanguages.packsFor(enabledLanguages, engine) }
     val states by OcrPacks.states.collectAsState()
     LaunchedEffect(packs) { OcrPacks.refresh(filesDir, packs.map { it.first }) }
     val decide = rememberDownloadDecision(settings)
@@ -4304,7 +4306,11 @@ private fun OcrPackManager(settings: LiveSettings) {
                 val status = states[pack] ?: OcrPacks.Status.NotDownloaded
                 val names = languages.joinToString(", ") { it.displayName }
                 WmRow(
-                    title = names,
+                    title = if (pack == PaddleOcrModel.PACK) {
+                        stringResource(R.string.tooldetail_ocr_pack_paddle_title, names)
+                    } else {
+                        names
+                    },
                     subtitle = when (status) {
                         OcrPacks.Status.Downloaded ->
                             stringResource(R.string.privacy_handwriting_status_downloaded)
@@ -4376,8 +4382,14 @@ private fun OcrPackManager(settings: LiveSettings) {
             }
         }
         item {
-            val links = packs.map { (pack, languages) ->
-                OfflineLink(languages.joinToString(", ") { it.displayName }, OcrLanguages.downloadUrl(pack))
+            val links = packs.flatMap { (pack, languages) ->
+                val names = languages.joinToString(", ") { it.displayName }
+                if (pack == PaddleOcrModel.PACK) {
+                    // Three files, imported one by one under their own names.
+                    PaddleOcrModel.Part.entries.map { OfflineLink("$names (${it.fileName})", PaddleOcrModel.url(it)) }
+                } else {
+                    listOf(OfflineLink(names, OcrLanguages.downloadUrl(pack)))
+                }
             }
             OfflineImportRow(
                 subtitle = stringResource(R.string.offline_import_ocr_subtitle),
@@ -4474,10 +4486,6 @@ private fun powerTriggerDescRes(trigger: PowerSavingTrigger): Int = when (trigge
 }
 
 /** How the GIF panel arranges its sources, one line, for the picker sheet. */
-private fun gifSourceDescRes(mode: GifSourceMode): Int = when (mode) {
-    GifSourceMode.TABS -> R.string.tooldetail_media_source_tabs_desc
-    GifSourceMode.MIX -> R.string.tooldetail_media_source_mixed_desc
-}
 
 /**
  * What each filter level hides, with the rating it maps to. The level names
@@ -4522,7 +4530,6 @@ private fun grammarCategoryInfo(category: GrammarCategory): Int = when (category
     GrammarCategory.DELIVERY -> R.string.tooldetail_grammar_delivery_info
 }
 
-private val DictionarySourceRowHeight = 64.dp
 
 /**
  * The AI reply tool's page (#234).
@@ -4666,4 +4673,96 @@ private fun AiReplyToolSettings(
             ) { onNavigate("tool/${ToolbarTool.AI.name}") }
         }
     }
+}
+
+/**
+ * The calendar tool's "New events" group: where Save puts an event, and what
+ * a new one starts with. The calendar list needs read access; without it the
+ * row says so and asks, through the same disclosure the first Save shows.
+ */
+@Composable
+private fun CalendarNewEventRows(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val canRead = rememberGrantState { DeviceCalendar.canRead(it) }
+    var granted by remember { mutableStateOf(false) }
+    val request = rememberDisclosedPermissionRequest(PermissionDisclosures.CALENDAR_WRITE) { granted = true }
+    val readable = canRead || granted
+    SettingsGroup(stringResource(R.string.tooldetail_calendar_new_group)) {
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_calendar_save_mode_title,
+                subtitle = stringResource(R.string.tooldetail_calendar_save_mode_subtitle),
+                info = stringResource(R.string.tooldetail_calendar_save_mode_info),
+                options = listOf(
+                    CalendarSaveMode.KEYBOARD to stringResource(R.string.tooldetail_calendar_save_keyboard_label),
+                    CalendarSaveMode.CALENDAR_APP to stringResource(R.string.tooldetail_calendar_save_app_label),
+                ),
+                selected = settings.watch { it.calendarTool.saveMode },
+                default = SettingsDefaults.calendarTool.saveMode,
+            ) { scope.launch { repository.setCalendarSaveMode(it) } }
+        }
+        item {
+            val calendars = remember(readable) { if (readable) DeviceCalendar.writableCalendars(context) else emptyList() }
+            val chosen = settings.watch { it.calendarTool.defaultCalendarId }
+            val options = listOf(-1L to stringResource(R.string.tooldetail_calendar_default_calendar_primary)) +
+                calendars.map { c -> c.id to listOf(c.name, c.account).filter { it.isNotBlank() }.distinct().joinToString(" · ") }
+            if (readable) {
+                ChoiceSetting(
+                    R.string.tooldetail_calendar_default_calendar_title,
+                    subtitle = stringResource(R.string.tooldetail_calendar_default_calendar_subtitle),
+                    options = options,
+                    selected = if (options.any { it.first == chosen }) chosen else -1L,
+                    default = SettingsDefaults.calendarTool.defaultCalendarId,
+                ) { scope.launch { repository.setCalendarDefaultCalendar(it) } }
+            } else {
+                NavRow(
+                    title = R.string.tooldetail_calendar_default_calendar_title,
+                    subtitle = stringResource(R.string.tooldetail_calendar_default_calendar_no_access),
+                ) { request() }
+            }
+        }
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_calendar_default_length_title,
+                subtitle = stringResource(R.string.tooldetail_calendar_default_length_subtitle),
+                options = CALENDAR_LENGTHS.map { it to calendarLengthLabel(it) },
+                selected = settings.watch { it.calendarTool.defaultDurationMinutes }.let { m ->
+                    if (m in CALENDAR_LENGTHS) m else SettingsDefaults.calendarTool.defaultDurationMinutes
+                },
+                default = SettingsDefaults.calendarTool.defaultDurationMinutes,
+            ) { scope.launch { repository.setCalendarDefaultDuration(it) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_calendar_default_reminder_title,
+                subtitle = stringResource(R.string.tooldetail_calendar_default_reminder_subtitle),
+                options = CALENDAR_REMINDERS.map { it to calendarReminderLabel(it) },
+                selected = settings.watch { it.calendarTool.defaultReminderMinutes }.let { m ->
+                    if (m in CALENDAR_REMINDERS) m else SettingsDefaults.calendarTool.defaultReminderMinutes
+                },
+                default = SettingsDefaults.calendarTool.defaultReminderMinutes,
+            ) { scope.launch { repository.setCalendarDefaultReminder(it) } }
+        }
+    }
+}
+
+private val CALENDAR_LENGTHS = listOf(15, 30, 45, 60, 90, 120, 180, 240)
+private val CALENDAR_REMINDERS = listOf(-1, 0, 5, 10, 15, 30, 60, 120, 1440)
+
+@Composable
+private fun calendarLengthLabel(minutes: Int): String =
+    if (minutes % 60 == 0) {
+        pluralStringResource(R.plurals.tooldetail_calendar_length_hours, minutes / 60, minutes / 60)
+    } else {
+        pluralStringResource(R.plurals.tooldetail_calendar_length_minutes, minutes, minutes)
+    }
+
+@Composable
+private fun calendarReminderLabel(minutes: Int): String = when {
+    minutes < 0 -> stringResource(R.string.tooldetail_calendar_reminder_none)
+    minutes == 0 -> stringResource(R.string.tooldetail_calendar_reminder_at_start)
+    minutes % 1440 == 0 -> pluralStringResource(R.plurals.tooldetail_calendar_days_before, minutes / 1440, minutes / 1440)
+    minutes % 60 == 0 -> pluralStringResource(R.plurals.tooldetail_calendar_hours_before, minutes / 60, minutes / 60)
+    else -> pluralStringResource(R.plurals.tooldetail_calendar_minutes_before, minutes, minutes)
 }

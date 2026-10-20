@@ -1154,7 +1154,7 @@
     <string name="clipboard_key_row_info">Füge einen Link ein und drücke die Eingabetaste, um ihn aufzurufen, oder füge weitere Clips mit einem Leerzeichen oder einem Zeilenumbruch dazwischen ein, ohne zur Tastatur zurückzukehren. ABC kehrt zu den Buchstaben zurück. Wenn du das Layout des Bereichs geändert hast, hat diese Einstellung keine Wirkung: Füge die Tasten stattdessen im Layout-Editor hinzu. Die Zeile wird nicht angezeigt, während die Zwischenablage über den Tasten liegt. Diese Einstellung ist standardmäßig deaktiviert.</string>
     <string name="clipboard_key_row_subtitle">Eine Tastenreihe am unteren Rand des Zwischenablage-Bereichs</string>
     <string name="clipboard_key_row_title">ABC-, Leer- und Eingabetasten</string>
-    <string name="clipboard_line_spacing_info">Bei 100% liegen die Zeilen eines Clips so eng beieinander, wie es die Schriftart zulässt. Erhöhe den Wert, um sie weiter auseinanderzuziehen. Der Standardwert ist 130%.</string>
+    <string name="clipboard_line_spacing_info" formatted="false">Bei 100% liegen die Zeilen eines Clips so eng beieinander, wie es die Schriftart zulässt. Erhöhe den Wert, um sie weiter auseinanderzuziehen. Der Standardwert ist 130%.</string>
     <string name="clipboard_line_spacing_subtitle">Der Abstand zwischen den Zeilen eines Clip-Textes</string>
     <string name="clipboard_line_spacing_title">Zeilenabstand</string>
     <string name="clipboard_line_spacing_value">%1$d%%</string>
@@ -2399,9 +2399,7 @@
     <string name="import_sticker_editor_border_white_option">Weiß</string>
     <string name="import_sticker_editor_border_width_label">Rahmenbreite</string>
     <string name="import_sticker_editor_brush_size_label">Pinselgröße</string>
-    <string name="import_sticker_editor_caption">Die Tastatur speichert einen 512x512 Sticker. Bewegen und zoomen Sie das Bild, um den gewünschten Bereich auszuwählen, entfernen Sie dann den Hintergrund und fügen Sie einen Rand hinzu. Die App behält dieses Bild auf dem Telefon, damit Sie den Sticker später erneut bearbeiten können.</string>
     <string name="import_sticker_editor_crop_action">Zuschneiden</string>
-    <string name="import_sticker_editor_crop_hint">Ziehen, um das Bild zu verschieben. Zum Vergrößern aufziehen.</string>
     <string name="import_sticker_editor_cutout_action">Hintergrund entfernen</string>
     <string name="import_sticker_editor_cutout_download_own_subtitle">Laden Sie zuerst den Hintergrundentferner herunter. Es ist ein 5 MB Download.</string>
     <string name="import_sticker_editor_cutout_download_progress">Die App lädt den Hintergrundentferner herunter…</string>
@@ -3516,7 +3514,6 @@
     <string name="layout_editor_alternate_columns_default">Aus den Einstellungen</string>
     <string name="layout_editor_alternate_columns_subtitle">Wie viele Alternativen diese Taste in einer Zeile anzeigt</string>
     <string name="layout_editor_alternate_columns_title">Spalten im Popup</string>
-    <string name="layout_editor_alternate_hint_badge">Hinweis</string>
     <string name="layout_editor_alternates_field_hint">Trennen Sie die Einträge mit Leerzeichen, sodass eine Alternative kein Leerzeichen sein kann. Einträge mit mehr als einem Zeichen, wie z. B. .com, sind korrekt. Die App zeichnet auch das erste Zeichen in der Ecke der Taste.</string>
     <string name="layout_editor_alternates_field_label">Alternativen für langes Drücken</string>
     <string name="layout_editor_apply_action">Anwenden</string>
@@ -3612,7 +3609,6 @@
     <string name="layout_editor_field_row_title">Komponente</string>
     <string name="layout_editor_fill_row_action">Zeile füllen (%1$.2f)</string>
     <string name="layout_editor_fill_row_caption">Die Zahlenreihe zeigt bereits die Ziffern an, daher zeigt die Tastatur diese Reihe anstelle der ersten Reihe dieser Ebene an.</string>
-    <string name="layout_editor_fill_row_off_caption">Wenn die Zahlenreihe aktiviert ist, zeigt die Tastatur diese Reihe anstelle der ersten Reihe dieser Ebene an, da die Zahlenreihe bereits die Ziffern anzeigt. Die Zahlenreihe ist derzeit deaktiviert.</string>
     <string name="layout_editor_fill_row_title">Reihe anstelle der Ziffern</string>
     <string name="layout_editor_fit_row_action">Zeile an das Raster anpassen (%1$.2f)</string>
     <string name="layout_editor_flick_action_none">Kein Wisch in diese Richtung. Tippen Sie, um eine Aktion auszuwählen.</string>
@@ -3787,8 +3783,6 @@
     <string name="layout_editor_new_secondary_title">Ein sekundäres Layout starten</string>
     <string name="layout_editor_not_live_caption">Ihre Änderungen hier wirken sich erst auf das Tippen aus, wenn Sie das Layout unter Sprachen aktivieren.</string>
     <string name="layout_editor_number_row_caption">Die Tastatur zeigt diese Reihe über dieser Ebene an. Tippen Sie auf eine Taste, um sie zu ändern. Halten Sie eine Taste gedrückt und ziehen Sie sie, um sie zu verschieben.</string>
-    <string name="layout_editor_number_row_hidden_caption">Die Tastatur zeigt diese Reihe über dieser Ebene an, wenn die Zahlenreihe in Symbolen unter Layout und Größe aktiviert ist. Sie ist derzeit deaktiviert.</string>
-    <string name="layout_editor_number_row_off_caption">Die Tastatur zeigt diese Reihe über dieser Ebene an, wenn die Zahlenreihe unter Layout und Größe aktiviert ist. Die Zahlenreihe ist derzeit deaktiviert.</string>
     <string name="layout_editor_number_row_title">Zahlenreihe</string>
     <string name="layout_editor_panel_inherited_caption">Dieses Layout verwendet das freigegebene %1$s-Panel. Änderungen hier erstellen eine Kopie nur für dieses Layout. Das freigegebene Panel finden Sie unter Tastenlayouts, Panellayouts.</string>
     <string name="layout_editor_panel_theme_inherit_subtitle">Das Design des Layouts übernehmen</string>
@@ -3991,11 +3985,8 @@
     <string name="layout_split_spacebar_title">Leerzeichentaste teilen</string>
     <string name="layout_split_subtitle">Teilen Sie die Tasten in eine linke und eine rechte Hälfte</string>
     <string name="layout_split_title">Geteilte Tastatur</string>
-    <string name="layout_summon_button_info">Wenn die Tastatur geschlossen ist, schwebt ein kleiner runder Button über jeder App. Tippe darauf, um die Tastatur zu öffnen – selbst in Bereichen ohne Textfeld. Sie bleibt so lange geöffnet, bis du sie wieder schließt. Die Tastenanschläge werden direkt an die App gesendet, genauso wie bei „Tastatur auf dem Bildschirm behalten“. Ziehe den Button, um ihn zu verschieben; er heftet sich am nächstgelegenen Rand fest. Halte ihn gedrückt, um ihn auszublenden, bis die Tastatur das nächste Mal geöffnet wird. Benötigt die Android-Berechtigung „Über anderen Apps einblenden“.</string>
     <string name="layout_summon_button_permission_subtitle">Die Schaltfläche kann erst erscheinen, wenn Android dies zulässt</string>
     <string name="layout_summon_button_permission_title">Einblenden über anderen Apps erlauben</string>
-    <string name="layout_summon_button_subtitle">Eine Schaltfläche über anderen Apps, die die Tastatur öffnet, mit oder ohne Textfeld</string>
-    <string name="layout_summon_button_title">Schwebende Tastaturtaste</string>
     <string name="layout_swap_comma_globe_info">Die beiden Tasten auf jeder Seite der Leertaste tauschen ihre Plätze. Wenn eine davon eine Emoji-Taste ist, bewegt sie sich an die äußere Position und das Komma bleibt neben der Leertaste. Deaktiviere dies, um die gewohnte Reihenfolge zu erhalten.</string>
     <string name="layout_swap_comma_globe_subtitle">Das Komma neben die Leertaste setzen</string>
     <string name="layout_swap_comma_globe_title">Komma- und 🌐-Taste tauschen</string>
@@ -5815,7 +5806,6 @@
     <string name="search_kw_layout_show_globe">ausblenden entfernen Weltkugel Sprache</string>
     <string name="search_kw_layout_size_position">Größe ändern verkleinern kompakt vergrößern</string>
     <string name="search_kw_layout_split">Daumen ergonomisches Tablet</string>
-    <string name="search_kw_layout_summon_button">Bubble-Overlay-Anzeige für feldlose Hacker</string>
     <string name="search_kw_layout_symbols_numpad_key">Ziffernblock Tastenfeld Wähltastatur 1234 Gboard</string>
     <string name="search_kw_learnedcorrections">gelernte Korrekturen, meine Korrekturen, Tippfehler-Paare, beigebrachte Korrekturen, Autokorrektur-Lernen, Ausrutscher, Gewohnheiten</string>
     <string name="search_kw_licenses">Open Source, Namensnennung, Credits</string>
@@ -5854,7 +5844,7 @@
     <string name="search_kw_translate_engine">offline privat internet flugmodus lokales gerät ml kit google modell download cloud</string>
     <string name="search_kw_translate_models">Offline-Übersetzungsmodell Download löschen Speicher ML Kit Google</string>
     <string name="search_kw_translate_only_downloaded">Filter für Offline-Modell-Auswahlmenü Sprachliste kurz ausblenden</string>
-    <string name="search_kw_translate_server">openai kompatibles selbstgehostetes lokales llm ai modell ollama llama studio vllm localai chat completions</string>
+    <string name="search_kw_translate_server">openai kompatibles selbstgehostetes lokales llm ai modell ollama llama studio vllm localai chat completions mozhi simplytranslate lingva translite libretranslate</string>
     <string name="search_kw_typing">Rechtschreibprüfung, Autovervollständigung, Texterkennung, Gleiten, Wischgesten, Gesten, Kontakte, Rückgängig</string>
     <string name="search_kw_typing_auto_capitalize">automatische Großschreibung</string>
     <string name="search_kw_typing_auto_close_brackets">Klammern automatisch schließen Paar Klammern Klammerabgleich vervollständigen</string>
@@ -6825,7 +6815,6 @@
     <string name="theme_parts_strip_subtitle">Füllung, Wortfarben und Größe entfernen</string>
     <string name="theme_parts_toolbar_subtitle">Werkzeugfüllungen, Symbole, Form, Rahmen</string>
     <string name="theme_pick_hint">Drücken Sie eine Taste, ein Werkzeug oder den Streifen</string>
-    <string name="theme_pick_start_desc">Wähle einen Teil der Tastatur zum Gestalten aus</string>
     <string name="theme_pick_start_subtitle">Drücke eine Taste, ein Werkzeug oder die Vorschlagsleiste in der Vorschau, um sie zu gestalten</string>
     <string name="theme_pick_start_title">Auf der Tastatur auswählen</string>
     <string name="theme_pick_strip_sample_words">Hallo,Danke,Okay</string>
@@ -7650,12 +7639,6 @@
     <string name="tooldetail_ocr_info">Die Erkennung erfolgt auf Ihrem Gerät mit ML Kit. Weder Fotos noch Text verlassen Ihr Gerät, und es funktioniert offline. Es liest Texte in lateinischer Schrift, zum Beispiel Englisch. Die Texterkennung von ML Kit unterstützt Bengali noch nicht. Drücken Sie nach einer Aufnahme auf Wörter, um genau das auszuwählen, was die Tastatur eingibt oder kopiert.</string>
     <string name="tooldetail_ocr_online_group">Online-Textleser</string>
     <string name="tooldetail_ocr_online_info">Das Foto wird an ein Modell gesendet, das Bilder lesen kann, an eine Adresse Ihrer Wahl, und das Modell schreibt den Text auf, den es sieht. Es liest jedes Skript und benötigt keine Sprachdaten. Jeder Dienst mit einer OpenAI-kompatiblen API funktioniert: OpenAI, OpenRouter, Gemini, Mistral oder ein Modell auf Ihrem eigenen Computer mit Ollama oder LM Studio. Jeder Scan sendet das Foto an diesen Dienst, und der Dienst kann dafür Gebühren erheben.</string>
-    <string name="tooldetail_ocr_online_key_hint">Lassen Sie es leer für einen Server, der keinen Schlüssel erfordert</string>
-    <string name="tooldetail_ocr_online_key_label">API-Schlüssel</string>
-    <string name="tooldetail_ocr_online_model_hint">Ein Modell, das Bilder liest, zum Beispiel gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_model_label">Modell</string>
-    <string name="tooldetail_ocr_online_url_hint">Zum Beispiel https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_url_label">Adresse</string>
     <string name="tooldetail_ocr_packs_header">Tesseract-Sprachen</string>
     <string name="tooldetail_ocr_packs_info">Tesseract liest eine Sprache erst, nachdem die Daten für diese Sprache auf Ihrem Gerät vorhanden sind. Für jede Sprache, die Sie eingeben, ist ein Download von 0,4 MB bis 12 MB erforderlich. Die Daten stammen aus dem tessdata_fast-Satz des Tesseract-Projekts auf GitHub. Sie können eine Sprache auch direkt vom Scanner aus herunterladen.</string>
     <string name="tooldetail_ocr_packs_none_info">Keine der von dir aktivierten Sprachen verfügt über Tesseract-Daten. Füge eine Sprache im Sprachen-Bildschirm hinzu. Die entsprechenden Daten werden dann hier angezeigt.</string>
@@ -8785,11 +8768,9 @@
     <string name="typing_trail_opacity_title">Spur-Deckkraft</string>
     <string name="typing_trail_width_subtitle">Dicke der Wischspur</string>
     <string name="typing_trail_width_title">Spurbreite</string>
-    <string name="typing_two_thumb_info">Verwenden Sie beide Daumen zusammen. Jeder Daumen kann tippen oder wischen, gleichzeitig mit dem anderen, und jedes Tippen und Wischen trägt zum selben Wort bei. Tippen Sie zum Beispiel S mit dem linken Daumen, wischen Sie O zu M mit dem rechten, tippen Sie E mit dem linken, dann wischen Sie T H I N G mit dem rechten, und Sie erhalten etwas. Ein Tippen, das landet, während der andere Daumen noch wischt, wird an dieser Stelle in das Wort eingefügt, sodass ein Wischen über H E L O und ein Tippen auf L hello ergibt. Die Rücktaste entfernt das letzte Tippen oder Wischen aus dem Wort.</string>
     <string name="typing_two_thumb_subtitle">Tippe und wische mit beiden Daumen gleichzeitig, um ein Wort zu bilden</string>
     <string name="typing_two_thumb_title">Zwei-Daumen-Tippen</string>
     <string name="typing_two_thumb_word_end_all_up_label">Beide Daumen hoch</string>
-    <string name="typing_two_thumb_word_end_info">Mit einem Leerzeichen bleibt das Wort offen, während Sie tippen und wischen, und die Tastatur liest es nach jedem Vorgang erneut. Tippen Sie auf das Leerzeichen oder ein Satzzeichen, um es einzugeben. Wenn Sie beide Daumen anheben, wird das Wort mit einem Leerzeichen eingegeben, sobald kein Daumen mehr die Tastatur berührt, ähnlich wie beim normalen Wischen, sodass sich Ihre Daumen überschneiden müssen, um ein Wort gemeinsam zu schreiben.</string>
     <string name="typing_two_thumb_word_end_space_label">Leerzeichen</string>
     <string name="typing_two_thumb_word_end_subtitle">Was das Wort tippt, das du gerade erstellst</string>
     <string name="typing_two_thumb_word_end_title">Wort mit zwei Daumen beenden</string>

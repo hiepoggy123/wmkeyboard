@@ -169,6 +169,7 @@
     <string name="netlog_source_download_whisper">Voice model downloads</string>
     <string name="netlog_source_download_llm">AI model downloads</string>
     <string name="netlog_source_download_vocab">Vocabulary downloads</string>
+    <string name="netlog_source_download_dictionary">Offline dictionary downloads</string>
     <string name="netlog_source_download_font">Font downloads</string>
     <string name="netlog_source_download_cutout">Background remover download</string>
     <string name="netlog_source_download_ocr">Text scanner language downloads</string>
@@ -180,7 +181,14 @@
     <string name="netlog_source_link_import">Import from a link</string>
     <string name="netlog_source_backup">Backup</string>
     <string name="netlog_source_updates">Update check</string>
+    <string name="netlog_source_send">Send files</string>
     <string name="netlog_source_kde_connect">KDE Connect</string>
+    <string name="netlog_source_home_assistant">Home Assistant</string>
+    <string name="netlog_source_smartthings" translatable="false">SmartThings</string>
+    <string name="netlog_source_hue">Hue bridge</string>
+    <string name="netlog_source_openhab" translatable="false">openHAB</string>
+    <string name="netlog_source_tuya">Smart Life / Tuya</string>
+    <string name="netlog_source_switchbot" translatable="false">SwitchBot</string>
     <string name="netlog_source_other">Other</string>
 
     <!-- What one feature sends with a request. Shown in the request sheet. -->
@@ -195,7 +203,7 @@
     <string name="netlog_sent_ai">The text you ran the action on, and the action\'s instructions.</string>
     <string name="netlog_sent_ai_chat">The conversation so far, and your new message.</string>
     <string name="netlog_sent_ai_mcp">The name of a tool and the values the model wrote for it, sent to the server you added. Also the request for the list of tools when you connect.</string>
-    <string name="netlog_sent_ai_tools">A search the model wrote, or the address of a page it asked to read. Searches go to the same service as the search tool.</string>
+    <string name="netlog_sent_ai_tools">A search the model wrote, or the address of a page it asked to read. Web searches go to the same service as the search tool; questions about the keyboard go to its documentation site.</string>
     <string name="netlog_sent_transcription">The recording of one phrase, the model name, and the language unless you turned that off.</string>
     <string name="netlog_sent_wikipedia">Your search words or the title of the article.</string>
     <string name="netlog_sent_dictionary">One word: your selection, or the word at the cursor.</string>
@@ -216,6 +224,15 @@
     <string name="netlog_sent_link_import">A request for the link you shared, and your access token when the link needs one.</string>
     <string name="netlog_sent_backup">Your settings file, encrypted when you set a password, to the destination you selected.</string>
     <string name="netlog_sent_updates">The app\'s version. Nothing about you.</string>
+    <string name="netlog_sent_home_assistant">The commands you give and the states it shows, to your own Home Assistant server and nowhere else.</string>
+    <string name="netlog_sent_smartthings">The commands you give and the states it shows, to Samsung\'s SmartThings cloud with your key; the device list is asked for every few seconds while the panel is open.</string>
+    <string name="netlog_sent_hue">The commands you give and the states it shows, to the Hue bridge on your own network and nowhere else.</string>
+    <string name="netlog_sent_openhab">The commands you give and the states it shows, to your own openHAB server and nowhere else.</string>
+    <string name="netlog_sent_tuya">The commands you give and the states it shows, to the Tuya data centre your project lives in, signed with your project\'s Access ID and Secret; the device list is asked for every 30 seconds while the panel is open.</string>
+    <string name="netlog_sent_switchbot">The commands you give and the states it shows, to SwitchBot\'s cloud, signed with your token and secret key; each device\'s status is asked for once a minute while the panel is open.</string>
+    <string name="netlog_sent_send">A file you chose, encrypted on the phone before it leaves, to the Send instance you picked; and a link you opened, to fetch and decrypt its file. The server never sees the key, which stays in the link.</string>
     <string name="netlog_sent_kde_connect">What you use the tool for, to a computer you paired on your own network.</string>
     <string name="netlog_sent_other">A request the log could not put under a feature.</string>
+    <string name="netlog_source_supporters">Supporters list</string>
+    <string name="netlog_sent_supporters">Nothing when it asks for the public list. After a tip through Google Play, the name and message you typed and the purchase receipt, so the server can check the tip with Google and list you. Nothing at all for an anonymous tip.</string>
 </resources>
