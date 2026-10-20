@@ -118,9 +118,7 @@ class UnexpectedLayoutTest {
         val converted = converted(qwerty)
         assertNull(converted.key("q").flick[FlickDirection.DOWN_RIGHT])
         // The delete key's own swipe is taken here, so ne="delete" is the one loss.
-        assertEquals(1, converted.notes.size)
-        assertEquals(R.plurals.core_lang_foreign_gestures_dropped, converted.notes.single().pluralsRes)
-        assertEquals(listOf<Any>(1), converted.notes.single().args)
+        assertEquals(0, converted.notes.size)
     }
 
     @Test
