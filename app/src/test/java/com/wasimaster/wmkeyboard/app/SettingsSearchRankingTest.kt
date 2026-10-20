@@ -196,7 +196,7 @@ class SettingsSearchRankingTest {
     @Test
     fun dumpRankings() {
         val out = File("build/reports/settings-search-rankings.txt")
-        out.parentFile.mkdirs()
+        out.parentFile?.mkdirs()
         val queries = (top1 + top3).map { it.query } + listOf(
             "key", "press", "row", "colour", "color", "layout", "tools", "gif", "sticker", "password", "reset",
             "keyboard", "sensitive", "typing", "swipe", "cursor", "long press", "spacebar", "background", "learn",
