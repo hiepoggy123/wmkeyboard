@@ -689,6 +689,9 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkContext
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.V7CandidateProvider
+import com.wasimaster.wmkeyboard.core.input.composer.V7Dictionaries
+import com.wasimaster.wmkeyboard.core.v7.V7Predictor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkNgrams
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinComposer
@@ -3838,6 +3841,15 @@ open class WMKeyboardService : InputMethodService() {
 
         userUnlocked = DirectBoot.isUserUnlocked(this)
         DebugLog.i("ime", "service created (unlocked=$userUnlocked)")
+        V7Dictionaries.provider = V7CandidateProvider { reading ->
+            try {
+                val before = currentInputConnection?.getTextBeforeCursor(64, 0)?.toString()?.trim() ?: "tôi"
+                val ctx = if (before.isEmpty()) "tôi" else before
+                V7Predictor.getInstance(applicationContext).predict(reading, context = ctx)
+            } catch (_: Throwable) {
+                emptyList()
+            }
+        }
         // Two PackageManager lookups, before the first toolbar is laid out:
         // isSupportedTool reads the answer with no Context of its own, and a
         // tool that appears and then vanishes a frame later looks like a bug.

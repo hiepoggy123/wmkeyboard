@@ -112,6 +112,7 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:config"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.onnxruntime.android)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(platform(libs.androidx.compose.bom))

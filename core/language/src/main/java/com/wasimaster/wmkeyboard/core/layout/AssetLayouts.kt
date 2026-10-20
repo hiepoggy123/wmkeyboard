@@ -264,6 +264,7 @@ object AssetLayouts {
 
     const val VI_TELEX_ID = "asset_vi_telex"
     const val VI_VNI_ID = "asset_vi_vni"
+    const val VI_V7_ID = "asset_vi_v7"
     const val JA_ROMAJI_ID = "asset_ja_romaji"
     const val JA_FLICK_ID = "asset_ja_flick"
     const val JA_KANA_JIS_ID = "asset_ja_kana_jis"

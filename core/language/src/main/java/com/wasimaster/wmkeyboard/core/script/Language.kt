@@ -1243,6 +1243,7 @@ object LanguageRegistry {
             layoutIds = listOf(
                 AssetLayouts.VI_TELEX_ID,
                 AssetLayouts.VI_VNI_ID,
+                AssetLayouts.VI_V7_ID,
                 AssetLayouts.VI_QWERTY_ID,
                 AssetLayouts.VI_T9_ID,
             ),

@@ -230,6 +230,9 @@ enum class ComposerType {
     /** Vietnamese VNI: digit keys apply tones and letter marks. */
     VNI,
 
+    /** Vietnamese V7: shorthand consonant + tone predictor with multi-word phrase candidates. */
+    V7,
+
     /** Japanese: romaji composes to kana, with kana→kanji candidates. */
     ROMAJI,
 

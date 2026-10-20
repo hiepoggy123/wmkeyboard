@@ -431,6 +431,7 @@ fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): 
     ComposerType.NARATGEUL -> NaratgeulComposer
     ComposerType.TELEX -> VietnameseTelexComposer
     ComposerType.VNI -> VietnameseVniComposer
+    ComposerType.V7 -> VietnameseV7Composer
     ComposerType.ROMAJI -> JapaneseComposer
     ComposerType.PINYIN -> PinyinComposer
     ComposerType.STROKE -> StrokeComposer
