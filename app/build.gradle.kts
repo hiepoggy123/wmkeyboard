@@ -225,7 +225,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.wasimaster.wmkeyboard"
+        applicationId = "com.wasimaster.wmkeyboard.v7"
         minSdk = 24
         targetSdk = 36
         // Both from gradle.properties so :core:config stamps the same numbers on
@@ -372,7 +372,7 @@ android {
             // line, the statement either goes whole or stays whole. And with
             // the block gone getByName would throw, where findByName returns
             // null and the build comes out unsigned, which is what they want.
-            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true }
+            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true } ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             optimization {

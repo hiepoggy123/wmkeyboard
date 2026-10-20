@@ -623,6 +623,7 @@
     <string name="layout_editor_composer_khipro_dark">Khipro Dark</string>
     <string name="layout_editor_composer_cheonjiin">Cheonjiin (천지인)</string>
     <string name="layout_editor_composer_naratgeul">Naratgeul (나랏글)</string>
+    <string name="layout_editor_composer_v7">Vietnamese V7 Smart</string>
     <!-- One line under each option in the typing method picker. Each one says
          what you press, with an example where an example is short enough. -->
     <string name="layout_editor_composer_inherit_desc">The language above decides the method</string>
@@ -645,6 +646,7 @@
     <string name="layout_editor_composer_khipro_dark_desc">Khipro, but letters only join when you press / after them</string>
     <string name="layout_editor_composer_cheonjiin_desc">Make Korean vowels from the strokes ㅣ ㆍ ㅡ, and tap a consonant key again for its next letter</string>
     <string name="layout_editor_composer_naratgeul_desc">Korean, with ㅐ and ㅔ typed as ㅏ or ㅓ and then ㅣ</string>
+    <string name="layout_editor_composer_v7_desc">Type initial consonants and tones, like x0ch2 for xin chào</string>
 
     <string name="layout_editor_actual_size_title">Preview at your key height</string>
     <string name="layout_editor_actual_size_subtitle">Draw the grid at the height you actually type at</string>

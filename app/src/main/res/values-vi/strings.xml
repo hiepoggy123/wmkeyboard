@@ -366,7 +366,7 @@
     <string name="addon_use_target_sound_pack_label">Nhấn phím</string>
     <string name="addon_use_target_stickers_label">Gói nhãn dán</string>
     <string name="addon_use_target_theme_label">Chủ đề</string>
-    <string name="app_name">Bàn phím WM</string>
+    <string name="app_name">Bàn phím WM V7</string>
     <string name="appearance_font_subtitle">Google Fonts, hoặc nhập tệp phông chữ của riêng bạn</string>
     <string name="appearance_font_title">Phông chữ bàn phím</string>
     <plurals name="appearance_icons_changed_count">
@@ -2115,7 +2115,7 @@
     <string name="home_voice_title">Nhập liệu bằng giọng nói</string>
     <string name="home_welcome_body">Chọn một mục ở bên trái để mở tại đây.</string>
     <string name="home_welcome_title">Cài đặt bàn phím WM</string>
-    <string name="ime_name">Bàn phím WM</string>
+    <string name="ime_name">Bàn phím WM V7</string>
     <string name="import_api_keys_note">Tệp có chứa các khóa API. Chúng sẽ thay thế các khóa bạn đã thiết lập ở đây.</string>
     <string name="import_backup_contains">Tệp có các mục sau:</string>
     <string name="import_backup_merge_note">Ứng dụng sẽ hợp nhất các cài đặt vào cài đặt hiện tại của bạn. Từ điển, khay nhớ tạm và các đoạn mã sẽ thay thế những cái hiện có trên thiết bị của bạn.</string>
@@ -3565,6 +3565,8 @@
     <string name="layout_editor_composer_transliterate_desc">Nhập chữ cái La Mã và bàn phím sẽ viết bằng chữ viết đó</string>
     <string name="layout_editor_composer_vni">Tiếng Việt VNI</string>
     <string name="layout_editor_composer_vni_desc">Nhập a6 cho â và a1 cho á</string>
+    <string name="layout_editor_composer_v7">Gõ tắt V7 thông minh</string>
+    <string name="layout_editor_composer_v7_desc">Gõ phụ âm đầu và số thanh, ví dụ x0ch2 thành xin chào</string>
     <string name="layout_editor_composer_zhuyin">Chú âm (注音)</string>
     <string name="layout_editor_composer_zhuyin_desc">Nhập các ký hiệu bopomofo, sau đó chọn ký tự</string>
     <string name="layout_editor_copy_layer_done_message">Lưới %1$s đã nằm trong khay nhớ tạm. Hãy dán nó vào một lớp khác, một bố cục khác hoặc vào một tin nhắn để chia sẻ.</string>

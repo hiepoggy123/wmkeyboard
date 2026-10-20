@@ -298,3 +298,7 @@
 # LDAP stores and the like, which reference classes Android does not have.
 -dontwarn javax.naming.**
 -dontwarn org.bouncycastle.jsse.**
+
+# --- ONNX Runtime (JNI, V7 Smart Input) ---------------------------------------
+-keep class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**

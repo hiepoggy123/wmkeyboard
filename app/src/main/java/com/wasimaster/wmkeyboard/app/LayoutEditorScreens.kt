@@ -438,6 +438,7 @@ private fun composerLabel(type: ComposerType): String = stringResource(
         ComposerType.KHIPRO_DARK -> R.string.layout_editor_composer_khipro_dark
         ComposerType.CHEONJIIN -> R.string.layout_editor_composer_cheonjiin
         ComposerType.NARATGEUL -> R.string.layout_editor_composer_naratgeul
+        ComposerType.V7 -> R.string.layout_editor_composer_v7
     },
 )
 
@@ -467,6 +468,7 @@ private fun composerDescRes(type: ComposerType?): Int = when (type) {
     ComposerType.KHIPRO_DARK -> R.string.layout_editor_composer_khipro_dark_desc
     ComposerType.CHEONJIIN -> R.string.layout_editor_composer_cheonjiin_desc
     ComposerType.NARATGEUL -> R.string.layout_editor_composer_naratgeul_desc
+    ComposerType.V7 -> R.string.layout_editor_composer_v7_desc
 }
 
 /**
