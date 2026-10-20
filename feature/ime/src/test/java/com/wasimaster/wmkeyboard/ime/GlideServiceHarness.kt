@@ -14,6 +14,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.robolectric.RuntimeEnvironment
@@ -338,9 +339,14 @@ internal fun glideKeyboard(
  * the phone is locked.
  */
 internal fun plantPersonalStores(service: WMKeyboardService) {
-    val field = WMKeyboardService::class.java.getDeclaredField("snippetStore")
-    field.isAccessible = true
-    field.set(service, SnippetStore(null))
+    WMKeyboardService::class.java.getDeclaredField("snippetStore").apply {
+        isAccessible = true
+        set(service, SnippetStore(null))
+    }
+    WMKeyboardService::class.java.getDeclaredField("userLexicon").apply {
+        isAccessible = true
+        set(service, UserLexicon(null))
+    }
 }
 
 /**

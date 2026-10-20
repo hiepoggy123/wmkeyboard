@@ -100,6 +100,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Group
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Highlight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Home
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ImageSearch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Info
@@ -316,6 +317,7 @@ object BuiltinIcons {
         "Highlight" to { Icons.Outlined.Highlight },
         "HighlightAlt" to { Icons.Outlined.HighlightAlt },
         "Home" to { Icons.Outlined.Home },
+        "HomeIotDevice" to { Icons.Outlined.HomeIotDevice },
         "Image" to { Icons.Outlined.Image },
         "ImageSearch" to { Icons.Outlined.ImageSearch },
         "Info" to { Icons.Outlined.Info },

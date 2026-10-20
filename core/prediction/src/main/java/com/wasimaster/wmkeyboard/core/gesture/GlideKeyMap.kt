@@ -34,6 +34,7 @@ class GlideKeyMap private constructor(
     val keyY: FloatArray,
     private val codePoints: IntArray,
     private val keyOf: IntArray,
+    val keyWidth: Float = 1f,
 ) {
 
     /** How many distinct keys the grid has — the width of the decoder's masks. */
@@ -124,7 +125,7 @@ class GlideKeyMap private constructor(
             val sorted = byCodePoint.keys.sorted()
             val codePoints = IntArray(sorted.size) { sorted[it] }
             val keyOf = IntArray(sorted.size) { byCodePoint.getValue(sorted[it]) }
-            return GlideKeyMap(xs.toFloatArray(), ys.toFloatArray(), codePoints, keyOf)
+            return GlideKeyMap(xs.toFloatArray(), ys.toFloatArray(), codePoints, keyOf, keyWidth)
         }
 
         /**

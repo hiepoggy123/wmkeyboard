@@ -64,9 +64,10 @@ internal fun duetSwipeSpan(word: String, start: GesturePoint, end: GesturePoint,
         at[i] = keys.keyIndex(letters[i])
         if (at[i] < 0) return null
     }
+    val kw = keys.keyWidth
     fun distance(i: Int, p: GesturePoint): Float {
-        val dx = keys.keyX[at[i]] - p.x
-        val dy = keys.keyY[at[i]] - p.y
+        val dx = keys.keyX[at[i]] * kw - p.x
+        val dy = keys.keyY[at[i]] * kw - p.y
         return dx * dx + dy * dy
     }
     var best = Float.MAX_VALUE

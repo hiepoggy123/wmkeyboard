@@ -876,6 +876,7 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun saveLearningStores() {
+        if (!::userLexicon.isInitialized) return
         userLexicon.save()
         VietnameseGlide.updateUserCompounds(userLexicon)
         pendingLearn.save()
@@ -18962,7 +18963,7 @@ open class WMKeyboardService : InputMethodService() {
      * cautious answer: an unrecognised word is only held back, never lost.
      */
     private fun isKnownWord(word: String): Boolean =
-        suggestionEngine?.isKnownWord(word) ?: userLexicon.contains(word)
+        suggestionEngine?.isKnownWord(word) ?: (if (::userLexicon.isInitialized) userLexicon.contains(word) else false)
 
     /**
      * A word the keyboard already recognises has been committed.
