@@ -1328,7 +1328,7 @@ class SuggestionEngine(
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
         // the caller — should ever see.
-        val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
+        val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded, previousWord)
         val filtered = words.filterNot { suppressed(it.word) }
         if (filtered.isEmpty()) return filtered
         val reranked = rerankGlide(filtered, previousWord, previousWord2, previousWord3, recentWords)

@@ -50,6 +50,7 @@ class RomanizedIndex private constructor(
     private val resolveSpelling: (String) -> List<String>,
     /** Code points the romanized side is written in — the coverage gate's input. */
     val alphabet: Set<Int>,
+    private val contextualResolver: ((candidate: String, context: String?) -> List<String>)? = null,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
@@ -77,10 +78,10 @@ class RomanizedIndex private constructor(
      * curated and downloaded lists both have an opinion; those merge, keeping
      * whichever route scored better.
      */
-    fun resolve(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
+    fun resolve(decoded: List<GlideBeam.Candidate>, context: String? = null): List<GlideBeam.Candidate> {
         val best = LinkedHashMap<String, GlideBeam.Candidate>()
         for (candidate in decoded) {
-            val forms = resolveSpelling(candidate.word)
+            val forms = contextualResolver?.invoke(candidate.word, context) ?: resolveSpelling(candidate.word)
             for ((index, form) in forms.withIndex()) {
                 val score = candidate.score - index * ALTERNATE_STEP
                 val existing = best[form]
@@ -154,6 +155,22 @@ class RomanizedIndex private constructor(
             val alphabet = keys.mapTo(HashSet()) { it.code }
             val resolve = { spelling: String -> listOf(convert(spelling)).filter { it.isNotEmpty() } }
             return RomanizedIndex(personal, spellings, resolve, alphabet)
+        }
+
+        fun contextual(
+            spellings: WordSource,
+            personal: WordSource,
+            keys: String,
+            resolver: (candidate: String, context: String?) -> List<String>,
+        ): RomanizedIndex {
+            val alphabet = keys.mapTo(HashSet()) { it.code }
+            return RomanizedIndex(
+                curated = personal,
+                downloaded = spellings,
+                resolveSpelling = { resolver(it, null) },
+                alphabet = alphabet,
+                contextualResolver = resolver,
+            )
         }
 
         /** How far behind its spelling's own score a second reading starts. */

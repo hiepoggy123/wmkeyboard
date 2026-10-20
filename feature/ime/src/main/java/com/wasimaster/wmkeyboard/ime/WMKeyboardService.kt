@@ -176,6 +176,8 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideStroke
 import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSource
 import com.wasimaster.wmkeyboard.core.gesture.GlideShapeStore
 import com.wasimaster.wmkeyboard.core.gesture.KhiproGlideSpellings
+import com.wasimaster.wmkeyboard.core.gesture.VietnameseDiacriticsModel
+import com.wasimaster.wmkeyboard.core.gesture.VietnameseGlide
 import com.wasimaster.wmkeyboard.core.gesture.KeyOffsets
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.GlideCase
@@ -2564,7 +2566,7 @@ open class WMKeyboardService : InputMethodService() {
         PhoneticIndexCache.retain(backends.keys)
         engine.extraPhonetic = backends
         romanizedGlides = romanizedGlides.filterKeys {
-            it == PhoneticSchemes.BENGALI.languageId || it == KHIPRO_GLIDE || it == PINYIN_GLIDE
+            it == PhoneticSchemes.BENGALI.languageId || it == KHIPRO_GLIDE || it == PINYIN_GLIDE || it == VIETNAMESE_GLIDE
         } +
             backends.mapValues { (_, backend) ->
                 RomanizedIndex.of(
@@ -13159,6 +13161,42 @@ open class WMKeyboardService : InputMethodService() {
      * from the pinyin table once it is loaded and again whenever it changes.
      * Off the main thread: it walks every row of the table.
      */
+    private fun ensureVietnameseGlide() {
+        val engine = suggestionEngine ?: return
+        val activeDict = engine.activeDictionary
+        if (vietnameseGlideWords === activeDict && romanizedGlides.containsKey(VIETNAMESE_GLIDE) &&
+            vietnameseGlideJob?.isActive != true) return
+        vietnameseGlideJob = serviceScope.launch {
+            withContext(Dispatchers.Default) {
+                VietnameseDiacriticsModel.initialize(this@WMKeyboardService)
+            }
+            val spellings = withContext(Dispatchers.Default) {
+                VietnameseGlide.spellings(activeDict)
+            }
+            val trie = withContext(Dispatchers.Default) {
+                PackedTrie.of(spellings)
+            }
+            vietnameseGlideWords = activeDict
+            val index = RomanizedIndex.contextual(
+                spellings = trie,
+                personal = PackedTrie.EMPTY,
+                keys = VietnameseGlide.GLIDE_KEYS,
+            ) { candidate, context ->
+                val restored = VietnameseDiacriticsModel.restore(candidate, context)
+                if (restored != candidate) {
+                    listOf(restored, candidate)
+                } else {
+                    listOf(candidate)
+                }
+            }
+            romanizedGlides = romanizedGlides + (VIETNAMESE_GLIDE to index)
+            glideSourcesEpoch.update { it + 1 }
+        }
+    }
+
+    private var vietnameseGlideJob: Job? = null
+    private var vietnameseGlideWords: WordSource? = null
+
     private fun ensurePinyinGlide() {
         val table = CjkDictionaries.pinyin
         if (table.isEmpty || pinyinGlideTable === table || pinyinGlideJob?.isActive == true) return
@@ -24161,6 +24199,7 @@ open class WMKeyboardService : InputMethodService() {
                     languageId = state.language.id,
                     converts = state.composer.isTransliterating || state.composer.isConversion,
                     phonetic = state.composer.phoneticLanguage
+                        ?: VIETNAMESE_GLIDE.takeIf { isVietnameseTransliterator(state) }
                         // Dark glides on Classic's spellings too: a stroke
                         // can't draw Dark's `/` joins, and the keys are the
                         // same, so it commits the word Classic would.
@@ -24186,6 +24225,7 @@ open class WMKeyboardService : InputMethodService() {
                     // phonetic layout coverage is a question about the
                     // romanization rather than about the Bengali word list.
                     val engine = suggestionEngine
+                    if (gate.phonetic == VIETNAMESE_GLIDE) ensureVietnameseGlide()
                     if (gate.phonetic == KHIPRO_GLIDE) ensureKhiproGlide()
                     if (gate.phonetic == PINYIN_GLIDE) ensurePinyinGlide()
                     engine?.glideRomanization =
@@ -47873,6 +47913,8 @@ private const val KHIPRO_GLIDE = "bn_khipro"
 
 /** [romanizedGlides]' key for full Pinyin, whose spellings are readings (#580). */
 private const val PINYIN_GLIDE = "zh_pinyin"
+/** [romanizedGlides] key for Vietnamese gesture typing using diacritics ONNX model. */
+private const val VIETNAMESE_GLIDE = "vi_glide"
 
 /** Every key a Pinyin reading can pass through. */
 private const val PINYIN_GLIDE_KEYS = "abcdefghijklmnopqrstuvwxyz"
