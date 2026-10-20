@@ -18,6 +18,9 @@ class DictionarySourcesTest {
             DictionarySourceChoice(DictionarySource.WIKTIONARY, enabled = false),
             DictionarySourceChoice(DictionarySource.VOCAB_PACKS),
             DictionarySourceChoice(DictionarySource.WIKTIONARY_REST, enabled = false),
+            DictionarySourceChoice(DictionarySource.OFFLINE_WIKTIONARY),
+            DictionarySourceChoice(DictionarySource.OFFLINE_WORDNET, enabled = false),
+            DictionarySourceChoice(DictionarySource.IMPORTED),
         )
         assertEquals(choices, DictionarySources.decode(DictionarySources.encode(choices)))
     }
