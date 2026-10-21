@@ -57,17 +57,4 @@ class VietnameseSettingsTest {
         assertFalse(repository.settings.first().vietnamese.restoreMarks)
     }
 
-    @Test
-    fun `bundled compound stems are off until they are asked for`() = runBlocking {
-        assertFalse(repository().settings.first().vietnamese.bundledCompoundStems)
-    }
-
-    @Test
-    fun `bundled compound stems survive the trip through storage`() = runBlocking {
-        val repository = repository()
-        repository.setVietnameseBundledCompoundStems(true)
-        assertTrue(repository.settings.first().vietnamese.bundledCompoundStems)
-        repository.setVietnameseBundledCompoundStems(false)
-        assertFalse(repository.settings.first().vietnamese.bundledCompoundStems)
-    }
 }

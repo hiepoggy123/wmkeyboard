@@ -22,7 +22,6 @@ class VietnameseGlideTest {
 
         val index = VietnameseGlide.loadFromStream(
             ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
-            includeBundledCompounds = true,
         )
         assertNotNull(index)
         assertTrue(index.alphabet.contains('t'.code))
@@ -57,7 +56,6 @@ class VietnameseGlideTest {
 
         val index = VietnameseGlide.loadFromStream(
             ByteArrayInputStream(threeColTsv.toByteArray(Charsets.UTF_8)),
-            includeBundledCompounds = true,
         )
         assertNotNull(index)
 
@@ -140,7 +138,6 @@ class VietnameseGlideTest {
             unigramMap,
             emptyMap(),
             lexicon,
-            includeBundledCompounds = false,
         )
 
         // 1. "chirua" must be synthesized from manual entry
@@ -200,7 +197,6 @@ class VietnameseGlideTest {
         val index = VietnameseGlide.loadFromStream(
             ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
             unigramMap,
-            includeBundledCompounds = true,
         )
         assertNotNull(index)
         assertNotNull(index.trajectoryDecoder)
@@ -276,5 +272,20 @@ class VietnameseGlideTest {
         val resolvedComp = index.resolve(compCandidates)
         assertTrue(resolvedComp.isNotEmpty())
         assertEquals("hôm nay", resolvedComp[0].word)
+    }
+
+    @Test
+    fun testBuildFromUnigramsDirectly() {
+        val unigrams = mapOf(
+            "tiếng" to 200,
+            "người" to 250,
+            "việt" to 220,
+        )
+        val index = VietnameseGlide.buildFromUnigrams(unigrams)
+        assertNotNull(index)
+        val candidate = GlideBeam.Candidate("nguoi", 1.0, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
+        val resolved = index.resolve(listOf(candidate))
+        assertTrue(resolved.isNotEmpty())
+        assertEquals("người", resolved[0].word)
     }
 }

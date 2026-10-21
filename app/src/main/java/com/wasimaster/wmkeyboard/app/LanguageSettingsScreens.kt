@@ -1100,15 +1100,6 @@ internal fun LanguageDetailScreen(
                     default = SettingsDefaults.vietnamese.restoreMarks,
                 ) { scope.launch { repository.setVietnameseRestoreMarks(it) } }
             }
-            item {
-                ToggleSetting(
-                    R.string.languages_vietnamese_bundled_compound_stems_title,
-                    stringResource(R.string.languages_vietnamese_bundled_compound_stems_subtitle),
-                    settings.watch { it.vietnamese.bundledCompoundStems },
-                    info = stringResource(R.string.languages_vietnamese_bundled_compound_stems_info),
-                    default = SettingsDefaults.vietnamese.bundledCompoundStems,
-                ) { scope.launch { repository.setVietnameseBundledCompoundStems(it) } }
-            }
         }
     }
 

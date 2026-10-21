@@ -4641,12 +4641,6 @@ open class WMKeyboardService : InputMethodService() {
                 HanVariant.region = settings.cjk.hanRegion
                 // Vietnamese, pushed the same way and for the same reason.
                 VietnameseConfig.strictTones = settings.vietnamese.strictTones
-                if (VietnameseGlide.bundledCompoundStems != settings.vietnamese.bundledCompoundStems) {
-                    VietnameseGlide.bundledCompoundStems = settings.vietnamese.bundledCompoundStems
-                    VietnameseGlide.resetIndex()
-                    vietnameseGlideLoaded = false
-                    ensureVietnameseGlide()
-                }
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.

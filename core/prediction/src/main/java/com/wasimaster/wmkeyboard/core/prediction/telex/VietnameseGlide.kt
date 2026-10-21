@@ -32,7 +32,6 @@ import kotlin.math.ln
  * dynamic multi-word compound stem synthesis from UserLexicon with phonotactic gating.
  */
 object VietnameseGlide {
-    private const val ASSET_PATH = "telex/vietnamese_glide_syllables.tsv"
     private const val UNIGRAMS_ASSET_PATH = "telex/unigrams.json"
     private const val BIGRAMS_ASSET_PATH = "telex/bigrams.json"
     private const val VIETNAMESE_KEYS = "abcdefghijklmnopqrstuvwxyz"
@@ -45,7 +44,6 @@ object VietnameseGlide {
     )
 
     @Volatile
-    var bundledCompoundStems: Boolean = false
 
     @Volatile
     var currentBlacklist: Set<String> = emptySet()
@@ -272,9 +270,7 @@ object VietnameseGlide {
                 } else {
                     emptyMap()
                 }
-                assets.open(ASSET_PATH).use { stream ->
-                    loadFromStream(stream, unigrams, bigrams, userLexicon, bundledCompoundStems, filesDir)
-                }
+                buildFromUnigrams(unigrams, bigrams, userLexicon, filesDir)
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -322,14 +318,12 @@ object VietnameseGlide {
     }
 
     /**
-     * Internal loader from input stream with optional unigram and bigram frequency support.
+     * Builds RomanizedIndex directly from unigrams (single-syllable Vietnamese vocabulary).
      */
-    fun loadFromStream(
-        stream: InputStream,
-        unigrams: Map<String, Int> = emptyMap(),
+    fun buildFromUnigrams(
+        unigrams: Map<String, Int>,
         bigrams: Map<String, Map<String, Int>> = emptyMap(),
         userLexicon: UserLexicon? = null,
-        includeBundledCompounds: Boolean = bundledCompoundStems,
         filesDir: File? = null,
     ): RomanizedIndex {
         cachedUnigrams = unigrams
@@ -339,10 +333,36 @@ object VietnameseGlide {
             }
         }
 
-        val map = HashMap<String, List<String>>(25000)
-        val entries = ArrayList<Pair<String, Int>>(25000)
-        val wordFreq = HashMap<String, Int>(25000)
-        val stemMaxFreq = HashMap<String, Int>(25000)
+        val intermediate = LinkedHashMap<String, MutableList<Pair<String, Int>>>()
+        for ((word, freq) in unigrams) {
+            val lower = word.lowercase().trim()
+            if (lower.isEmpty() || lower.contains(' ')) continue
+            val stem = toUnaccentedStem(lower)
+            if (stem.isNotEmpty()) {
+                val list = intermediate.getOrPut(stem) { mutableListOf() }
+                list.add(lower to freq.coerceIn(1, 255))
+            }
+        }
+
+        return finalizeIndex(intermediate, unigrams, bigrams, userLexicon, filesDir, emptySet())
+    }
+
+    /**
+     * Internal loader from input stream with optional unigram and bigram frequency support.
+     */
+    fun loadFromStream(
+        stream: InputStream,
+        unigrams: Map<String, Int> = emptyMap(),
+        bigrams: Map<String, Map<String, Int>> = emptyMap(),
+        userLexicon: UserLexicon? = null,
+        filesDir: File? = null,
+    ): RomanizedIndex {
+        cachedUnigrams = unigrams
+        for (w in unigrams.keys) {
+            if (!w.contains(' ')) {
+                recognizedSyllables.add(w)
+            }
+        }
 
         fun getWordFrequency(word: String, explicitFreq: Int?): Int {
             if (explicitFreq != null && explicitFreq > 0) return explicitFreq.coerceIn(1, 255)
@@ -359,8 +379,6 @@ object VietnameseGlide {
                         TelexAutocorrectEngine.getInstance().languageModel.getBigramScore(parts[0], parts[1]).takeIf { it > 0 }
                     }
                     if (bgFreq != null && bgFreq > 0) {
-                        // Bigram frequency is on the 0-255 scale.
-                        // Bound compound frequency proportionally so it competes realistically with single words (0-255).
                         val minPart = freqs.minOrNull() ?: 100
                         return ((bgFreq * 0.4) + (minPart * 0.5)).toInt().coerceIn(30, 220)
                     }
@@ -377,15 +395,13 @@ object VietnameseGlide {
             for (line in lines) {
                 val trimmed = line.trim()
                 if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
-                val parts = trimmed.split('\t')
+                val parts = trimmed.split('	')
                 if (parts.size < 2) continue
                 val unaccented = parts[0].trim().lowercase()
                 if (unaccented.isEmpty()) continue
 
-                // Check 3-column Chinese format: reading \t word \t freq
                 if (parts.size >= 3) {
                     val word = parts[1].trim()
-                    if (!includeBundledCompounds && word.contains(' ')) continue
                     val freq = parts[2].trim().toIntOrNull()
                     val finalFreq = getWordFrequency(word, freq)
                     val list = intermediate.getOrPut(unaccented) { mutableListOf() }
@@ -396,27 +412,16 @@ object VietnameseGlide {
                         recognizedSyllables.add(word.lowercase())
                     }
                 } else {
-                    // 2-column format: reading \t form1,form2,... or form1:freq1,form2:freq2,...
                     val rawForms = parts[1].split(',')
-                    val forms = if (!includeBundledCompounds) {
-                        rawForms.filterNot { it.contains(' ') }
-                    } else {
-                        rawForms
-                    }
-                    if (forms.isEmpty()) continue
                     val list = intermediate.getOrPut(unaccented) { mutableListOf() }
-                    for (rawForm in forms) {
+                    for (rawForm in rawForms) {
                         val formTrim = rawForm.trim()
                         if (formTrim.isEmpty()) continue
                         val colon = formTrim.lastIndexOf(':')
                         val (formWord, explicitFreq) = if (colon > 0 && colon < formTrim.length - 1) {
                             val candidateWord = formTrim.substring(0, colon)
                             val parsedFreq = formTrim.substring(colon + 1).toIntOrNull()
-                            if (parsedFreq != null) {
-                                candidateWord to parsedFreq
-                            } else {
-                                formTrim to null
-                            }
+                            if (parsedFreq != null) candidateWord to parsedFreq else formTrim to null
                         } else {
                             formTrim to null
                         }
@@ -432,6 +437,22 @@ object VietnameseGlide {
             }
         }
 
+        return finalizeIndex(intermediate, unigrams, bigrams, userLexicon, filesDir, compoundStems)
+    }
+
+    private fun finalizeIndex(
+        intermediate: LinkedHashMap<String, MutableList<Pair<String, Int>>>,
+        unigrams: Map<String, Int>,
+        bigrams: Map<String, Map<String, Int>>,
+        userLexicon: UserLexicon?,
+        filesDir: File?,
+        compoundStems: Set<String>,
+    ): RomanizedIndex {
+        val map = HashMap<String, List<String>>(intermediate.size * 2)
+        val entries = ArrayList<Pair<String, Int>>(intermediate.size)
+        val wordFreq = HashMap<String, Int>(intermediate.size * 2)
+        val stemMaxFreq = HashMap<String, Int>(intermediate.size)
+
         for ((unaccented, list) in intermediate) {
             val sorted = list.groupBy { it.first }
                 .map { (word, pairs) -> word to pairs.maxOf { it.second } }
@@ -443,7 +464,7 @@ object VietnameseGlide {
             val maxFreq = sorted.firstOrNull()?.second ?: 1
             stemMaxFreq[unaccented] = maxFreq
             for ((w, f) in sorted) {
-                wordFreq["$unaccented\t$w"] = f
+                wordFreq["$unaccented	$w"] = f
             }
 
             entries.add(unaccented to maxFreq)
@@ -464,7 +485,7 @@ object VietnameseGlide {
             alphabet = alphabet,
             resolve = { unaccented ->
                 val userForms = userCompoundsSnapshot.map[unaccented]
-                val baseForms = if (bundledCompoundStems) map[unaccented] else map[unaccented]?.filterNot { it.contains(' ') }
+                val baseForms = map[unaccented]
                 val combined = when {
                     userForms != null && baseForms != null -> (userForms + baseForms).distinct()
                     userForms != null -> userForms
@@ -501,7 +522,7 @@ object VietnameseGlide {
                 }
 
                 // Absolute unigram frequency bonus (incorporating native language model popularity into candidate score)
-                val baseUnigram = unigrams[formLower] ?: wordFreq["$unaccented\t$form"] ?: 0
+                val baseUnigram = unigrams[formLower] ?: cachedUnigrams[formLower] ?: wordFreq["$unaccented	$form"] ?: 0
                 val unigramBonus = if (baseUnigram > 0) {
                     (ln(1.0 + baseUnigram) * 0.45).coerceIn(0.0, 2.5)
                 } else 0.0
@@ -518,12 +539,12 @@ object VietnameseGlide {
 
                 val orthographyBonus = if (!isCompound && VietnameseOrthography.isValidVietnameseSyllable(formLower)) 0.35 else 0.0
 
-                val userFreq = snapshot.wordFreq["$unaccented\t$form"]
+                val userFreq = snapshot.wordFreq["$unaccented	$form"]
                 if (userMax != null && userFreq != null && userMax > 0 && userFreq > 0) {
                     ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + orthographyBonus
                 } else {
                     val max = stemMaxFreq[unaccented] ?: 0
-                    val freq = wordFreq["$unaccented\t$form"] ?: baseUnigram
+                    val freq = wordFreq["$unaccented	$form"] ?: baseUnigram
                     if (max > 0 && freq > 0) {
                         ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + compoundDamping + orthographyBonus
                     } else {
@@ -542,7 +563,7 @@ object VietnameseGlide {
 
     fun lookup(unaccented: String): List<String> {
         val user = userCompoundsSnapshot.map[unaccented]
-        val base = if (bundledCompoundStems) syllableMap?.get(unaccented) else syllableMap?.get(unaccented)?.filterNot { it.contains(' ') }
+        val base = syllableMap?.get(unaccented)
         val combined = when {
             user != null && base != null -> (user + base).distinct()
             user != null -> user
@@ -570,7 +591,6 @@ object VietnameseGlide {
 
     @VisibleForTesting
     fun resetForTesting() {
-        bundledCompoundStems = false
         currentBlacklist = emptySet()
         cachedIndex = null
         syllableMap = null
