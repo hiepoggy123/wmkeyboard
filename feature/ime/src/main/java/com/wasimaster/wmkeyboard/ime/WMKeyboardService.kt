@@ -876,7 +876,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun saveLearningStores() {
         if (!::userLexicon.isInitialized) return
         userLexicon.save()
-        VietnameseGlide.updateUserCompounds(userLexicon)
+        VietnameseGlide.updateUserCompounds(userLexicon, _uiState.value.settings.vietnamese.learnCompoundStems)
         pendingLearn.save()
         wordRanks.save()
         keyOffsets.save()
@@ -4426,7 +4426,7 @@ open class WMKeyboardService : InputMethodService() {
                         scriptChoices.reload()
                     }
                     suggestionEngine?.rankOffsets = wordRanks.snapshot()
-                    VietnameseGlide.updateUserCompounds(userLexicon)
+                    VietnameseGlide.updateUserCompounds(userLexicon, _uiState.value.settings.vietnamese.learnCompoundStems)
                     pushLearnedHabits()
                     refreshTouchModelIfMoved()
                     revision = null
@@ -4639,6 +4639,7 @@ open class WMKeyboardService : InputMethodService() {
                 HanVariant.region = settings.cjk.hanRegion
                 // Vietnamese, pushed the same way and for the same reason.
                 VietnameseConfig.strictTones = settings.vietnamese.strictTones
+                VietnameseGlide.learnCompoundStems = settings.vietnamese.learnCompoundStems
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.

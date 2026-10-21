@@ -195,6 +195,9 @@
     <string name="languages_vietnamese_restore_marks_title">Fill in left-out marks</string>
     <string name="languages_vietnamese_restore_marks_subtitle">With the Vietnamese word list, tieng becomes tiếng when it can only be one word</string>
     <string name="languages_vietnamese_restore_marks_info">Telex and VNI type only the marks you spell. With this on, a word you finish without one of its marks gets it from the Vietnamese word list, but only when the list has one way to read it: tieng becomes tiếng and duong becomes đường. A word the list already has is never changed, and a spelling like toan, which can be toàn, toán or toản, stays as you typed it. One backspace takes the change back. This needs autocorrect on and the Vietnamese word list on the device.</string>
+    <string name="languages_vietnamese_learn_compound_stems_title">Learn multi-word swipe stems</string>
+    <string name="languages_vietnamese_learn_compound_stems_subtitle">Synthesize connected swipe gestures for frequently typed phrases</string>
+    <string name="languages_vietnamese_learn_compound_stems_info">Off by default to prevent multi-word phrases (such as ơ kìa, ở nhà...) from overshadowing single-syllable words during glide typing. When off, you can still add custom compound stems by adding phrases to your Personal dictionary.</string>
     <string name="languages_numeral_system_title">Numeral system</string>
     <!-- %1$s is the English name of the language, for example "Arabic". -->
     <string name="languages_numeral_system_subtitle">The digits that the number row and the keypad show while you type <xliff:g id="language" example="Arabic">%1$s</xliff:g></string>

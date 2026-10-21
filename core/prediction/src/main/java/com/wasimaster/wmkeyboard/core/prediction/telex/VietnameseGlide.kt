@@ -43,6 +43,9 @@ object VietnameseGlide {
     )
 
     @Volatile
+    @Volatile
+    var learnCompoundStems: Boolean = false
+
     private var cachedIndex: RomanizedIndex? = null
     @Volatile
     private var syllableMap: Map<String, List<String>>? = null
@@ -130,45 +133,60 @@ object VietnameseGlide {
      * Stems are filtered through a phonotactic gate to eliminate teencode/typos/noise and
      * registered with frequency scores proportional to user typed counts.
      */
-    fun updateUserCompounds(userLexicon: UserLexicon?) {
+    fun updateUserCompounds(userLexicon: UserLexicon?, allowDynamic: Boolean = learnCompoundStems) {
         if (userLexicon == null) return
         val currentMutations = userLexicon.mutationCount()
         if (currentMutations == lastLearnedMutationCount && userCompoundsSnapshot.trie.walkers().isNotEmpty()) {
             return
         }
         try {
-            val bigrams = userLexicon.allBigrams()
-            val trigrams = userLexicon.allTrigrams()
-
             val freshMap = HashMap<String, MutableList<Pair<String, Int>>>()
             val freshWordFreq = HashMap<String, Int>()
             val freshStemMaxFreq = HashMap<String, Int>()
 
-            fun processPhrase(parts: List<String>, count: Int) {
-                if (count < MIN_USER_COMPOUND_COUNT) return
-                if (parts.size !in 2..3) return
+            fun processPhrase(parts: List<String>, count: Int, isManual: Boolean = false) {
+                if (!isManual && count < 5) return
+                if (parts.size !in 2..4) return
                 for (part in parts) {
                     val p = part.trim()
+                    // Critical safety guard: NEVER allow 1-letter words (such as "ơ", "ở", "ý", "u", "ê")
+                    // to be glued into compound stems like "okia", "onha", "odau".
+                    if (p.length < 2) return
                     if (p.isEmpty() || !isKnownSyllable(p)) {
                         return
                     }
                 }
                 val phrase = parts.joinToString(" ") { it.trim() }
                 val stem = toUnaccentedStem(phrase)
-                if (stem.length < 3 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
+                if (stem.length < 4 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
                 if (!stem.all { it in 'a'..'z' }) return
 
                 // Score scales on the 140..255 scale, matching Tier.USER weighting and competing fairly with single syllables
-                val freq = (140 + count * 25).coerceIn(140, 255)
+                val freq = if (isManual) 250 else (140 + count * 20).coerceIn(140, 240)
                 val list = freshMap.getOrPut(stem) { mutableListOf() }
                 list.add(phrase to freq)
             }
 
-            for (bg in bigrams) {
-                processPhrase(listOf(bg.previous, bg.next), bg.count)
+            // 1. Process custom compound phrases explicitly added by user in Personal Dictionary
+            for ((word, _) in userLexicon.allWords()) {
+                if (word.contains(' ') && userLexicon.isAddedByHand(word)) {
+                    val parts = word.split(' ').map { it.trim() }.filter { it.isNotEmpty() }
+                    if (parts.size in 2..4) {
+                        processPhrase(parts, count = 10, isManual = true)
+                    }
+                }
             }
-            for (tg in trigrams) {
-                processPhrase(listOf(tg.prev2, tg.prev1, tg.next), tg.count)
+
+            // 2. Dynamic synthesis from bigrams & trigrams only if explicitly allowed by user setting
+            if (allowDynamic) {
+                val bigrams = userLexicon.allBigrams()
+                val trigrams = userLexicon.allTrigrams()
+                for (bg in bigrams) {
+                    processPhrase(listOf(bg.previous, bg.next), bg.count, isManual = false)
+                }
+                for (tg in trigrams) {
+                    processPhrase(listOf(tg.prev2, tg.prev1, tg.next), tg.count, isManual = false)
+                }
             }
 
             val finalMap = HashMap<String, List<String>>()

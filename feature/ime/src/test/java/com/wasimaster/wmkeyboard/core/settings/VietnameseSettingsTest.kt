@@ -56,4 +56,18 @@ class VietnameseSettingsTest {
         repository.setVietnameseRestoreMarks(false)
         assertFalse(repository.settings.first().vietnamese.restoreMarks)
     }
+
+    @Test
+    fun `learning compound stems is off until it is asked for`() = runBlocking {
+        assertFalse(repository().settings.first().vietnamese.learnCompoundStems)
+    }
+
+    @Test
+    fun `learning compound stems survives the trip through storage`() = runBlocking {
+        val repository = repository()
+        repository.setVietnameseLearnCompoundStems(true)
+        assertTrue(repository.settings.first().vietnamese.learnCompoundStems)
+        repository.setVietnameseLearnCompoundStems(false)
+        assertFalse(repository.settings.first().vietnamese.learnCompoundStems)
+    }
 }
