@@ -111,6 +111,20 @@ object VietnameseOrthography {
     private val syllableValidityCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>(4096)
 
     /**
+     * Checks if a word contains Vietnamese diacritical marks or tone accents.
+     */
+    fun hasVietnameseMark(word: String): Boolean {
+        if (word.isEmpty()) return false
+        val lower = word.lowercase()
+        for (ch in lower) {
+            if (ch !in 'a'..'z' && (ch.isLetter() || ch in '\u0300'..'\u036f' || ch in '\u1dc0'..'\u1dff')) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
      * Checks if a decomposed syllable is phonotactically valid in Vietnamese.
      */
     fun isValidVietnameseSyllable(word: String): Boolean {
