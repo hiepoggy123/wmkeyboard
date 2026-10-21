@@ -22766,7 +22766,11 @@ open class WMKeyboardService : InputMethodService() {
                 displayCaseForShift(
                     caseLike(suggestion, caret.word, _uiState.value.language.letterCaseIsSpelling),
                     _uiState.value.shiftState,
-                )
+                ).let {
+                    if (_uiState.value.composer.isVietnamese) {
+                        java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFC)
+                    } else it
+                }
             val spacing = splicedPickSpacing(afterWord.getOrNull(tail.length))
             ic.beginBatchEdit()
             ic.deleteSurroundingText(head.length, tail.length)
@@ -22939,6 +22943,10 @@ open class WMKeyboardService : InputMethodService() {
             } else {
                 cased
             }
+        }.let {
+            if (_uiState.value.composer.isVietnamese) {
+                java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFC)
+            } else it
         }
         ic.commitText(committed + tail, pickCaretOffset(spaced))
         // That space is the keyboard's, so a mark typed next takes it back and
