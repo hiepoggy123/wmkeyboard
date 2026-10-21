@@ -600,8 +600,10 @@ class TelexAutocorrectEngine private constructor() {
         if (userLexicon != null) {
             val userCompletions = userLexicon.complete(clean, maxResults)
             for (sug in userCompletions) {
+                val sugWord = userLexicon.displayOf(sug.word) ?: sug.word
+                if (!clean.contains(' ') && (sug.word.contains(' ') || sugWord.contains(' '))) continue
                 if (sug.word != clean) {
-                    results.add(userLexicon.displayOf(sug.word) ?: sug.word)
+                    results.add(sugWord)
                     if (results.size >= maxResults) return results.toList()
                 }
             }

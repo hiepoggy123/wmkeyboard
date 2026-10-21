@@ -753,7 +753,31 @@ class TelexAutocorrectEngineTest {
         assertEquals(null, engine.trie.findWord("mc"))
         assertEquals("chao", engine.trie.findWord("chao"))
     }
+
+    @Test
+    fun testSingleWordCompletionsFilterOutMultiWordPhrases() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"trung": 500, "trung tâm": 200, "trung thực": 300}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val lexicon = com.wasimaster.wmkeyboard.core.prediction.UserLexicon(null)
+        lexicon.addWord("trung quốc", 50)
+        lexicon.addWord("trung gian", 40)
+
+        val completions = engine.findCompletions(prefix = "trung", userLexicon = lexicon, maxResults = 10)
+        // Phrases with spaces must NEVER be suggested when prefix is a single word without spaces
+        for (cand in completions) {
+            assertFalse("Candidate '$cand' must not contain space when prefix has no space", cand.contains(' '))
+        }
+    }
+
+    @Test
+    fun testVietnameseMarkAndSyllableValidation() {
+        // 'tổ' is a valid Vietnamese syllable and has accents
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("tổ"))
+        assertTrue(VietnameseOrthography.hasVietnameseMark("tổ"))
+        // 'to' is valid but has no accents
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("to"))
+        assertFalse(VietnameseOrthography.hasVietnameseMark("to"))
+    }
 }
-
-
-

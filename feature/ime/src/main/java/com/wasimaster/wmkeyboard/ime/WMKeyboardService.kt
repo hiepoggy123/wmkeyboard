@@ -262,6 +262,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseGlide
+import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.prediction.vietnameseBaseChar
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -16245,7 +16246,10 @@ open class WMKeyboardService : InputMethodService() {
                 val isTypedLearned = currentLexicon?.contains(typed.lowercase()) == true
                 val isComposedLearned = currentLexicon?.contains(composed.lowercase()) == true
                 val isComposedInDict = telexEngine.isWordInDictionary(composed)
-                val isComposedValid = isComposedInDict || isComposedLearned
+                val isComposedValid = isComposedInDict || isComposedLearned ||
+                    VietnameseOrthography.isValidVietnameseSyllable(composed)
+                val hasAccents = VietnameseOrthography.hasVietnameseMark(composed) ||
+                    composed.any { it in "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ" }
                 val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
 
                 val taught = correctionMemory.fixFor(canonical.ifEmpty { typed })
@@ -16260,10 +16264,12 @@ open class WMKeyboardService : InputMethodService() {
                 val allowVietnameseAutocorrect = autocorrect && state.allowsTypingIntelligence
 
                 val target = if (allowVietnameseAutocorrect) {
-                    if (pre != null && pre.isTelex) {
-                        pre.telexTop
-                    } else if (applyTaught && taught != null) {
+                    if (applyTaught && taught != null) {
                         telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
+                    } else if (isComposedValid || hasAccents) {
+                        composed
+                    } else if (pre != null && pre.isTelex) {
+                        pre.telexTop
                     } else if (composed.length >= 2 || typed.length >= 2) {
                         if (isTypedLearned && !isComposedInDict) {
                             typed
@@ -21523,7 +21529,8 @@ open class WMKeyboardService : InputMethodService() {
                 val isTypedLearned = currentLexicon?.contains(typed.lowercase()) == true
                 val isComposedLearned = currentLexicon?.contains(composed.lowercase()) == true
                 val isComposedInDict = telexEngine.isWordInDictionary(composed)
-                val isComposedValid = isComposedInDict || isComposedLearned
+                val isComposedValid = isComposedInDict || isComposedLearned ||
+                    VietnameseOrthography.isValidVietnameseSyllable(composed)
                 val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
 
                 val taught = correctionMemory.fixFor(canonical.ifEmpty { typed })
@@ -21726,7 +21733,7 @@ open class WMKeyboardService : InputMethodService() {
 
         if (latinResolution(state, typed)) {
             resolveCommitAhead(engine, typed)
-        } else if (state.composer.isVietnamese && state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence && typed.isNotEmpty()) {
+        } else if (state.composer.isVietnamese && state.allowsTypingIntelligence && typed.isNotEmpty()) {
             resolveVietnameseCommitAhead(typed)
         } else {
             resolutionJob?.cancel()
@@ -21802,7 +21809,7 @@ open class WMKeyboardService : InputMethodService() {
                 val completing = state.composer.completionLanguage
                 var telexCandidates: List<String> = emptyList()
                 val deepAll = trace(ImeTrace.SUGGEST) {
-                    if (state.composer.isVietnamese && state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence) {
+                    if (state.composer.isVietnamese && state.allowsTypingIntelligence) {
                         val composed = state.composer.composeBuffer(typed)
                         val telexEngine = TelexAutocorrectEngine.getInstance()
                         if (!telexEngine.isReady) {
@@ -21849,12 +21856,15 @@ open class WMKeyboardService : InputMethodService() {
                                     maxResults = maxOf(SUGGEST_LIMIT, askDeep),
                                 )
                             } else emptyList()
-                            val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
+                            val combinedDict = (telexCompletions + dictSuggestions)
+                                .filter { cand -> if (!composed.contains(' ')) !cand.contains(' ') else true }
+                                .distinctBy { it.lowercase() }
 
                             val isTypedLearned = currentLexicon?.contains(typed.lowercase()) == true
                             val isComposedLearned = currentLexicon?.contains(composed.lowercase()) == true
                             val isComposedInDict = telexEngine.isWordInDictionary(composed)
-                            val isComposedValid = isComposedInDict || isComposedLearned
+                            val isComposedValid = isComposedInDict || isComposedLearned ||
+                                VietnameseOrthography.isValidVietnameseSyllable(composed)
 
                             if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || typed.length < 2) {
                                 (listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) })
@@ -21873,6 +21883,7 @@ open class WMKeyboardService : InputMethodService() {
                                     )
                                 } else emptyList()
                                 telexCandidates = rawTelexCandidates.map { it.word }
+                                    .filter { cand -> if (!composed.contains(' ')) !cand.contains(' ') else true }
 
                                 val taught = correctionMemory.fixFor(canonical.ifEmpty { typed })
                                     ?: correctionMemory.fixFor(composed)
@@ -22005,7 +22016,7 @@ open class WMKeyboardService : InputMethodService() {
                 // the word being typed there, it is the way to write it in
                 // English, and the only one.
                 val skipTyped = state.settings.suggestionStrip.skipTypedWord && typed.isNotEmpty() &&
-                    state.composer.phoneticLanguage == null && completing == null
+                    state.composer.phoneticLanguage == null && !state.composer.isVietnamese && completing == null
                 fun dropTyped(list: List<String>) =
                     if (skipTyped) {
                         val composed = if (state.composer.isVietnamese) state.composer.composeBuffer(typed) else typed
@@ -22118,8 +22129,37 @@ open class WMKeyboardService : InputMethodService() {
                     )
                     state.composer.isVietnamese -> {
                         val composed = state.composer.composeBuffer(typed)
-                        val spaceWord = words.firstOrNull() ?: composed
-                        val targetWord = if (state.settings.vietnamese.restoreMarks) spaceWord else composed
+                        val telexEngine = TelexAutocorrectEngine.getInstance()
+                        val currentLexicon = if (::userLexicon.isInitialized) userLexicon else null
+                        val isComposedInDict = telexEngine.isWordInDictionary(composed)
+                        val isComposedLearned = currentLexicon?.contains(composed.lowercase()) == true
+                        val isComposedValid = isComposedInDict || isComposedLearned ||
+                            VietnameseOrthography.isValidVietnameseSyllable(composed)
+                        val hasAccents = VietnameseOrthography.hasVietnameseMark(composed) ||
+                            composed.any { it in "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĐ" }
+
+                        val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                        val taught = correctionMemory.fixFor(canonical.ifEmpty { typed })
+                            ?: correctionMemory.fixFor(composed)
+                            ?: correctionMemory.fixFor(typed)
+
+                        val applyTaught = taught != null && (
+                            (!isComposedValid && taught.count >= CorrectionMemory.APPLY_AT) ||
+                            (isComposedValid && taught.count >= CorrectionMemory.APPLY_KNOWN_AT)
+                        )
+
+                        val allowVietnameseAutocorrect = state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence
+
+                        val targetWord = if (applyTaught && taught != null) {
+                            telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
+                        } else if (isComposedValid || hasAccents || !allowVietnameseAutocorrect) {
+                            composed
+                        } else if (state.settings.vietnamese.restoreMarks) {
+                            val top = words.firstOrNull()
+                            if (top != null && !top.contains(' ') && telexEngine.isWordInDictionary(top)) top else composed
+                        } else {
+                            composed
+                        }
                         CommitResolution(
                             typed = typed,
                             isPhonetic = false,
