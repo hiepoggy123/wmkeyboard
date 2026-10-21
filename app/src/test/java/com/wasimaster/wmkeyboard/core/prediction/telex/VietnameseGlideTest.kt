@@ -225,5 +225,38 @@ class VietnameseGlideTest {
         val resolved = index.resolve(candidates)
         assertTrue(resolved.isNotEmpty())
         assertEquals("người", resolved[0].word)
+
+        // Simulate gesture for short compound word "homnay" (h -> o -> m -> n -> a -> y)
+        // Stems with length <= 8 previously suffered from erroneous phonotactic filtering
+        val compSeq = "homnay"
+        val compPoints = ArrayList<com.wasimaster.wmkeyboard.core.gesture.GesturePoint>()
+        var compTime = 2000L
+        for (i in 0 until compSeq.length - 1) {
+            val c1 = compSeq[i]
+            val c2 = compSeq[i + 1]
+            val idx1 = keys.keyIndex(c1)
+            val idx2 = keys.keyIndex(c2)
+            val kx1 = keys.keyX[idx1] * keyWidth
+            val ky1 = keys.keyY[idx1] * keyWidth
+            val kx2 = keys.keyX[idx2] * keyWidth
+            val ky2 = keys.keyY[idx2] * keyWidth
+            for (step in 0..8) {
+                val t = step / 8.0f
+                val px = kx1 + (kx2 - kx1) * t
+                val py = ky1 + (ky2 - ky1) * t
+                compPoints.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(px, py, compTime))
+                compTime += 25L
+            }
+        }
+        val compLastIdx = keys.keyIndex(compSeq.last())
+        compPoints.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(keys.keyX[compLastIdx] * keyWidth, keys.keyY[compLastIdx] * keyWidth, compTime))
+
+        val compCandidates = index.trajectoryDecoder!!.invoke(compPoints, keys, keyWidth, 4)
+        assertTrue(compCandidates.isNotEmpty())
+        assertEquals("homnay", compCandidates[0].word)
+
+        val resolvedComp = index.resolve(compCandidates)
+        assertTrue(resolvedComp.isNotEmpty())
+        assertEquals("hôm nay", resolvedComp[0].word)
     }
 }

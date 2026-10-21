@@ -86,6 +86,8 @@ object VietnameseGlide {
     @Volatile
     private var lastLearnedMutationCount = -1L
     @Volatile
+    private var lastAllowDynamic: Boolean? = null
+    @Volatile
     private var userCompoundsSnapshot = UserCompoundsSnapshot()
 
     private val personalWordSource = object : WordSource {
@@ -136,7 +138,7 @@ object VietnameseGlide {
     fun updateUserCompounds(userLexicon: UserLexicon?, allowDynamic: Boolean = learnCompoundStems) {
         if (userLexicon == null) return
         val currentMutations = userLexicon.mutationCount()
-        if (currentMutations == lastLearnedMutationCount && userCompoundsSnapshot.trie.walkers().isNotEmpty()) {
+        if (currentMutations == lastLearnedMutationCount && allowDynamic == lastAllowDynamic && userCompoundsSnapshot.trie.walkers().isNotEmpty()) {
             return
         }
         try {
@@ -215,10 +217,12 @@ object VietnameseGlide {
                 trie = freshTrie
             )
 
+            VietnameseTrajectoryGlide.clearUserCompounds()
             for ((stem, maxFreq) in freshStemMaxFreq) {
                 VietnameseTrajectoryGlide.addUserCompound(stem, maxFreq)
             }
             lastLearnedMutationCount = currentMutations
+            lastAllowDynamic = allowDynamic
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -354,6 +358,7 @@ object VietnameseGlide {
         }
 
         val intermediate = LinkedHashMap<String, MutableList<Pair<String, Int>>>()
+        val compoundStems = HashSet<String>()
 
         BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).useLines { lines ->
             for (line in lines) {
@@ -371,7 +376,9 @@ object VietnameseGlide {
                     val finalFreq = getWordFrequency(word, freq)
                     val list = intermediate.getOrPut(unaccented) { mutableListOf() }
                     list.add(word to finalFreq)
-                    if (!word.contains(' ')) {
+                    if (word.contains(' ')) {
+                        compoundStems.add(unaccented)
+                    } else {
                         recognizedSyllables.add(word.lowercase())
                     }
                 } else {
@@ -395,7 +402,9 @@ object VietnameseGlide {
                         }
                         val finalFreq = getWordFrequency(formWord, explicitFreq)
                         list.add(formWord to finalFreq)
-                        if (!formWord.contains(' ')) {
+                        if (formWord.contains(' ')) {
+                            compoundStems.add(unaccented)
+                        } else {
                             recognizedSyllables.add(formWord.lowercase())
                         }
                     }
@@ -422,7 +431,7 @@ object VietnameseGlide {
 
         syllableMap = map
 
-        VietnameseTrajectoryGlide.indexStems(stemMaxFreq)
+        VietnameseTrajectoryGlide.indexStems(stemMaxFreq, compoundStems)
 
         if (userLexicon != null) {
             updateUserCompounds(userLexicon)
@@ -528,6 +537,8 @@ object VietnameseGlide {
         cachedUnigrams = emptyMap()
         recognizedSyllables.clear()
         userCompoundsSnapshot = UserCompoundsSnapshot()
+        lastLearnedMutationCount = -1L
+        lastAllowDynamic = null
         currentContext = GlideContext()
         VietnameseTrajectoryGlide.resetForTesting()
     }

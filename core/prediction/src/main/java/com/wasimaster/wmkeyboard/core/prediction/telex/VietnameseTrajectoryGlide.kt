@@ -49,7 +49,7 @@ object VietnameseTrajectoryGlide {
     /**
      * Indexes the curated unaccented stems and frequencies from [VietnameseGlide].
      */
-    fun indexStems(stems: Map<String, Int>) {
+    fun indexStems(stems: Map<String, Int>, compoundStems: Set<String> = emptySet()) {
         stemsByStartEnd.clear()
         allStemEntries.clear()
         for ((stem, freq) in stems) {
@@ -58,7 +58,7 @@ object VietnameseTrajectoryGlide {
             val startCh = clean.first()
             val endCh = clean.last()
             if (startCh !in 'a'..'z' || endCh !in 'a'..'z') continue
-            val isCompound = clean.contains(' ') || clean.length > 8
+            val isCompound = compoundStems.contains(clean) || clean.contains(' ') || clean.length > 8
             if (!isCompound && !VietnameseOrthography.isValidVietnamesePrefix(clean)) continue
             val entry = StemEntry(clean, freq.coerceIn(1, 255), isCompound, isUser = false)
             val key = (startCh.code shl 8) or endCh.code
@@ -66,6 +66,21 @@ object VietnameseTrajectoryGlide {
             allStemEntries[clean] = entry
         }
         isIndexed = true
+    }
+
+    /**
+     * Clears all dynamic user compound stems.
+     */
+    fun clearUserCompounds() {
+        for ((_, list) in stemsByStartEnd) {
+            synchronized(list) {
+                list.removeAll { it.isUser }
+            }
+        }
+        val userStemKeys = allStemEntries.entries.filter { it.value.isUser }.map { it.key }
+        for (k in userStemKeys) {
+            allStemEntries.remove(k)
+        }
     }
 
     /**
@@ -78,7 +93,7 @@ object VietnameseTrajectoryGlide {
         val endCh = clean.last()
         if (startCh !in 'a'..'z' || endCh !in 'a'..'z') return
         val key = (startCh.code shl 8) or endCh.code
-        if (!clean.contains(' ') && !VietnameseOrthography.isValidVietnamesePrefix(clean)) return
+        // User compounds are multi-word phrases already vetted by isKnownSyllable.
         val entry = StemEntry(clean, freq.coerceIn(50, 255), isCompound = true, isUser = true)
         val list = stemsByStartEnd.getOrPut(key) { ArrayList() }
         synchronized(list) {
@@ -195,7 +210,6 @@ object VietnameseTrajectoryGlide {
     ): Double? {
         val len = stem.length
         if (len < 1) return null
-        if (!entry.isCompound && !VietnameseOrthography.isValidVietnamesePrefix(stem)) return null
 
         // Resolve all key coordinates for the stem
         val keyCoords = ArrayList<Point2D>(len)

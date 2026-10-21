@@ -23,11 +23,23 @@ object VietnameseOrthography {
     // Closed / Stop codas (Phụ âm tắc - chỉ đi với dấu Sắc hoặc Nặng)
     private val STOP_CODAS = hashSetOf("c", "ch", "p", "t")
 
-    private val VALID_CONSONANT_PAIRS = hashSetOf(
-        "ch", "gh", "gi", "kh", "nh", "ng", "ph", "qu", "th", "tr"
-    )
-
     private val VIETNAMESE_VOWELS = "aeiouyăâêôơư"
+
+    /**
+     * Fast zero-allocation validator for valid Vietnamese consonant pairs.
+     */
+    fun isValidConsonantPair(a: Char, b: Char): Boolean {
+        return when (a) {
+            'c' -> b == 'h'
+            'g' -> b == 'h' || b == 'i'
+            'k' -> b == 'h'
+            'n' -> b == 'h' || b == 'g'
+            'p' -> b == 'h'
+            'q' -> b == 'u'
+            't' -> b == 'h' || b == 'r'
+            else -> false
+        }
+    }
 
     /**
      * Gboard-style phonotactic prefix validator.
@@ -64,13 +76,12 @@ object VietnameseOrthography {
             if (c2 !in VIETNAMESE_VOWELS) return false
         }
 
-        // Check for impossible consonant clusters in single syllables
+        // Check for impossible consonant clusters in single syllables (zero allocation)
         for (i in 0 until len - 1) {
             val a = prefix[i].lowercaseChar()
             val b = prefix[i + 1].lowercaseChar()
             if (a !in VIETNAMESE_VOWELS && b !in VIETNAMESE_VOWELS) {
-                val pair = "$a$b"
-                if (!VALID_CONSONANT_PAIRS.contains(pair) && pair != "ng") {
+                if (!isValidConsonantPair(a, b)) {
                     return false
                 }
             }
@@ -96,13 +107,19 @@ object VietnameseOrthography {
     private val CANDIDATE_ONSETS = arrayOf("ngh", "ng", "nh", "ch", "gh", "kh", "ph", "th", "tr", "qu", "gi")
     private val CANDIDATE_CODAS = arrayOf("ng", "nh", "ch")
 
+    // Concurrent cache for syllable validation to avoid repeated expensive Normalizer.normalize calls
+    private val syllableValidityCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>(4096)
+
     /**
      * Checks if a decomposed syllable is phonotactically valid in Vietnamese.
      */
     fun isValidVietnameseSyllable(word: String): Boolean {
         if (word.isBlank()) return false
         val clean = word.trim().lowercase()
+        return syllableValidityCache.computeIfAbsent(clean) { computeIsValidVietnameseSyllable(it) }
+    }
 
+    private fun computeIsValidVietnameseSyllable(clean: String): Boolean {
         // Decompose NFC to NFD to separate base characters and diacritical combining marks
         val nfd = Normalizer.normalize(clean, Normalizer.Form.NFD)
 

@@ -4445,6 +4445,7 @@ open class WMKeyboardService : InputMethodService() {
                     glideOutcomes.reload()
                     glideSandbox.reload()
                     glideRetryOffer = null
+                    lastRejectedGlideWord = null
                     undoneGlide = null
                     glideShapes.reload()
                 }
@@ -4869,6 +4870,7 @@ open class WMKeyboardService : InputMethodService() {
             it.applied = _uiState.value.settings.gesture.learnSwipeStyle
         }
         glideRetryOffer = null
+        lastRejectedGlideWord = null
         undoneGlide = null
         suggestionEngine?.glideOutcomes = glideOutcomes
         glideShapes = GlideShapeStore(store(GLIDE_SHAPES_FILE)).also {
@@ -6722,6 +6724,8 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = null
             invalidateRecentWords()
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
             lastRevertible = null
             clearSwapOffer()
             // Someone else's field, someone else's text: the chip's word is
@@ -6904,6 +6908,8 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = null
             invalidateRecentWords()
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
             lastRevertible = null
             clearSwapOffer()
             // Someone else's field, someone else's text: the chip's word is
@@ -7631,7 +7637,8 @@ open class WMKeyboardService : InputMethodService() {
         // arming is the commit's own echo and records the anchor, anything
         // that moves the caret afterwards disarms them.
         if (lastRevertible != null || lastGestureWord != null || pendingAutoSpace ||
-            pendingWordSpace || deferredWordSpace || glideRetryOffer != null
+            pendingWordSpace || deferredWordSpace || glideRetryOffer != null ||
+            lastRejectedGlideWord != null
         ) {
             val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
             fun disarm() {
@@ -14048,6 +14055,8 @@ open class WMKeyboardService : InputMethodService() {
             if (expectedSelStart >= 0) noteDeletedForLearning(expectedSelStart - length, expectedSelStart)
             ic.deleteSurroundingText(length, 0)
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
             lastRevertible = null
             clearSwapOffer()
             // The word that was deleted is gone as context, but whatever now
@@ -22627,6 +22636,8 @@ open class WMKeyboardService : InputMethodService() {
             if (token.isNotEmpty()) ic.deleteSurroundingText(token.length, 0)
             ic.commitText(suggestion, 1)
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
             lastRevertible = null
             clearSwapOffer()
             _uiState.update {
@@ -22658,6 +22669,8 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(suggestion, 1)
             ic.endBatchEdit()
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
             lastRevertible = null
             clearSwapOffer()
             _uiState.update {
