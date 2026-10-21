@@ -876,7 +876,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun saveLearningStores() {
         if (!::userLexicon.isInitialized) return
         userLexicon.save()
-        VietnameseGlide.updateUserCompounds(userLexicon, _uiState.value.settings.vietnamese.learnCompoundStems)
+        VietnameseGlide.updateUserCompounds(userLexicon, filesDir)
         pendingLearn.save()
         wordRanks.save()
         keyOffsets.save()
@@ -3183,7 +3183,11 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun syncEngineBlacklist(languageId: String) {
         val engine = suggestionEngine ?: return
-        engine.blacklist = _uiState.value.settings.suggestionSources.blacklistFor(languageId)
+        val bl = _uiState.value.settings.suggestionSources.blacklistFor(languageId)
+        engine.blacklist = bl
+        if (languageId == "vi") {
+            VietnameseGlide.currentBlacklist = bl
+        }
     }
 
     /**
@@ -4424,7 +4428,7 @@ open class WMKeyboardService : InputMethodService() {
                         scriptChoices.reload()
                     }
                     suggestionEngine?.rankOffsets = wordRanks.snapshot()
-                    VietnameseGlide.updateUserCompounds(userLexicon, _uiState.value.settings.vietnamese.learnCompoundStems)
+                    VietnameseGlide.updateUserCompounds(userLexicon, filesDir)
                     pushLearnedHabits()
                     refreshTouchModelIfMoved()
                     revision = null
@@ -4637,7 +4641,12 @@ open class WMKeyboardService : InputMethodService() {
                 HanVariant.region = settings.cjk.hanRegion
                 // Vietnamese, pushed the same way and for the same reason.
                 VietnameseConfig.strictTones = settings.vietnamese.strictTones
-                VietnameseGlide.learnCompoundStems = settings.vietnamese.learnCompoundStems
+                if (VietnameseGlide.bundledCompoundStems != settings.vietnamese.bundledCompoundStems) {
+                    VietnameseGlide.bundledCompoundStems = settings.vietnamese.bundledCompoundStems
+                    VietnameseGlide.resetIndex()
+                    vietnameseGlideLoaded = false
+                    ensureVietnameseGlide()
+                }
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.
@@ -13195,7 +13204,7 @@ open class WMKeyboardService : InputMethodService() {
         if (vietnameseGlideLoaded || vietnameseGlideJob?.isActive == true) return
         vietnameseGlideJob = serviceScope.launch {
             val index = withContext(Dispatchers.Default) {
-                VietnameseGlide.getIndex(assets, userLexicon)
+                VietnameseGlide.getIndex(assets, userLexicon, filesDir)
             }
             if (index != null) {
                 vietnameseGlideLoaded = true

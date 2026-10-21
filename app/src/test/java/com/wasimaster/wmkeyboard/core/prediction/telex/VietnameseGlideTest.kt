@@ -20,7 +20,10 @@ class VietnameseGlideTest {
             quehuong	quê hương
         """.trimIndent()
 
-        val index = VietnameseGlide.loadFromStream(ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)))
+        val index = VietnameseGlide.loadFromStream(
+            ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
+            includeBundledCompounds = true,
+        )
         assertNotNull(index)
         assertTrue(index.alphabet.contains('t'.code))
         assertTrue(index.alphabet.contains('n'.code))
@@ -52,7 +55,10 @@ class VietnameseGlideTest {
             thumay	thứ mấy	200
         """.trimIndent()
 
-        val index = VietnameseGlide.loadFromStream(ByteArrayInputStream(threeColTsv.toByteArray(Charsets.UTF_8)))
+        val index = VietnameseGlide.loadFromStream(
+            ByteArrayInputStream(threeColTsv.toByteArray(Charsets.UTF_8)),
+            includeBundledCompounds = true,
+        )
         assertNotNull(index)
 
         // Since mấy (189) > máy (181) > mày (50), mấy should rank first!
@@ -105,6 +111,8 @@ class VietnameseGlideTest {
             chi	chi
             rua	rửa,rùa,rứa
             em	em
+            nguoi	người,ngươi
+            ta	ta
         """.trimIndent()
 
         val unigramMap = mapOf(
@@ -112,48 +120,57 @@ class VietnameseGlideTest {
             "rứa" to 800,
             "rửa" to 1200,
             "em" to 5000,
+            "người" to 2000,
+            "ta" to 1500,
         )
 
         val lexicon = UserLexicon(null)
-        lexicon.learnWord("chi")
-        lexicon.learnWord("rứa")
-        lexicon.learnWord("em")
-        // Learn "chi rứa" 3 times
-        repeat(3) { lexicon.learnBigram("chi", "rứa") }
-        // Learn "chi rứa em" 2 times
-        repeat(2) { lexicon.learnTrigram("chi", "rứa", "em") }
+        // Phrases added by hand in Personal Dictionary
+        lexicon.addWordByHand("chi rứa")
+        lexicon.addWordByHand("chi rứa em")
+
+        // Phrases merely learned via typing n-grams (bigrams/trigrams) - must NOT synthesize stems!
+        repeat(5) { lexicon.learnBigram("người", "ta") }
+        repeat(5) { lexicon.learnTrigram("người", "ta", "ơi") }
         // Teencode phrase "ko bt" - should be filtered!
-        repeat(5) { lexicon.learnBigram("ko", "bt") }
-        // English phrase "fix bug" - should be filtered!
-        repeat(5) { lexicon.learnBigram("fix", "bug") }
+        lexicon.addWordByHand("ko bt")
 
         val index = VietnameseGlide.loadFromStream(
             ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
             unigramMap,
             emptyMap(),
             lexicon,
+            includeBundledCompounds = false,
         )
 
-        // 1. "chirua" must be synthesized dynamically
+        // 1. "chirua" must be synthesized from manual entry
         val chiruaForms = VietnameseGlide.lookupUserCompounds("chirua")
         assertEquals(listOf("chi rứa"), chiruaForms)
 
-        // 2. "chiruaem" must be synthesized dynamically from trigram
+        // 2. "chiruaem" must be synthesized from manual entry
         val chiruaemForms = VietnameseGlide.lookupUserCompounds("chiruaem")
         assertEquals(listOf("chi rứa em"), chiruaemForms)
 
-        // 3. Teencode "kobt" and English "fixbug" must NOT be synthesized
-        assertTrue(VietnameseGlide.lookupUserCompounds("kobt").isEmpty())
-        assertTrue(VietnameseGlide.lookupUserCompounds("fixbug").isEmpty())
+        // 3. Mere n-grams "người ta" must NOT synthesize stems (avoids junk!)
+        assertTrue(VietnameseGlide.lookupUserCompounds("nguoita").isEmpty())
 
-        // 4. Resolving candidate "chirua" must yield "chi rứa"
+        // 4. Teencode "kobt" must NOT be synthesized
+        assertTrue(VietnameseGlide.lookupUserCompounds("kobt").isEmpty())
+
+        // 5. Resolving candidate "chirua" must yield "chi rứa"
         val candidate = GlideBeam.Candidate("chirua", 1.0, 0.0, FuzzyBeamSearch.Tier.USER)
         val resolved = index.resolve(listOf(candidate))
         assertTrue(resolved.isNotEmpty())
         assertEquals("chi rứa", resolved[0].word)
 
-        // 5. Test deletion in UserLexicon: when phrase is forgotten, stem must disappear!
-        lexicon.forgetBigram("chi", "rứa")
+        // 6. Test blacklist: when blacklisted, resolving candidate "chirua" filters out "chi rứa"
+        VietnameseGlide.currentBlacklist = setOf("chi rứa")
+        val resolvedBlacklisted = index.resolve(listOf(candidate))
+        assertTrue(resolvedBlacklisted.isEmpty())
+        VietnameseGlide.currentBlacklist = emptySet()
+
+        // 7. Test deletion in UserLexicon: when phrase is forgotten, stem must disappear!
+        lexicon.forget("chi rứa")
         VietnameseGlide.updateUserCompounds(lexicon)
         assertTrue(VietnameseGlide.lookupUserCompounds("chirua").isEmpty())
     }
@@ -183,6 +200,7 @@ class VietnameseGlideTest {
         val index = VietnameseGlide.loadFromStream(
             ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
             unigramMap,
+            includeBundledCompounds = true,
         )
         assertNotNull(index)
         assertNotNull(index.trajectoryDecoder)

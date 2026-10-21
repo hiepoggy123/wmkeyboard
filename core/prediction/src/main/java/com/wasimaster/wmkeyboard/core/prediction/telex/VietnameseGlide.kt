@@ -4,6 +4,7 @@ import android.content.res.AssetManager
 import androidx.annotation.VisibleForTesting
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.prediction.Accents
+import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.Suggestion
 import com.wasimaster.wmkeyboard.core.prediction.Trie
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
@@ -43,7 +45,10 @@ object VietnameseGlide {
     )
 
     @Volatile
-    var learnCompoundStems: Boolean = false
+    var bundledCompoundStems: Boolean = false
+
+    @Volatile
+    var currentBlacklist: Set<String> = emptySet()
 
     @Volatile
     private var cachedIndex: RomanizedIndex? = null
@@ -82,11 +87,9 @@ object VietnameseGlide {
         currentContext = GlideContext(prev, prev2)
     }
 
-    // Dynamic compound stems learned from UserLexicon
+    // Dynamic compound stems learned from UserLexicon and custom dictionaries
     @Volatile
     private var lastLearnedMutationCount = -1L
-    @Volatile
-    private var lastAllowDynamic: Boolean? = null
     @Volatile
     private var userCompoundsSnapshot = UserCompoundsSnapshot()
 
@@ -131,14 +134,12 @@ object VietnameseGlide {
     }
 
     /**
-     * Dynamically synthesizes unaccented compound stems from UserLexicon bigrams and trigrams.
-     * Stems are filtered through a phonotactic gate to eliminate teencode/typos/noise and
-     * registered with frequency scores proportional to user typed counts.
+     * Synthesizes unaccented compound stems from phrases explicitly added by user in Personal Dictionary
+     * or custom imported dictionaries. Automatic n-gram learning is completely excluded to prevent junk stems.
      */
-    fun updateUserCompounds(userLexicon: UserLexicon?, allowDynamic: Boolean = learnCompoundStems) {
-        if (userLexicon == null) return
-        val currentMutations = userLexicon.mutationCount()
-        if (currentMutations == lastLearnedMutationCount && allowDynamic == lastAllowDynamic && userCompoundsSnapshot.trie.walkers().isNotEmpty()) {
+    fun updateUserCompounds(userLexicon: UserLexicon?, filesDir: File? = null) {
+        val currentMutations = userLexicon?.mutationCount() ?: 0L
+        if (currentMutations == lastLearnedMutationCount && lastLearnedMutationCount != -1L) {
             return
         }
         try {
@@ -146,8 +147,7 @@ object VietnameseGlide {
             val freshWordFreq = HashMap<String, Int>()
             val freshStemMaxFreq = HashMap<String, Int>()
 
-            fun processPhrase(parts: List<String>, count: Int, isManual: Boolean = false) {
-                if (!isManual && count < MIN_USER_COMPOUND_COUNT) return
+            fun processPhrase(parts: List<String>) {
                 if (parts.size !in 2..4) return
                 for (part in parts) {
                     val p = part.trim()
@@ -163,31 +163,43 @@ object VietnameseGlide {
                 if (stem.length < 3 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
                 if (!stem.all { it in 'a'..'z' }) return
 
-                // Score scales on the 140..255 scale, matching Tier.USER weighting and competing fairly with single syllables
-                val freq = if (isManual) 250 else (140 + count * 25).coerceIn(140, 255)
+                // User manual additions get top priority
+                val freq = 250
                 val list = freshMap.getOrPut(stem) { mutableListOf() }
                 list.add(phrase to freq)
             }
 
-            // 1. Process custom compound phrases explicitly added by user in Personal Dictionary
-            for ((word, _) in userLexicon.allWords()) {
-                if (word.contains(' ') && userLexicon.isAddedByHand(word)) {
-                    val parts = word.split(' ').map { it.trim() }.filter { it.isNotEmpty() }
-                    if (parts.size in 2..4) {
-                        processPhrase(parts, count = 10, isManual = true)
+            // 1. Process custom compound phrases explicitly added by hand in Personal Dictionary
+            if (userLexicon != null) {
+                for ((word, _) in userLexicon.allWords()) {
+                    if (word.contains(' ') && userLexicon.isAddedByHand(word)) {
+                        val parts = word.split(' ').map { it.trim() }.filter { it.isNotEmpty() }
+                        if (parts.size in 2..4) {
+                            processPhrase(parts)
+                        }
                     }
                 }
             }
 
-            // 2. Dynamic synthesis from bigrams & trigrams only if explicitly allowed by user setting
-            if (allowDynamic) {
-                val bigrams = userLexicon.allBigrams()
-                val trigrams = userLexicon.allTrigrams()
-                for (bg in bigrams) {
-                    processPhrase(listOf(bg.previous, bg.next), bg.count, isManual = false)
-                }
-                for (tg in trigrams) {
-                    processPhrase(listOf(tg.prev2, tg.prev1, tg.next), tg.count, isManual = false)
+            // 2. Process custom compound phrases from imported Custom Dictionaries (filesDir/dictionaries/vi/*.txt)
+            if (filesDir != null) {
+                val customLists = CustomDictionaries.lists(filesDir, "vi")
+                for (file in customLists) {
+                    runCatching {
+                        file.bufferedReader().useLines { lines ->
+                            for (line in lines) {
+                                val trimmed = line.trim()
+                                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                                val phrase = trimmed.split(Regex("\\s+\\d+$"))[0].trim()
+                                if (phrase.contains(' ')) {
+                                    val parts = phrase.split(' ').map { it.trim() }.filter { it.isNotEmpty() }
+                                    if (parts.size in 2..4) {
+                                        processPhrase(parts)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -222,7 +234,6 @@ object VietnameseGlide {
                 VietnameseTrajectoryGlide.addUserCompound(stem, maxFreq)
             }
             lastLearnedMutationCount = currentMutations
-            lastAllowDynamic = allowDynamic
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -231,17 +242,17 @@ object VietnameseGlide {
     /**
      * Loads the Vietnamese unaccented trie and builds the RomanizedIndex.
      */
-    fun getIndex(assets: AssetManager, userLexicon: UserLexicon? = null): RomanizedIndex? {
+    fun getIndex(assets: AssetManager, userLexicon: UserLexicon? = null, filesDir: File? = null): RomanizedIndex? {
         cachedIndex?.let {
-            if (userLexicon != null) {
-                updateUserCompounds(userLexicon)
+            if (userLexicon != null || filesDir != null) {
+                updateUserCompounds(userLexicon, filesDir)
             }
             return it
         }
         synchronized(this) {
             cachedIndex?.let {
-                if (userLexicon != null) {
-                    updateUserCompounds(userLexicon)
+                if (userLexicon != null || filesDir != null) {
+                    updateUserCompounds(userLexicon, filesDir)
                 }
                 return it
             }
@@ -262,7 +273,7 @@ object VietnameseGlide {
                     emptyMap()
                 }
                 assets.open(ASSET_PATH).use { stream ->
-                    loadFromStream(stream, unigrams, bigrams, userLexicon)
+                    loadFromStream(stream, unigrams, bigrams, userLexicon, bundledCompoundStems, filesDir)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -318,6 +329,8 @@ object VietnameseGlide {
         unigrams: Map<String, Int> = emptyMap(),
         bigrams: Map<String, Map<String, Int>> = emptyMap(),
         userLexicon: UserLexicon? = null,
+        includeBundledCompounds: Boolean = bundledCompoundStems,
+        filesDir: File? = null,
     ): RomanizedIndex {
         cachedUnigrams = unigrams
         for (w in unigrams.keys) {
@@ -372,6 +385,7 @@ object VietnameseGlide {
                 // Check 3-column Chinese format: reading \t word \t freq
                 if (parts.size >= 3) {
                     val word = parts[1].trim()
+                    if (!includeBundledCompounds && word.contains(' ')) continue
                     val freq = parts[2].trim().toIntOrNull()
                     val finalFreq = getWordFrequency(word, freq)
                     val list = intermediate.getOrPut(unaccented) { mutableListOf() }
@@ -383,7 +397,13 @@ object VietnameseGlide {
                     }
                 } else {
                     // 2-column format: reading \t form1,form2,... or form1:freq1,form2:freq2,...
-                    val forms = parts[1].split(',')
+                    val rawForms = parts[1].split(',')
+                    val forms = if (!includeBundledCompounds) {
+                        rawForms.filterNot { it.contains(' ') }
+                    } else {
+                        rawForms
+                    }
+                    if (forms.isEmpty()) continue
                     val list = intermediate.getOrPut(unaccented) { mutableListOf() }
                     for (rawForm in forms) {
                         val formTrim = rawForm.trim()
@@ -433,8 +453,8 @@ object VietnameseGlide {
 
         VietnameseTrajectoryGlide.indexStems(stemMaxFreq, compoundStems)
 
-        if (userLexicon != null) {
-            updateUserCompounds(userLexicon)
+        if (userLexicon != null || filesDir != null) {
+            updateUserCompounds(userLexicon, filesDir)
         }
 
         val alphabet = VIETNAMESE_KEYS.mapTo(HashSet()) { it.code }
@@ -444,12 +464,18 @@ object VietnameseGlide {
             alphabet = alphabet,
             resolve = { unaccented ->
                 val userForms = userCompoundsSnapshot.map[unaccented]
-                val baseForms = map[unaccented]
-                when {
+                val baseForms = if (bundledCompoundStems) map[unaccented] else map[unaccented]?.filterNot { it.contains(' ') }
+                val combined = when {
                     userForms != null && baseForms != null -> (userForms + baseForms).distinct()
                     userForms != null -> userForms
                     baseForms != null -> baseForms
                     else -> emptyList()
+                }
+                val bl = currentBlacklist
+                if (bl.isNotEmpty()) {
+                    combined.filterNot { it.lowercase() in bl }
+                } else {
+                    combined
                 }
             },
             scoreForm = { unaccented, form, formIndex ->
@@ -516,12 +542,18 @@ object VietnameseGlide {
 
     fun lookup(unaccented: String): List<String> {
         val user = userCompoundsSnapshot.map[unaccented]
-        val base = syllableMap?.get(unaccented)
-        return when {
+        val base = if (bundledCompoundStems) syllableMap?.get(unaccented) else syllableMap?.get(unaccented)?.filterNot { it.contains(' ') }
+        val combined = when {
             user != null && base != null -> (user + base).distinct()
             user != null -> user
             base != null -> base
             else -> emptyList()
+        }
+        val bl = currentBlacklist
+        return if (bl.isNotEmpty()) {
+            combined.filterNot { it.lowercase() in bl }
+        } else {
+            combined
         }
     }
 
@@ -529,16 +561,23 @@ object VietnameseGlide {
         return userCompoundsSnapshot.map[unaccented] ?: emptyList()
     }
 
+    fun resetIndex() {
+        synchronized(this) {
+            cachedIndex = null
+            lastLearnedMutationCount = -1L
+        }
+    }
+
     @VisibleForTesting
     fun resetForTesting() {
-        learnCompoundStems = true
+        bundledCompoundStems = false
+        currentBlacklist = emptySet()
         cachedIndex = null
         syllableMap = null
         cachedUnigrams = emptyMap()
         recognizedSyllables.clear()
         userCompoundsSnapshot = UserCompoundsSnapshot()
         lastLearnedMutationCount = -1L
-        lastAllowDynamic = null
         currentContext = GlideContext()
         VietnameseTrajectoryGlide.resetForTesting()
     }

@@ -5343,7 +5343,7 @@ data class VietnameseSettings(
      * their text; the ones who want it ask for it.
      */
     val restoreMarks: Boolean = false,
-    val learnCompoundStems: Boolean = false,
+    val bundledCompoundStems: Boolean = false,
 )
 
 /**
@@ -10003,7 +10003,7 @@ class SettingsRepository(private val context: Context) {
         private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val VI_STRICT_TONES = booleanPreferencesKey("vi_strict_tones")
         private val VI_RESTORE_MARKS = booleanPreferencesKey("vi_restore_marks")
-        private val VI_LEARN_COMPOUND_STEMS = booleanPreferencesKey("vi_learn_compound_stems")
+        private val VI_BUNDLED_COMPOUND_STEMS = booleanPreferencesKey("vi_bundled_compound_stems")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         private val ONE_HANDED_PORTRAIT_ONLY = booleanPreferencesKey("one_handed_portrait_only")
         // One-handed width leaves room for the rail on the inner edge, so it is
@@ -11800,7 +11800,7 @@ class SettingsRepository(private val context: Context) {
         VietnameseSettings(
             strictTones = p[VI_STRICT_TONES] ?: defaults.vietnamese.strictTones,
             restoreMarks = p[VI_RESTORE_MARKS] ?: defaults.vietnamese.restoreMarks,
-            learnCompoundStems = p[VI_LEARN_COMPOUND_STEMS] ?: defaults.vietnamese.learnCompoundStems,
+            bundledCompoundStems = p[VI_BUNDLED_COMPOUND_STEMS] ?: defaults.vietnamese.bundledCompoundStems,
         )
 
     private fun readOneHanded(p: Preferences, defaults: KeyboardSettings) =
@@ -18794,8 +18794,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVietnameseRestoreMarks(value: Boolean) =
         editPrefs { it[VI_RESTORE_MARKS] = value }
 
-    suspend fun setVietnameseLearnCompoundStems(value: Boolean) =
-        editPrefs { it[VI_LEARN_COMPOUND_STEMS] = value }
+    suspend fun setVietnameseBundledCompoundStems(value: Boolean) =
+        editPrefs { it[VI_BUNDLED_COMPOUND_STEMS] = value }
 
     suspend fun setPinyinFuzzyPair(id: String, on: Boolean) = editPrefs { p ->
         val current = p[PINYIN_FUZZY_PAIRS] ?: PinyinFuzzy.ALL_PAIRS

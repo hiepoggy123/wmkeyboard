@@ -1102,12 +1102,12 @@ internal fun LanguageDetailScreen(
             }
             item {
                 ToggleSetting(
-                    R.string.languages_vietnamese_learn_compound_stems_title,
-                    stringResource(R.string.languages_vietnamese_learn_compound_stems_subtitle),
-                    settings.watch { it.vietnamese.learnCompoundStems },
-                    info = stringResource(R.string.languages_vietnamese_learn_compound_stems_info),
-                    default = SettingsDefaults.vietnamese.learnCompoundStems,
-                ) { scope.launch { repository.setVietnameseLearnCompoundStems(it) } }
+                    R.string.languages_vietnamese_bundled_compound_stems_title,
+                    stringResource(R.string.languages_vietnamese_bundled_compound_stems_subtitle),
+                    settings.watch { it.vietnamese.bundledCompoundStems },
+                    info = stringResource(R.string.languages_vietnamese_bundled_compound_stems_info),
+                    default = SettingsDefaults.vietnamese.bundledCompoundStems,
+                ) { scope.launch { repository.setVietnameseBundledCompoundStems(it) } }
             }
         }
     }

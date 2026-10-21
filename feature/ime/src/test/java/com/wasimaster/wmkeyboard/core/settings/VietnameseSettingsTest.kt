@@ -58,16 +58,16 @@ class VietnameseSettingsTest {
     }
 
     @Test
-    fun `learning compound stems is off until it is asked for`() = runBlocking {
-        assertFalse(repository().settings.first().vietnamese.learnCompoundStems)
+    fun `bundled compound stems are off until they are asked for`() = runBlocking {
+        assertFalse(repository().settings.first().vietnamese.bundledCompoundStems)
     }
 
     @Test
-    fun `learning compound stems survives the trip through storage`() = runBlocking {
+    fun `bundled compound stems survive the trip through storage`() = runBlocking {
         val repository = repository()
-        repository.setVietnameseLearnCompoundStems(true)
-        assertTrue(repository.settings.first().vietnamese.learnCompoundStems)
-        repository.setVietnameseLearnCompoundStems(false)
-        assertFalse(repository.settings.first().vietnamese.learnCompoundStems)
+        repository.setVietnameseBundledCompoundStems(true)
+        assertTrue(repository.settings.first().vietnamese.bundledCompoundStems)
+        repository.setVietnameseBundledCompoundStems(false)
+        assertFalse(repository.settings.first().vietnamese.bundledCompoundStems)
     }
 }
