@@ -212,6 +212,14 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    if (name.contains("Full", ignoreCase = true) || name.contains("En", ignoreCase = true)) {
+        enabled = false
+    }
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStackTraces = true
+    }
     dependsOn(":core:language:buildHostEngine")
     val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
     systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)

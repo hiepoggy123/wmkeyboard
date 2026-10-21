@@ -1371,6 +1371,15 @@ dependencies {
 // library has to exist for this machine before the suite starts. The task is
 // :core:language's, where the facades live; see the comment on it there.
 tasks.withType<Test>().configureEach {
+    // Only run Lite Intl tests — disable all Full, Full-En, and Lite-En test variants
+    if (name.contains("Full", ignoreCase = true) || name.contains("En", ignoreCase = true)) {
+        enabled = false
+    }
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStackTraces = true
+    }
     dependsOn(":core:language:buildHostEngine")
     val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
     systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)

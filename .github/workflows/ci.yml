@@ -43,7 +43,82 @@ jobs:
         # `languages` flavour and the library modules do not, so no single
         # flavoured task name reaches both. The aggregate in the root build
         # does.
-        run: ./gradlew unitTests -Pwmkb.skipBenchmarks=true --stacktrace
+        # `--continue` ensures all tests across all modules run even if some fail.
+        run: ./gradlew unitTests -Pwmkb.skipBenchmarks=true --continue --stacktrace
+
+      - name: Summarize test results
+        if: always()
+        run: |
+          python3 -c "
+          import os, sys, glob, xml.etree.ElementTree as ET
+
+          try:
+              if hasattr(sys.stdout, 'reconfigure'):
+                  sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+          except Exception:
+              pass
+
+          results = glob.glob('**/build/test-results/**/TEST-*.xml', recursive=True)
+          total_tests = 0
+          total_failures = 0
+          total_errors = 0
+          total_skipped = 0
+          failed_cases = []
+
+          for f in results:
+              try:
+                  tree = ET.parse(f)
+                  root = tree.getroot()
+                  total_tests += int(root.attrib.get('tests', 0))
+                  total_failures += int(root.attrib.get('failures', 0))
+                  total_errors += int(root.attrib.get('errors', 0))
+                  total_skipped += int(root.attrib.get('skipped', 0))
+                  for tc in root.findall('testcase'):
+                      fail = tc.find('failure')
+                      err = tc.find('error')
+                      if fail is not None or err is not None:
+                          node = fail if fail is not None else err
+                          classname = tc.attrib.get('classname', '')
+                          name = tc.attrib.get('name', '')
+                          msg = node.attrib.get('message', '') or (node.text or '').split('\n')[0]
+                          failed_cases.append((classname, name, msg.strip()))
+              except Exception:
+                  pass
+
+          passed = total_tests - total_failures - total_errors - total_skipped
+
+          md = []
+          md.append('# 📊 Unit Test Summary (Lite Intl)')
+          md.append('| Tong so test | Passed [OK] | Failed [X] | Errors [!] | Skipped [->] |')
+          md.append('| --- | --- | --- | --- | --- |')
+          md.append(f'| **{total_tests}** | **{passed}** | **{total_failures}** | **{total_errors}** | **{total_skipped}** |')
+          md.append('')
+
+          if failed_cases:
+              md.append(f'### ❌ Danh sach {len(failed_cases)} bai test bi FAIL:')
+              md.append('| Class | Test Method | Chi tiet loi |')
+              md.append('| --- | --- | --- |')
+              for cls, test, msg in failed_cases:
+                  cls_short = cls.split('.')[-1]
+                  clean_msg = msg.replace('|', '\\|')[:140]
+                  md.append(f'| `{cls_short}` | `{test}` | {clean_msg} |')
+          else:
+              md.append('### 🎉 Tat ca cac bai test da PASSED thanh cong!')
+
+          summary_text = '\n'.join(md)
+          try:
+              print(summary_text)
+          except Exception:
+              pass
+
+          summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary_file:
+              try:
+                  with open(summary_file, 'a', encoding='utf-8') as sf:
+                      sf.write(summary_text + '\n')
+              except Exception as e:
+                  print('Could not write GITHUB_STEP_SUMMARY:', e)
+          "
 
       - name: Upload test reports
         if: failure()
