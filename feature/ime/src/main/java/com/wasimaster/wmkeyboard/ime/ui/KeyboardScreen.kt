@@ -5159,7 +5159,7 @@ private fun RowScope.StripWords(
             scrollable = state.settings.suggestionStrip.scrollable,
             textPadding = state.settings.suggestionStrip.chipPadding.dp,
             centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter &&
-                !state.fixedPhoneticStrip() && !state.composer.isVietnamese,
+                !state.fixedPhoneticStrip(),
             primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
             autocorrectWord = state.autocorrectWord,
             // A fixed phonetic strip leads with the word as typed, not
@@ -22845,7 +22845,7 @@ internal fun functionKeysPressToolbar(state: KeyboardUiState): Boolean =
  * composer's own order, and the inline-emoji row is not word candidates at all.
  */
 internal fun suggestionDisplayOrder(state: KeyboardUiState): List<Int> {
-    val reorders = !state.composer.isConversion && !state.composer.isVietnamese && !state.inlineEmoji &&
+    val reorders = !state.composer.isConversion && !state.inlineEmoji &&
         state.settings.suggestionStrip.suggestionPrimaryCenter && !state.fixedPhoneticStrip()
     return suggestionSlotOrder(state.suggestions.size, reorders)
 }

@@ -16287,14 +16287,7 @@ open class WMKeyboardService : InputMethodService() {
                                     maxResults = 1
                                 )
                             } else emptyList()
-                            val top = (if (telexEngine.isReady) candidates.firstOrNull()?.word else null)
-                                ?: if (state.settings.vietnamese.restoreMarks) {
-                                    suggestionEngine?.decideCorrection(
-                                        composed,
-                                        timingMultiplier = timingMultiplier(),
-                                        previousWord = previousWord,
-                                    )?.apply
-                                } else null
+                            val top = if (telexEngine.isReady) candidates.firstOrNull()?.word else null
                             if (top != null) {
                                 top
                             } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
@@ -21561,14 +21554,7 @@ open class WMKeyboardService : InputMethodService() {
                                 maxResults = 1
                             )
                         } else emptyList()
-                        val top = (if (telexEngine.isReady) candidates.firstOrNull()?.word else null)
-                            ?: if (state.settings.vietnamese.restoreMarks) {
-                                suggestionEngine?.decideCorrection(
-                                    composed,
-                                    timingMultiplier = timingMultiplier(),
-                                    previousWord = prev,
-                                )?.apply
-                            } else null
+                        val top = if (telexEngine.isReady) candidates.firstOrNull()?.word else null
                         if (top != null) {
                             top
                         } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
@@ -21826,28 +21812,9 @@ open class WMKeyboardService : InputMethodService() {
                             if (telexNext.isNotEmpty()) {
                                 telexNext
                             } else {
-                                telexEngine.topUnigrams(askDeep).ifEmpty {
-                                    engine.suggest(
-                                        composing = "",
-                                        previousWord = previousWord,
-                                        previousWord2 = previousWord2,
-                                        previousWord3 = previousWord3,
-                                        recentWords = recentSnapshot,
-                                        allowRerank = true,
-                                        limit = askDeep,
-                                    )
-                                }
+                                telexEngine.topUnigrams(askDeep)
                             }
                         } else {
-                            val dictSuggestions = engine.suggest(
-                                composing = composed,
-                                previousWord = previousWord,
-                                previousWord2 = previousWord2,
-                                previousWord3 = previousWord3,
-                                recentWords = recentSnapshot,
-                                allowRerank = true,
-                                limit = askDeep,
-                            )
                             val telexCompletions = if (telexEngine.isReady) {
                                 telexEngine.findCompletions(
                                     prefix = composed,
@@ -21856,7 +21823,7 @@ open class WMKeyboardService : InputMethodService() {
                                     maxResults = maxOf(SUGGEST_LIMIT, askDeep),
                                 )
                             } else emptyList()
-                            val combinedDict = (telexCompletions + dictSuggestions)
+                            val combinedDict = telexCompletions
                                 .filter { cand -> if (!composed.contains(' ')) !cand.contains(' ') else true }
                                 .distinctBy { it.lowercase() }
 
