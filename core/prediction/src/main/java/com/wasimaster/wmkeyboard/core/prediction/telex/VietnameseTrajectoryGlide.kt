@@ -110,9 +110,19 @@ object VietnameseTrajectoryGlide {
         }
         if (strokeLength < 0.45f) return emptyList()
 
-        // 3. Find candidate start and end keys
-        val startCandidates = findNearbyKeys(pStart, keys, MAX_ENDPOINT_DISTANCE)
-        val endCandidates = findNearbyKeys(pEnd, keys, MAX_ENDPOINT_DISTANCE)
+        // Measure velocity and apply adaptive gesture scaling (AdaptGestureScale)
+        val startTime = path.first().t
+        val endTime = path.last().t
+        val durationMs = if (endTime > startTime) (endTime - startTime).coerceIn(25L, 4000L) else 200L
+        val velocity = strokeLength / (durationMs / 1000f) // key widths per second
+        val velocityFactor = ((velocity - 5.0f) / 10.0f).coerceIn(0.0f, 0.40f)
+
+        val maxEndpointDist = MAX_ENDPOINT_DISTANCE * (1.0f + velocityFactor * 0.25f)
+        val maxLenDiscrepancy = MAX_LENGTH_DISCREPANCY * (1.0f + velocityFactor * 0.30f)
+
+        // 3. Find candidate start and end keys (with adaptive search radius)
+        val startCandidates = findNearbyKeys(pStart, keys, maxEndpointDist)
+        val endCandidates = findNearbyKeys(pEnd, keys, maxEndpointDist)
         if (startCandidates.isEmpty() || endCandidates.isEmpty()) return emptyList()
 
         // 4. Detect stroke pivots (sharp directional changes and pauses)
@@ -127,11 +137,16 @@ object VietnameseTrajectoryGlide {
                 val bucketKey = (startChar.code shl 8) or endChar.code
                 val stems = stemsByStartEnd[bucketKey] ?: continue
 
+                // Fuzzy endpoint penalty: secondary nearby keys receive a distance penalty
+                val startKeyPenalty = if (startDist > 0.5f) (startDist - 0.5f) * 0.4f else 0.0f
+                val endKeyPenalty = if (endDist > 0.5f) (endDist - 0.5f) * 0.4f else 0.0f
+                val secondaryPenalty = (startKeyPenalty + endKeyPenalty).toDouble()
+
                 for (entry in stems) {
                     val stem = entry.stem
                     if (!evaluatedStems.add(stem)) continue
 
-                    val score = scoreTrajectory(
+                    val baseScore = scoreTrajectory(
                         stem = stem,
                         pts = pts,
                         strokeLength = strokeLength,
@@ -140,10 +155,14 @@ object VietnameseTrajectoryGlide {
                         entry = entry,
                         startDist = startDist,
                         endDist = endDist,
+                        maxEndpointDist = maxEndpointDist,
+                        maxLenDiscrepancy = maxLenDiscrepancy,
+                        velocityFactor = velocityFactor,
                     ) ?: continue
 
+                    val finalScore = baseScore - secondaryPenalty
                     val tier = if (entry.isUser) FuzzyBeamSearch.Tier.USER else FuzzyBeamSearch.Tier.DICTIONARY
-                    candidateScores.add(GlideBeam.Candidate(stem, score, 0.0, tier))
+                    candidateScores.add(GlideBeam.Candidate(stem, finalScore, 0.0, tier))
                 }
             }
         }
@@ -168,6 +187,9 @@ object VietnameseTrajectoryGlide {
         entry: StemEntry,
         startDist: Float,
         endDist: Float,
+        maxEndpointDist: Float,
+        maxLenDiscrepancy: Float,
+        velocityFactor: Float,
     ): Double? {
         val len = stem.length
         if (len < 1) return null
@@ -184,12 +206,12 @@ object VietnameseTrajectoryGlide {
 
         val actualLen = keyCoords.size
 
-        // 1. Endpoint match
+        // 1. Endpoint match using adaptive distance
         val kStart = keyCoords.first()
         val kEnd = keyCoords.last()
         val dStart = dist(pts.first(), kStart)
         val dEnd = dist(pts.last(), kEnd)
-        if (dStart > MAX_ENDPOINT_DISTANCE || dEnd > MAX_ENDPOINT_DISTANCE) return null
+        if (dStart > maxEndpointDist || dEnd > maxEndpointDist) return null
 
         // 2. Ideal polyline length
         var idealLength = 0f
@@ -198,7 +220,7 @@ object VietnameseTrajectoryGlide {
         }
 
         val lenDiff = abs(strokeLength - idealLength) / maxOf(strokeLength, idealLength, 1.0f)
-        if (actualLen >= 3 && lenDiff > MAX_LENGTH_DISCREPANCY) return null
+        if (actualLen >= 3 && lenDiff > maxLenDiscrepancy) return null
 
         // 3. Monotonic point-to-key matching
         var currentSampleIdx = 0
@@ -225,25 +247,33 @@ object VietnameseTrajectoryGlide {
             currentSampleIdx = bestIdx
         }
 
-        // 4. Pivot alignment bonus (Laban Key characteristic)
+        // Velocity-adaptive scale relaxation: corner-cutting naturally increases distance
+        val effectiveKeyCost = if (velocityFactor > 0.0f) {
+            totalKeyCost / (1.0f + velocityFactor * 0.35f)
+        } else {
+            totalKeyCost
+        }
+
+        // 4. Pivot alignment bonus (Laban Key characteristic with adaptive pivot radius)
         var pivotBonus = 0.0
+        val pivotThreshold = 0.65f * (1.0f + velocityFactor * 0.25f)
         if (pivots.isNotEmpty()) {
             for (pivot in pivots) {
                 var matched = false
                 for (k in keyCoords) {
-                    if (dist(pivot, k) < 0.65f) {
+                    if (dist(pivot, k) < pivotThreshold) {
                         matched = true
                         break
                     }
                 }
                 if (matched) {
-                    pivotBonus += 0.4
+                    pivotBonus += 0.45
                 }
             }
         }
 
         // 5. Total Shape Cost
-        val shapeCost = totalKeyCost * 1.75f + lenDiff * 3.5f
+        val shapeCost = effectiveKeyCost * 1.75f + lenDiff * 3.5f
 
         // 6. Language Model log-frequency term
         val freqBonus = ln(1.0 + entry.freq) * 0.85

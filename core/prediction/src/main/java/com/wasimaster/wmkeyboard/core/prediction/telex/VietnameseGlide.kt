@@ -463,16 +463,18 @@ object VietnameseGlide {
                     if (hasSingleSyllable) -1.8 else -0.8
                 } else 0.0
 
+                val orthographyBonus = if (!isCompound && VietnameseOrthography.isValidVietnameseSyllable(formLower)) 0.35 else 0.0
+
                 val userFreq = snapshot.wordFreq["$unaccented\t$form"]
                 if (userMax != null && userFreq != null && userMax > 0 && userFreq > 0) {
-                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus
+                    ln(userFreq.toDouble() / userMax).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + orthographyBonus
                 } else {
                     val max = stemMaxFreq[unaccented] ?: 0
                     val freq = wordFreq["$unaccented\t$form"] ?: baseUnigram
                     if (max > 0 && freq > 0) {
-                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + compoundDamping
+                        ln(freq.toDouble() / max).coerceIn(-3.5, 0.0) - (formIndex * 0.001) + contextBonus + unigramBonus + compoundDamping + orthographyBonus
                     } else {
-                        -formIndex * 0.35 + contextBonus + compoundDamping
+                        -formIndex * 0.35 + contextBonus + compoundDamping + orthographyBonus
                     }
                 }
             },
