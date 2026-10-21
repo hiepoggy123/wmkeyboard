@@ -43,9 +43,9 @@ object VietnameseGlide {
     )
 
     @Volatile
-    @Volatile
     var learnCompoundStems: Boolean = false
 
+    @Volatile
     private var cachedIndex: RomanizedIndex? = null
     @Volatile
     private var syllableMap: Map<String, List<String>>? = null
@@ -145,7 +145,7 @@ object VietnameseGlide {
             val freshStemMaxFreq = HashMap<String, Int>()
 
             fun processPhrase(parts: List<String>, count: Int, isManual: Boolean = false) {
-                if (!isManual && count < 5) return
+                if (!isManual && count < MIN_USER_COMPOUND_COUNT) return
                 if (parts.size !in 2..4) return
                 for (part in parts) {
                     val p = part.trim()
@@ -158,11 +158,11 @@ object VietnameseGlide {
                 }
                 val phrase = parts.joinToString(" ") { it.trim() }
                 val stem = toUnaccentedStem(phrase)
-                if (stem.length < 4 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
+                if (stem.length < 3 || stem.length > MAX_COMPOUND_STEM_LENGTH) return
                 if (!stem.all { it in 'a'..'z' }) return
 
                 // Score scales on the 140..255 scale, matching Tier.USER weighting and competing fairly with single syllables
-                val freq = if (isManual) 250 else (140 + count * 20).coerceIn(140, 240)
+                val freq = if (isManual) 250 else (140 + count * 25).coerceIn(140, 255)
                 val list = freshMap.getOrPut(stem) { mutableListOf() }
                 list.add(phrase to freq)
             }
@@ -522,6 +522,7 @@ object VietnameseGlide {
 
     @VisibleForTesting
     fun resetForTesting() {
+        learnCompoundStems = true
         cachedIndex = null
         syllableMap = null
         cachedUnigrams = emptyMap()
