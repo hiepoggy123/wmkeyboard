@@ -44,8 +44,6 @@ object VietnameseGlide {
     )
 
     @Volatile
-
-    @Volatile
     var currentBlacklist: Set<String> = emptySet()
 
     @Volatile
