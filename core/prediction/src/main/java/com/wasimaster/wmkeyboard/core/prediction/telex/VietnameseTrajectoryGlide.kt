@@ -75,7 +75,7 @@ object VietnameseTrajectoryGlide {
         if (clean.length < 2) return
         val startCh = clean.first()
         val endCh = clean.last()
-        if (startCh !in 'a'..'z' || endCh !in 'a'..'z') continueOrIgnore(clean)
+        if (startCh !in 'a'..'z' || endCh !in 'a'..'z') return
         val key = (startCh.code shl 8) or endCh.code
         val entry = StemEntry(clean, freq.coerceIn(50, 255), isCompound = true, isUser = true)
         val list = stemsByStartEnd.getOrPut(key) { ArrayList() }
@@ -85,8 +85,6 @@ object VietnameseTrajectoryGlide {
         }
         allStemEntries[clean] = entry
     }
-
-    private fun continueOrIgnore(s: String) {}
 
     /**
      * Decodes a gesture stroke directly against the indexed Vietnamese stems using

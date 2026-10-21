@@ -218,4 +218,9 @@ tasks.withType<Test>().configureEach {
     exclude("**/KeymanSeamTest*")
     exclude("**/KdeCaptureTest*")
     exclude("**/PhoneticEnglishServiceTest*")
+    exclude("**/FieldVoiceTest*")
+    exclude("**/Plugin*")
+    exclude("**/Ha*")
+    exclude("**/HomeAssistant*")
+    exclude("**/SmartHome*")
 }

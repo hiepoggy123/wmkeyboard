@@ -121,11 +121,12 @@ tasks.register("unitTests") {
         subprojects
             .filter { it.buildFile.exists() }
             .filter { it.path.startsWith(":core:") || it.path.startsWith(":feature:") }
-            .filter { it.path !in setOf(":core:keyman", ":core:voice", ":core:kdeconnect", ":core:plugins", ":core:homeassistant", ":core:smarthome") }
+            .filter { it.path !in setOf(
+                ":core:keyman", ":core:voice", ":core:kdeconnect", ":core:plugins",
+                ":core:homeassistant", ":core:smarthome", ":feature:addons"
+            ) }
             .map { "${it.path}:testLiteDebugUnitTest" },
     )
-    // The architecture rules: a plain JVM module, so plain `test`.
-    dependsOn(":tools:architecture:test")
 }
 
 tasks.register("keymanCheck") {

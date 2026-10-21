@@ -19553,6 +19553,8 @@ open class WMKeyboardService : InputMethodService() {
         val original = entry.replaces ?: return
         val revised = entry.revised ?: entry.word
         if (!revisionsWanted()) return
+        // Only learn corrections from manual typing, NEVER from Glide/swipes
+        if (entry.replacesOrigin != WordOrigin.TYPED) return
         if (entry.suspect) {
             val text = window() ?: return
             if (containsWord(text, original) || !containsWord(text, revised)) return
@@ -21536,30 +21538,7 @@ open class WMKeyboardService : InputMethodService() {
                     } else if (isTypedLearned && !isComposedInDict) {
                         typed
                     } else if (isComposedValid) {
-                        // Sogou-style Contextual Autocorrect:
-                        // Even if 'composed' is a valid dictionary/learned word (e.g. "tao", "xấu"),
-                        // check if a nearby fat-finger/slip candidate has overwhelming context evidence (e.g. "học tập", "cá sấu").
-                        val candidates = if (!prev.isNullOrEmpty() && telexEngine.isReady) {
-                            telexEngine.correct(
-                                rawInput = canonical.ifEmpty { typed },
-                                previousWord = prev,
-                                previousWord2 = prev2,
-                                userLexicon = currentLexicon,
-                                correctionMemory = correctionMemory,
-                                maxResults = 1
-                            )
-                        } else emptyList()
-                        val top = candidates.firstOrNull()
-                        if (top != null && !top.word.equals(composed, ignoreCase = true)) {
-                            val composedScore = telexEngine.evaluateScore(composed, prev, prev2, currentLexicon)
-                            if (top.score > composedScore) {
-                                top.word
-                            } else {
-                                composed
-                            }
-                        } else {
-                            composed
-                        }
+                        composed
                     } else {
                         val candidates = if (telexEngine.isReady) {
                             telexEngine.correct(
@@ -21910,20 +21889,8 @@ open class WMKeyboardService : InputMethodService() {
                                     list.addAll((completions + telexCandidates).filterNot { it.equals(taughtWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
                                     list
                                 } else if (isComposedValid) {
-                                    val topCand = rawTelexCandidates.firstOrNull()
-                                    val shouldPromoteCandidate = if (topCand != null && !previousWord.isNullOrEmpty() && !topCand.word.equals(composed, ignoreCase = true)) {
-                                        val composedScore = telexEngine.evaluateScore(composed, previousWord, prev2, currentLexicon)
-                                        topCand.score > composedScore
-                                    } else false
-
-                                    val list = mutableListOf<String>()
-                                    if (shouldPromoteCandidate && topCand != null) {
-                                        list.add(topCand.word)
-                                        list.add(composed)
-                                    } else {
-                                        list.add(composed)
-                                    }
-                                    list.addAll((completions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) || (shouldPromoteCandidate && it.equals(topCand?.word, ignoreCase = true)) })
+                                    val list = mutableListOf(composed)
+                                    list.addAll((completions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
                                     list
                                 } else if (telexCandidates.isNotEmpty()) {
                                     val list = mutableListOf<String>()
