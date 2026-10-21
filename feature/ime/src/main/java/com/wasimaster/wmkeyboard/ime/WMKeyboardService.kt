@@ -7630,7 +7630,7 @@ open class WMKeyboardService : InputMethodService() {
         // arming is the commit's own echo and records the anchor, anything
         // that moves the caret afterwards disarms them.
         if (lastRevertible != null || lastGestureWord != null || pendingAutoSpace ||
-            pendingWordSpace || deferredWordSpace
+            pendingWordSpace || deferredWordSpace || glideRetryOffer != null
         ) {
             val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
             fun disarm() {
@@ -7639,6 +7639,8 @@ open class WMKeyboardService : InputMethodService() {
                 // stopped being where the caret is.
                 clearSwapOffer()
                 lastGestureWord = null
+                glideRetryOffer = null
+                lastRejectedGlideWord = null
                 pendingAutoSpace = false
                 pendingPunctuationSpace = false
                 pendingWordSpace = false
@@ -7792,8 +7794,8 @@ open class WMKeyboardService : InputMethodService() {
         // — via restartSuggestionsAtCursor (which folds in the chip refresh). An
         // active word still being composed in place, or a range selection being
         // dragged out, only refreshes the chips.
-        if ((!wasComposing || composingDropped || composingReplaced) && composing.isEmpty() &&
-            newSelStart == newSelEnd
+        if (glideRetryOffer == null && (!wasComposing || composingDropped || composingReplaced) &&
+            composing.isEmpty() && newSelStart == newSelEnd
         ) {
             currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
         } else {
@@ -8829,6 +8831,8 @@ open class WMKeyboardService : InputMethodService() {
         // Delete keeps it so one backspace can undo the whole swipe.
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
             lastGestureWord = null
+            glideRetryOffer = null
+            lastRejectedGlideWord = null
         }
         // The auto-space cancel is a one-shot for the shift press immediately
         // after the ". " — any other key means the user typed on past it.
@@ -12591,8 +12595,8 @@ open class WMKeyboardService : InputMethodService() {
                     // Retain the remaining alternates on the strip so candidates #2 and #3 are immediately available
                     val currentSuggestions = _uiState.value.suggestions
                     val immediateAlternates = currentSuggestions.filterNot { it.equals(word, ignoreCase = true) }
+                    glideRetryOffer = GlideRetryOffer(word, immediateAlternates, stroke)
                     if (immediateAlternates.isNotEmpty()) {
-                        glideRetryOffer = stroke?.let { GlideRetryOffer(word, immediateAlternates, it) }
                         _uiState.update {
                             it.copy(suggestions = immediateAlternates, emojiSuggestions = emptyList(), octopus = emptyMap())
                         }
@@ -12601,6 +12605,7 @@ open class WMKeyboardService : InputMethodService() {
                             it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
                         }
                     }
+                    armRevertGuard()
 
                     // Undoing a swipe is the clearest "not that one" there is,
                     // so the stroke goes back through the decoder with the
@@ -12614,6 +12619,9 @@ open class WMKeyboardService : InputMethodService() {
                 }
             }
         }
+        // Non-glide backspace discards any pending glide retry offer and rejected word
+        glideRetryOffer = null
+        lastRejectedGlideWord = null
         // Backspace straight after an autocorrect or a snippet expansion takes
         // it back: what the keyboard put in the field becomes what the user
         // typed again. An undone autocorrect also joins the personal dictionary
@@ -13682,12 +13690,12 @@ open class WMKeyboardService : InputMethodService() {
         numberRunPending = false
         caretSettleJob?.cancel()
         caretSettleJob = null
-        // The caret settling right after a swipe is the commit's own echo:
-        // keep the gesture alternates on the strip (tap-to-replace) instead
-        // of re-deriving completions for the word just committed. Any real
-        // caret move disarms lastGestureWord first (see revertAnchor), so
+        // The caret settling right after a swipe or glide-undo is the commit/delete's own echo:
+        // keep the gesture alternates on the strip (tap-to-replace or retry) instead
+        // of re-deriving completions for the word just committed or deleted. Any real
+        // caret move disarms lastGestureWord / glideRetryOffer first (see revertAnchor), so
         // this never suppresses a genuine context re-read.
-        if (lastGestureWord != null) {
+        if (lastGestureWord != null || glideRetryOffer != null) {
             refreshSmartSuggestion()
             return
         }
@@ -22830,17 +22838,20 @@ open class WMKeyboardService : InputMethodService() {
         // the list it drew, so any other strip since makes it inert.
         glideRetryOffer?.let { offer ->
             glideRetryOffer = null
-            if (offer.offered === _uiState.value.suggestions && suggestion in offer.offered) {
+            lastRejectedGlideWord = null
+            if (offer.offered === _uiState.value.suggestions || suggestion in offer.offered) {
                 noteGlidePreference(rejected = offer.rejected, chosen = suggestion)
                 // The same correction as a pick off the ordinary strip, made a
                 // backspace later, so it teaches the same three things (issue
                 // #213). No [unlearnHand] first: the undo already retracted
                 // what the rejected word taught, so this is a fresh
                 // observation rather than a correction of a standing one.
-                learnHand(offer.stroke.points, offer.stroke.keys, offer.stroke.keyWidthPx, suggestion)
-                // Rides to the pick's settle the way a strip replacement's
-                // does; [replacedGlideShape] is consumed after [learn] below.
-                replacedGlideShape = offer.stroke.shape
+                offer.stroke?.let { stroke ->
+                    learnHand(stroke.points, stroke.keys, stroke.keyWidthPx, suggestion)
+                    // Rides to the pick's settle the way a strip replacement's
+                    // does; [replacedGlideShape] is consumed after [learn] below.
+                    replacedGlideShape = stroke.shape
+                }
             }
         }
         lastGestureStroke = null
@@ -24045,7 +24056,6 @@ open class WMKeyboardService : InputMethodService() {
         }
         val rejected = lastRejectedGlideWord
         val finalKept = if (rejected != null) {
-            lastRejectedGlideWord = null // Consume one-shot immediately
             val (matching, rest) = kept.partition { it.word.equals(rejected, ignoreCase = true) }
             rest + matching // Demote rejected word behind candidate #2!
         } else {
@@ -24061,7 +24071,7 @@ open class WMKeyboardService : InputMethodService() {
         // that word stands exactly where the leader stood, so it inherits the
         // leader's score.
         val byWord = offered.zip(offeredScores).toMap()
-        val leaderScore = kept.first().score
+        val leaderScore = finalKept.first().score
         // Which of the surviving words are guesses, and which of those the
         // decoder is sure of. Measured here against this decode's own best
         // ordinary reading, the only comparison the scores support, and carried
@@ -24069,17 +24079,17 @@ open class WMKeyboardService : InputMethodService() {
         // the list before anything draws it. Best-scoring rather than
         // first-listed for the same reason the gate above says so: the context
         // rerank has already moved the front of this list (#317).
-        val bestRead = kept.filter { it.ahead == 0 }.maxOfOrNull { it.score }
+        val bestRead = finalKept.filter { it.ahead == 0 }.maxOfOrNull { it.score }
         val guesses = HashMap<String, String>()
         val sure = HashSet<String>()
         words.forEachIndexed { i, word ->
-            if (kept[i].ahead == 0) return@forEachIndexed
+            if (finalKept[i].ahead == 0) return@forEachIndexed
             // The drawn letters come off the decoder's own spelling, before
             // any apostrophe was put back: that is the spelling the tries
             // are walked in.
-            guesses[word] = kept[i].word.dropLast(kept[i].ahead)
+            guesses[word] = finalKept[i].word.dropLast(finalKept[i].ahead)
             if (bestRead == null ||
-                kept[i].score - bestRead >= GlideLookAhead.CONFIDENT.margin
+                finalKept[i].score - bestRead >= GlideLookAhead.CONFIDENT.margin
             ) {
                 sure += word
             }
@@ -25712,24 +25722,43 @@ open class WMKeyboardService : InputMethodService() {
             // by a glided word committed in lower case, because the glide's own
             // space never goes through onSpace (#46).
             commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
+            val rejected = lastRejectedGlideWord
+            val effectiveCandidates = if (rejected != null) {
+                val (matching, rest) = candidates.partition { it.equals(rejected, ignoreCase = true) }
+                rest + matching
+            } else {
+                candidates
+            }
             // Lifting on a picker word that was not the leader is a pick over
             // the leader, remembered against the pair (issue #52).
-            if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
-                noteGlidePreference(rejected = candidates.first(), chosen = chosen)
+            if (chosen != null && effectiveCandidates.isNotEmpty() && chosen != effectiveCandidates.first()) {
+                noteGlidePreference(rejected = effectiveCandidates.first(), chosen = chosen)
             }
             // An explicit pick beats everything. Otherwise the word on
             // screen wins the lift while the finished stroke still ranks it
             // near its own leader, so what was shown is what gets typed.
             val picked = chosen
-                ?: previewGate.commit(
-                    candidates, reading.scores, state.settings.gesture.previewSteadiness,
-                )
-                ?: candidates.first()
+                ?: run {
+                    val candidateToPick = previewGate.commit(
+                        effectiveCandidates, reading.scores, state.settings.gesture.previewSteadiness,
+                    ) ?: effectiveCandidates.first()
+                    if (rejected != null && candidateToPick.equals(rejected, ignoreCase = true) && effectiveCandidates.size > 1) {
+                        effectiveCandidates.first { !it.equals(rejected, ignoreCase = true) }
+                    } else {
+                        candidateToPick
+                    }
+                }
             val drawn = reading.guesses[picked]
             val strip = when {
-                drawn != null -> glideEarlyLiftStrip(picked, drawn, candidates)
-                chosen != null -> glideStripOrder(candidates, chosen)
-                else -> candidates
+                drawn != null -> glideEarlyLiftStrip(picked, drawn, effectiveCandidates)
+                chosen != null -> glideStripOrder(effectiveCandidates, chosen)
+                else -> effectiveCandidates
+            }
+            val finalStrip = if (rejected != null) {
+                val (matching, rest) = strip.partition { it.equals(rejected, ignoreCase = true) }
+                rest + matching
+            } else {
+                strip
             }
             val word = glideCased(picked, shiftAtGesture, verdict.caseAt(0), points, keys, keyWidthPx)
             commitGestureLeadingSpace(ic, state)
@@ -25759,6 +25788,8 @@ open class WMKeyboardService : InputMethodService() {
             // learning hop below, so the guard that exists for exactly this
             // could not win the race it was written for.
             lastGestureWord = word
+            lastRejectedGlideWord = null
+            glideRetryOffer = null
             stripReplacesGestureWord = true
             commitGestureSpace(ic, state)
             armRevertGuard()
@@ -25778,7 +25809,7 @@ open class WMKeyboardService : InputMethodService() {
             // What the stroke could have been, kept against the word it
             // became, so coming back to this word offers the swipe's own
             // readings instead of spellings of the word standing there (#115).
-            glideReadings.remember(word, strip)
+            glideReadings.remember(word, finalStrip)
             // The stroke's shape rides with the word in the learning buffer
             // and reaches the shape store only when the word settles; the
             // hand model learns on the spot and retracts on undo instead.
@@ -25801,7 +25832,7 @@ open class WMKeyboardService : InputMethodService() {
             val floating = nextWordOctopus()
             val chips = nextWordEmoji()
             _uiState.update {
-                it.copy(suggestions = strip, octopus = floating, emojiSuggestions = chips)
+                it.copy(suggestions = finalStrip, octopus = floating, emojiSuggestions = chips)
             }
         }
     }
@@ -26253,6 +26284,8 @@ open class WMKeyboardService : InputMethodService() {
                 // the last stroke reads as a real caret move and disarms the
                 // very flag that was just set.
                 lastGestureWord = word
+                lastRejectedGlideWord = null
+                glideRetryOffer = null
                 stripReplacesGestureWord = true
                 armRevertGuard()
                 recordStat {
@@ -48363,7 +48396,7 @@ private class GlideSearchOffer(
 private class GlideRetryOffer(
     val rejected: String,
     val offered: List<String>,
-    val stroke: GlideStroke,
+    val stroke: GlideStroke? = null,
 )
 
 /**
