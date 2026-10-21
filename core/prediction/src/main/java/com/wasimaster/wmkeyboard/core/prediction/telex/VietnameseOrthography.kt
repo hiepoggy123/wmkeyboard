@@ -23,6 +23,61 @@ object VietnameseOrthography {
     // Closed / Stop codas (Phụ âm tắc - chỉ đi với dấu Sắc hoặc Nặng)
     private val STOP_CODAS = hashSetOf("c", "ch", "p", "t")
 
+    private val VALID_CONSONANT_PAIRS = hashSetOf(
+        "ch", "gh", "gi", "kh", "nh", "ng", "ph", "qu", "th", "tr"
+    )
+
+    private val VIETNAMESE_VOWELS = "aeiouyăâêôơư"
+
+    /**
+     * Gboard-style phonotactic prefix validator.
+     * Prunes impossible Vietnamese consonant clusters and invalid onsets early during Beam Search.
+     */
+    fun isValidVietnamesePrefix(prefix: CharSequence): Boolean {
+        val len = prefix.length
+        if (len == 0) return true
+        val c0 = prefix[0].lowercaseChar()
+        if (c0 in "fjwz") return false
+        if (len == 1) return true
+
+        val c1 = prefix[1].lowercaseChar()
+        when (c0) {
+            'q' -> if (c1 != 'u') return false
+            'k' -> if (c1 != 'h' && c1 !in "ieyê") return false
+            'c' -> if (c1 != 'h' && c1 !in "aouăâôơư") return false
+            'g' -> if (c1 != 'h' && c1 != 'i' && c1 !in "aouăâôơư") return false
+            't' -> if (c1 != 'h' && c1 != 'r' && c1 !in VIETNAMESE_VOWELS) return false
+            'n' -> if (c1 != 'g' && c1 != 'h' && c1 !in VIETNAMESE_VOWELS) return false
+            'p' -> if (c1 != 'h' && c1 !in VIETNAMESE_VOWELS) return false
+            'b', 'd', 'đ', 'h', 'l', 'm', 'r', 's', 'v', 'x' -> {
+                if (c1 !in VIETNAMESE_VOWELS) return false
+            }
+        }
+        if (len == 2) return true
+
+        val c2 = prefix[2].lowercaseChar()
+        if (c0 == 'n' && c1 == 'g') {
+            if (c2 != 'h' && c2 !in VIETNAMESE_VOWELS) return false
+        } else if (c1 == 'h' || c1 == 'r') {
+            if (c2 !in VIETNAMESE_VOWELS) return false
+        } else if (c0 == 'q' && c1 == 'u') {
+            if (c2 !in VIETNAMESE_VOWELS) return false
+        }
+
+        // Check for impossible consonant clusters in single syllables
+        for (i in 0 until len - 1) {
+            val a = prefix[i].lowercaseChar()
+            val b = prefix[i + 1].lowercaseChar()
+            if (a !in VIETNAMESE_VOWELS && b !in VIETNAMESE_VOWELS) {
+                val pair = "$a$b"
+                if (!VALID_CONSONANT_PAIRS.contains(pair) && pair != "ng") {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
     // Valid unaccented Vowel Cores / Rhymes
     private val VOWEL_CORES = hashSetOf(
         // Đơn

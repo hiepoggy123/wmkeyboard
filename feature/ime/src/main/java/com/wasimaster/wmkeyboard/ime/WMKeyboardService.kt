@@ -2667,6 +2667,8 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
+    /** One-shot rejected glide word from an immediate backspace, so an instant re-swipe suppresses it. */
+    private var lastRejectedGlideWord: String? = null
 
     /**
      * Whether the strip is showing [lastGestureWord]'s own alternates, so a
@@ -12554,6 +12556,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         lastGestureWord?.let { word ->
             lastGestureWord = null
+            lastRejectedGlideWord = word
             val stroke = lastGestureStroke
             lastGestureStroke = null
             pendingWordSpace = false
@@ -12583,12 +12586,22 @@ open class WMKeyboardService : InputMethodService() {
                     // The decode the user just took back is not evidence of
                     // anything, the same as when the strip replaces it.
                     learningBuffer.drop(word)
-                    // Both lists: the bar is up while either has content, so
-                    // clearing only the words left a stale emoji row holding
-                    // it open.
-                    _uiState.update {
-                        it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
+
+                    // Immediate Alternates (0ms latency, like Gboard):
+                    // Retain the remaining alternates on the strip so candidates #2 and #3 are immediately available
+                    val currentSuggestions = _uiState.value.suggestions
+                    val immediateAlternates = currentSuggestions.filterNot { it.equals(word, ignoreCase = true) }
+                    if (immediateAlternates.isNotEmpty()) {
+                        glideRetryOffer = stroke?.let { GlideRetryOffer(word, immediateAlternates, it) }
+                        _uiState.update {
+                            it.copy(suggestions = immediateAlternates, emojiSuggestions = emptyList(), octopus = emptyMap())
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
+                        }
                     }
+
                     // Undoing a swipe is the clearest "not that one" there is,
                     // so the stroke goes back through the decoder with the
                     // vocabulary cap off and the word it already gave ruled
@@ -24030,8 +24043,16 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             null
         }
-        val words = kept.map { restoreApostrophe(it.word) ?: it.word }
-        val (offered, offeredScores) = offerApostrophes(words, kept.map { it.score })
+        val rejected = lastRejectedGlideWord
+        val finalKept = if (rejected != null) {
+            lastRejectedGlideWord = null // Consume one-shot immediately
+            val (matching, rest) = kept.partition { it.word.equals(rejected, ignoreCase = true) }
+            rest + matching // Demote rejected word behind candidate #2!
+        } else {
+            kept
+        }
+        val words = finalKept.map { restoreApostrophe(it.word) ?: it.word }
+        val (offered, offeredScores) = offerApostrophes(words, finalKept.map { it.score })
         val declared = declareApostrophe(offered, points, keys, keyWidthPx)
         // Scores follow the words through every rewrite. An offered
         // contraction carries the score of the reading it was offered behind,

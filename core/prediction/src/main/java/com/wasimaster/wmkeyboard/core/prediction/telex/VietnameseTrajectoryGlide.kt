@@ -59,6 +59,7 @@ object VietnameseTrajectoryGlide {
             val endCh = clean.last()
             if (startCh !in 'a'..'z' || endCh !in 'a'..'z') continue
             val isCompound = clean.contains(' ') || clean.length > 8
+            if (!isCompound && !VietnameseOrthography.isValidVietnamesePrefix(clean)) continue
             val entry = StemEntry(clean, freq.coerceIn(1, 255), isCompound, isUser = false)
             val key = (startCh.code shl 8) or endCh.code
             stemsByStartEnd.getOrPut(key) { ArrayList() }.add(entry)
@@ -77,6 +78,7 @@ object VietnameseTrajectoryGlide {
         val endCh = clean.last()
         if (startCh !in 'a'..'z' || endCh !in 'a'..'z') return
         val key = (startCh.code shl 8) or endCh.code
+        if (!clean.contains(' ') && !VietnameseOrthography.isValidVietnamesePrefix(clean)) return
         val entry = StemEntry(clean, freq.coerceIn(50, 255), isCompound = true, isUser = true)
         val list = stemsByStartEnd.getOrPut(key) { ArrayList() }
         synchronized(list) {
@@ -193,6 +195,7 @@ object VietnameseTrajectoryGlide {
     ): Double? {
         val len = stem.length
         if (len < 1) return null
+        if (!entry.isCompound && !VietnameseOrthography.isValidVietnamesePrefix(stem)) return null
 
         // Resolve all key coordinates for the stem
         val keyCoords = ArrayList<Point2D>(len)
