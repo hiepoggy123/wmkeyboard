@@ -103,6 +103,17 @@ object VietnameseOrthography {
         "ya", "yê", "yêu"
     )
 
+    // Open-only vowels and diphthongs/triphthongs ending in off-glides (i, y, o, u) that cannot accompany a coda consonant
+    private val OPEN_ONLY_VOWELS = hashSetOf(
+        "ia", "ua", "ưa", "ya", "uơ",
+        "ai", "ao", "au", "ay", "ây", "âu",
+        "eo", "êu",
+        "iu", "iêu", "yêu",
+        "oi", "ôi", "ơi",
+        "ui", "ưi", "ưu", "ươi", "ươu",
+        "uôi", "oai", "oay", "uay", "uây", "uya", "uyu"
+    )
+
     // Static candidate arrays to prevent garbage collection churn on every keystroke
     private val CANDIDATE_ONSETS = arrayOf("ngh", "ng", "nh", "ch", "gh", "kh", "ph", "th", "tr", "qu", "gi")
     private val CANDIDATE_CODAS = arrayOf("ng", "nh", "ch")
@@ -195,6 +206,9 @@ object VietnameseOrthography {
 
         // Validate Vowel Core
         if (!VOWEL_CORES.contains(vowelPart)) return false
+
+        // In Vietnamese phonotactics, open-only diphthongs (ia, ua, ưa) and vowels ending in off-glides cannot take codas
+        if (coda.isNotEmpty() && OPEN_ONLY_VOWELS.contains(vowelPart)) return false
 
         // Validate Tone Phonotactics on Stop Codas (c, ch, p, t can ONLY have Acute or Dot tone)
         if (STOP_CODAS.contains(coda)) {

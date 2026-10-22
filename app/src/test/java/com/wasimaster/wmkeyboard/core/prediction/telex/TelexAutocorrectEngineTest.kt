@@ -151,6 +151,32 @@ class TelexAutocorrectEngineTest {
         org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("rtời")) // Invalid onset "rt"
         org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("htật")) // Invalid onset "ht"
         org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("đpe"))  // Invalid cluster "đp"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("hiàng")) // Invalid open-only vowel "ia" with coda "ng"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("hiang")) // Invalid open-only vowel "ia" with coda "ng"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("tiang")) // Invalid open-only vowel "ia" with coda "ng"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("muang")) // Invalid open-only vowel "ua" with coda "ng"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("mưang")) // Invalid open-only vowel "ưa" with coda "ng"
+    }
+
+    @Test
+    fun testKeySlipHiangfAutocorrectsToHoang() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """{"hoangf": {"word": "hoàng", "freq": 150}}"""
+        engine.loadSyllables(syllablesJson)
+        val proximityJson = """{
+            "h": {"neighbors": [{"key": "h", "distance": 0.0, "penalty": 0.0}]},
+            "i": {"neighbors": [{"key": "i", "distance": 0.0, "penalty": 0.0}, {"key": "o", "distance": 1.0, "penalty": 1.2}]},
+            "o": {"neighbors": [{"key": "o", "distance": 0.0, "penalty": 0.0}, {"key": "i", "distance": 1.0, "penalty": 1.2}]},
+            "a": {"neighbors": [{"key": "a", "distance": 0.0, "penalty": 0.0}]},
+            "n": {"neighbors": [{"key": "n", "distance": 0.0, "penalty": 0.0}]},
+            "g": {"neighbors": [{"key": "g", "distance": 0.0, "penalty": 0.0}]},
+            "f": {"neighbors": [{"key": "f", "distance": 0.0, "penalty": 0.0}]}
+        }"""
+        engine.proximityManager.loadFromJson(proximityJson)
+        engine.languageModel.loadUnigrams("""{"hoàng": 150}""")
+        val res = engine.correct("hiangf", maxResults = 3)
+        assertTrue("Should produce candidates for hiangf", res.isNotEmpty())
+        assertEquals("hoàng", res[0].word)
     }
 
     @Test

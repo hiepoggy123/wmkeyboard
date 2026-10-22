@@ -228,7 +228,7 @@ class TelexAutocorrectEngine private constructor() {
         private const val EXACT_MATCH_BONUS = 110.0   // Favor exact match when context is neutral
         private const val WEIGHT_PENALTY = 55.0       // Penalty multiplier for fat-finger keystrokes
         private const val WEIGHT_UNIGRAM = 0.65       // Base Unigram frequency weight
-        private const val WEIGHT_BIGRAM = 10.0        // Context Bigram weight (strengthened for Sogou/LabanKey context sensitivity)
+        private const val WEIGHT_BIGRAM = 10.0        // Context Bigram weight (strengthened for LabanKey context sensitivity)
         private const val WEIGHT_TRIGRAM = 20.0       // Context Trigram weight
         private const val WEIGHT_USER_UNIGRAM = 2.5   // Bonus weight for words learned from user
         private const val WEIGHT_USER_BIGRAM = 12.0   // Bonus weight for word pairs learned from user
