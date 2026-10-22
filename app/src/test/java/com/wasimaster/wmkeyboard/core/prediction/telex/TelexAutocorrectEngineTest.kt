@@ -565,13 +565,29 @@ class TelexAutocorrectEngineTest {
         val res2 = engine.correct("chaod")
         assertTrue("chaod should correct to chào", res2.any { it.word == "chào" })
 
+        // chaov ('v' slip for 'f') -> chào
+        val res2b = engine.correct("chaov")
+        assertTrue("chaov should correct to chào", res2b.any { it.word == "chào" })
+
         // thaath ('h' slip for 'j') -> thật
         val res3 = engine.correct("thaath")
         assertTrue("thaath should correct to thật", res3.any { it.word == "thật" })
 
+        // thaati ('i' slip for 'j') -> thật
+        val res3b = engine.correct("thaati")
+        assertTrue("thaati should correct to thật", res3b.any { it.word == "thật" })
+
         // toand ('d' slip for 's') -> toán
         val res4 = engine.correct("toand")
         assertTrue("toand should correct to toán", res4.any { it.word == "toán" })
+
+        // toana ('a' slip for 's') -> toán
+        val res4b = engine.correct("toana")
+        assertTrue("toana should correct to toán", res4b.any { it.word == "toán" })
+
+        // toane ('e' slip for 's') -> toán
+        val res4c = engine.correct("toane")
+        assertTrue("toane should correct to toán", res4c.any { it.word == "toán" })
 
         // hoie ('e' slip for 'r') -> hỏi
         val res5 = engine.correct("hoie")

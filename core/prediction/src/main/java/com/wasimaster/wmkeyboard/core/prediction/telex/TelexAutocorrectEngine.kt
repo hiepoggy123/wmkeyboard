@@ -240,19 +240,41 @@ class TelexAutocorrectEngine private constructor() {
          * Mispressing an adjacent key instead of the intended tone or vowel modifier key.
          */
         val TELEX_DIACRITIC_SLIPS: Map<Char, List<Char>> = mapOf(
-            'a' to listOf('s'),
-            'd' to listOf('s', 'f'),
+            // Physical QWERTY neighbors of 's' (sắc) and 'w' (vowel horn/breve)
+            'a' to listOf('s', 'w'),
+            // Neighbors of 's', 'f', 'r', 'x'
+            'd' to listOf('s', 'f', 'r', 'x'),
+            // Neighbors of 's'
             'w' to listOf('s'),
+            // Neighbors of 'r', 'w', 's'
+            'e' to listOf('r', 'w', 's'),
+            // Neighbors of 'f' (huyền)
             'g' to listOf('f'),
-            'e' to listOf('r'),
-            't' to listOf('r'),
-            'c' to listOf('x'),
-            'z' to listOf('x'),
+            // Neighbors of 'r', 'f'
+            't' to listOf('r', 'f'),
+            // Neighbors of 'x' (ngã), 'f'
+            'c' to listOf('x', 'f'),
+            // Neighbors of 'f' (huyền)
+            'v' to listOf('f'),
+            // Neighbors of 'x', 's'
+            'z' to listOf('x', 's'),
+            // Neighbors of 's'
+            'x' to listOf('s'),
+            // Neighbors of 'x', 'w'
+            's' to listOf('x', 'w'),
+            // Neighbors of 'f'
+            'r' to listOf('f'),
+            // Neighbors of 'r'
+            'f' to listOf('r'),
+            // Neighbors of 'j' (nặng)
             'h' to listOf('j'),
             'k' to listOf('j'),
             'u' to listOf('j'),
+            'i' to listOf('j'),
+            'y' to listOf('j'),
             'n' to listOf('j'),
             'm' to listOf('j'),
+            // Neighbors of 'w'
             'q' to listOf('w')
         )
     }
@@ -784,26 +806,66 @@ class TelexAutocorrectEngine private constructor() {
         // 3. Telex Diacritic Key Slips (Mispressing adjacent keys for Telex tones/modifiers)
         if (cleanInput.length >= 2) {
             val chars = cleanInput.toCharArray()
+            val lastIdx = chars.lastIndex
+
             for (i in chars.indices) {
                 val ch = chars[i]
                 val slips = TELEX_DIACRITIC_SLIPS[ch] ?: continue
+
+                // Contextual classification (UniKey KeyCorrection style):
+                // 1) Is this key slip at the final diacritic position (end of syllable)?
+                val isFinalPosition = (i == lastIdx)
+                // 2) Is this key slip immediately following a vowel (post-nucleus position before coda)?
+                val isPostVowel = (i > 0 && chars[i - 1] in "aeiouyw")
+                val isBeforeCoda = (i < lastIdx && chars[i + 1] in "nmcptgh")
+
                 for (replacement in slips) {
                     chars[i] = replacement
                     val variant = String(chars)
                     val word = trie.findWord(variant)
-                    if (word != null) {
-                        evaluateCandidate(word, variant, 0.28)
+
+                    // Contextual penalty:
+                    // Slipping onto an adjacent key at the syllable suffix or post-nucleus diacritic position
+                    // is a high-probability diacritic slip error, so assign lower penalty to ensure top ranking.
+                    val slipPenalty = when {
+                        isFinalPosition && replacement in "sfrxjw" -> 0.16
+                        isPostVowel && isBeforeCoda && replacement in "sfrxj" -> 0.19
+                        isPostVowel && replacement in "sfrxjw" -> 0.22
+                        else -> 0.28
                     }
+
+                    if (word != null) {
+                        evaluateCandidate(word, variant, slipPenalty)
+                    }
+
                     val desyncSub = BimanualDesyncEngine.generateCandidates(variant, this)
                     for (sub in desyncSub) {
-                        evaluateCandidate(sub.word, sub.telex, 0.35)
+                        val desyncPenalty = if (isPostVowel && replacement in "sfrxj") 0.24 else 0.35
+                        evaluateCandidate(sub.word, sub.telex, desyncPenalty)
                     }
                     chars[i] = ch
                 }
             }
         }
 
-        // 4. Missing Modifier Recovery (e.g. "d" -> "dd" for "đ", single vowel -> double vowel)
+        // 4. Missing / Slipped Modifier Recovery (e.g. 'd'+slip -> "dd", "d" -> "dd" for "đ", single vowel -> double vowel)
+        // 4a. Initial 'd' modifier slip: e.g. user typed 'd' + neighbor ('s','f','e','c','x','r') instead of 'dd' (đ)
+        if (cleanInput.length >= 2 && cleanInput[0] == 'd' && !cleanInput.startsWith("dd")) {
+            val second = cleanInput[1]
+            if (second in "sfecxr") {
+                val withDd = "dd" + cleanInput.substring(2)
+                val word = trie.findWord(withDd)
+                if (word != null) {
+                    evaluateCandidate(word, withDd, 0.16)
+                }
+                val desyncDd = BimanualDesyncEngine.generateCandidates(withDd, this)
+                for (sub in desyncDd) {
+                    evaluateCandidate(sub.word, sub.telex, 0.20)
+                }
+            }
+        }
+
+        // 4b. Single 'd' instead of 'dd'
         if (cleanInput.startsWith("d") && !cleanInput.startsWith("dd")) {
             val withDd = "d$cleanInput"
             val word = trie.findWord(withDd)
@@ -816,6 +878,30 @@ class TelexAutocorrectEngine private constructor() {
             }
         }
 
+        // 4c. Slipped second vowel in doubled vowel pairs (aa -> â, ee -> ê, oo -> ô)
+        for (i in 0 until cleanInput.length - 1) {
+            val vChar = cleanInput[i]
+            val nextChar = cleanInput[i + 1]
+            val vowelSlipNeighbors = when (vChar) {
+                'a' -> "swqz"
+                'e' -> "wrds"
+                'o' -> "iplk"
+                else -> null
+            }
+            if (vowelSlipNeighbors != null && nextChar in vowelSlipNeighbors) {
+                val withDoubled = cleanInput.substring(0, i + 1) + vChar + cleanInput.substring(i + 2)
+                val word = trie.findWord(withDoubled)
+                if (word != null) {
+                    evaluateCandidate(word, withDoubled, 0.18)
+                }
+                val desyncDoubled = BimanualDesyncEngine.generateCandidates(withDoubled, this)
+                for (sub in desyncDoubled) {
+                    evaluateCandidate(sub.word, sub.telex, 0.22)
+                }
+            }
+        }
+
+        // 4d. Single vowel instead of doubled vowel
         for (i in cleanInput.indices) {
             val ch = cleanInput[i]
             if (ch == 'a' || ch == 'e' || ch == 'o') {
