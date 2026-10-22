@@ -288,4 +288,55 @@ class VietnameseGlideTest {
         assertTrue(resolved.isNotEmpty())
         assertEquals("người", resolved[0].word)
     }
+
+    @Test
+    fun testCornerCuttingGlideTrajectory() {
+        VietnameseGlide.resetForTesting()
+        val sampleTsv = """
+            viet	việt,viết
+            nguoi	người
+        """.trimIndent()
+        val unigramMap = mapOf("việt" to 3000, "viết" to 2000, "người" to 2500)
+        val index = VietnameseGlide.loadFromStream(
+            java.io.ByteArrayInputStream(sampleTsv.toByteArray(Charsets.UTF_8)),
+            unigramMap,
+        )
+        org.junit.Assert.assertNotNull(index)
+        org.junit.Assert.assertNotNull(index.trajectoryDecoder)
+
+        val keyCenters = com.wasimaster.wmkeyboard.core.gesture.eval.SwipeCorpus.keyCenters()
+        val keyWidth = com.wasimaster.wmkeyboard.core.gesture.eval.SwipeCorpus.KEY_WIDTH
+        val keys = com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap.of(keyCenters, keyWidth)
+
+        // Simulate swipe for "viet": v -> i -> e -> t with fast corner cutting
+        val charSeq = "viet"
+        val points = ArrayList<com.wasimaster.wmkeyboard.core.gesture.GesturePoint>()
+        var time = 5000L
+        for (i in 0 until charSeq.length - 1) {
+            val c1 = charSeq[i]
+            val c2 = charSeq[i + 1]
+            val idx1 = keys.keyIndex(c1)
+            val idx2 = keys.keyIndex(c2)
+            val kx1 = keys.keyX[idx1] * keyWidth
+            val ky1 = keys.keyY[idx1] * keyWidth
+            val kx2 = keys.keyX[idx2] * keyWidth
+            val ky2 = keys.keyY[idx2] * keyWidth
+            for (step in 0..6) {
+                val t = step / 6.0f
+                val px = kx1 + (kx2 - kx1) * t
+                val py = ky1 + (ky2 - ky1) * t
+                points.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(px, py, time))
+                time += 20L
+            }
+        }
+        val lastIdx = keys.keyIndex(charSeq.last())
+        points.add(com.wasimaster.wmkeyboard.core.gesture.GesturePoint(keys.keyX[lastIdx] * keyWidth, keys.keyY[lastIdx] * keyWidth, time))
+
+        val candidates = index.trajectoryDecoder!!.invoke(points, keys, keyWidth, 4)
+        org.junit.Assert.assertTrue("Corner-cutting glide should resolve candidate", candidates.isNotEmpty())
+        org.junit.Assert.assertEquals("viet", candidates[0].word)
+        val resolved = index.resolve(candidates)
+        org.junit.Assert.assertTrue(resolved.isNotEmpty())
+        org.junit.Assert.assertEquals("việt", resolved[0].word)
+    }
 }

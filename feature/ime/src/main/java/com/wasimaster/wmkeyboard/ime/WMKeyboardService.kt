@@ -21541,8 +21541,6 @@ open class WMKeyboardService : InputMethodService() {
                         telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
                     } else if (isTypedLearned && !isComposedInDict) {
                         typed
-                    } else if (isComposedValid) {
-                        composed
                     } else {
                         val candidates = if (telexEngine.isReady) {
                             telexEngine.correct(
@@ -21554,9 +21552,20 @@ open class WMKeyboardService : InputMethodService() {
                                 maxResults = 1
                             )
                         } else emptyList()
-                        val top = if (telexEngine.isReady) candidates.firstOrNull()?.word else null
-                        if (top != null) {
-                            top
+                        val topCand = candidates.firstOrNull()
+                        if (isComposedValid) {
+                            if (topCand != null && !topCand.word.equals(composed, ignoreCase = true)) {
+                                val composedScore = telexEngine.evaluateScore(composed, prev, prev2, currentLexicon)
+                                if (topCand.score - composedScore > 75.0) {
+                                    topCand.word
+                                } else {
+                                    composed
+                                }
+                            } else {
+                                composed
+                            }
+                        } else if (topCand != null) {
+                            topCand.word
                         } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
                             typed
                         } else {
@@ -21871,8 +21880,23 @@ open class WMKeyboardService : InputMethodService() {
                                     list.addAll((completions + telexCandidates).filterNot { it.equals(taughtWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
                                     list
                                 } else if (isComposedValid) {
-                                    val list = mutableListOf(composed)
-                                    list.addAll((completions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
+                                    val topCand = rawTelexCandidates.firstOrNull()
+                                    val overrideCorrection = if (topCand != null && !topCand.word.equals(composed, ignoreCase = true)) {
+                                        val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
+                                        val composedScore = telexEngine.evaluateScore(composed, previousWord, prev2, currentLexicon)
+                                        topCand.score - composedScore > 75.0
+                                    } else false
+
+                                    val list = mutableListOf<String>()
+                                    if (overrideCorrection && topCand != null) {
+                                        list.add(topCand.word)
+                                        list.add(composed)
+                                    } else {
+                                        list.add(composed)
+                                    }
+                                    list.addAll((completions + telexCandidates).filterNot {
+                                        it.equals(composed, ignoreCase = true) || (overrideCorrection && topCand != null && it.equals(topCand.word, ignoreCase = true))
+                                    })
                                     list
                                 } else if (telexCandidates.isNotEmpty()) {
                                     val list = mutableListOf<String>()

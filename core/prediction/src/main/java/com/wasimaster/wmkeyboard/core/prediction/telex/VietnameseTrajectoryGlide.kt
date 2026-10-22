@@ -8,27 +8,28 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Laban Key style Vietnamese Trajectory Glide Decoder.
+ * Gboard & Laban Key style Vietnamese Trajectory Glide Decoder.
  *
- * Implements trajectory pivot extraction, curvature analysis, and monotonic point-to-path
- * template matching against the curated dictionary of Vietnamese unaccented stems and compounds.
- *
- * Designed specifically for the characteristics of Vietnamese typing:
- * - Extremely fast inflection point (pivot) and endpoint detection.
- * - Monotonic key alignment along the drawn stroke with corner-cutting tolerance.
- * - Seamless integration with [VietnameseGlide]'s N-gram language model and UserLexicon.
+ * Implements:
+ * - Continuous spatial-temporal trajectory matching with Gaussian key probability.
+ * - Point-to-segment projection for extreme corner-cutting tolerance (Gboard style).
+ * - Multi-candidate endpoint search with velocity-adaptive radius.
+ * - Dynamic curvature & inflection point (pivot) bonus.
+ * - Soft-boundary penalties avoiding rigid hard cutoffs, ensuring sticky and smooth glide decoding.
  */
 object VietnameseTrajectoryGlide {
 
     private const val SAMPLE_COUNT = 36
-    private const val MAX_ENDPOINT_DISTANCE = 1.35f
-    private const val MAX_LENGTH_DISCREPANCY = 0.85f
+    private const val MAX_ENDPOINT_DISTANCE = 1.55f
+    private const val MAX_LENGTH_DISCREPANCY = 0.95f
+    private const val GAUSSIAN_SIGMA_SQ = 1.445f // 2 * (0.85)^2
 
     data class StemEntry(
         val stem: String,
@@ -193,7 +194,8 @@ object VietnameseTrajectoryGlide {
     }
 
     /**
-     * Scores a candidate stem against the resampled stroke points.
+     * Scores a candidate stem against the resampled stroke points using
+     * Gboard-style continuous point-to-segment trajectory matching and Gaussian key costs.
      */
     private fun scoreTrajectory(
         stem: String,
@@ -223,12 +225,12 @@ object VietnameseTrajectoryGlide {
 
         val actualLen = keyCoords.size
 
-        // 1. Endpoint match using adaptive distance
+        // 1. Soft endpoint distance check (allowing fast flick overshoot/drag)
         val kStart = keyCoords.first()
         val kEnd = keyCoords.last()
         val dStart = dist(pts.first(), kStart)
         val dEnd = dist(pts.last(), kEnd)
-        if (dStart > maxEndpointDist || dEnd > maxEndpointDist) return null
+        if (dStart > maxEndpointDist * 1.30f || dEnd > maxEndpointDist * 1.30f) return null
 
         // 2. Ideal polyline length
         var idealLength = 0f
@@ -237,43 +239,64 @@ object VietnameseTrajectoryGlide {
         }
 
         val lenDiff = abs(strokeLength - idealLength) / maxOf(strokeLength, idealLength, 1.0f)
-        if (actualLen >= 3 && lenDiff > maxLenDiscrepancy) return null
+        if (actualLen >= 3 && lenDiff > maxLenDiscrepancy * 1.30f) return null
 
-        // 3. Monotonic point-to-key matching
-        var currentSampleIdx = 0
-        var totalKeyCost = 2.0f * (dStart * dStart + dEnd * dEnd)
+        // 3. Continuous point-to-segment trajectory matching (Gboard corner-cutting tolerance)
         val numSamples = pts.size
+        var currentSampleIdx = 0
+        var totalKeyCost = 0.0f
+
+        // Endpoint gaussian costs
+        val startCost = 1.0f - exp(-dStart * dStart / GAUSSIAN_SIGMA_SQ)
+        val endCost = 1.0f - exp(-dEnd * dEnd / GAUSSIAN_SIGMA_SQ)
+        totalKeyCost += 1.8f * (startCost + endCost)
+
+        val windowPadding = 3 + (velocityFactor * 4.0f).toInt()
 
         for (r in 1 until actualLen - 1) {
             val targetKey = keyCoords[r]
             var bestDist = 999f
             var bestIdx = currentSampleIdx
 
-            // Monotonic window
-            val maxSearchIdx = minOf(numSamples - 1, numSamples - (actualLen - r - 1))
-            for (j in currentSampleIdx..maxSearchIdx) {
-                val d = dist(pts[j], targetKey)
-                if (d < bestDist) {
-                    bestDist = d
+            val expectedSample = (r * (numSamples - 1)) / (actualLen - 1)
+            val minSearchIdx = maxOf(0, minOf(currentSampleIdx - 1, expectedSample - windowPadding))
+            val maxSearchIdx = minOf(numSamples - 1, maxOf(expectedSample + windowPadding, numSamples - (actualLen - r - 1)))
+
+            for (j in minSearchIdx..maxSearchIdx) {
+                // Distance to discrete point
+                val dPoint = dist(pts[j], targetKey)
+                if (dPoint < bestDist) {
+                    bestDist = dPoint
                     bestIdx = j
+                }
+                // Distance to continuous trajectory segment (corner-cutting)
+                if (j < numSamples - 1) {
+                    val dSeg = distToSegment(targetKey.x, targetKey.y, pts[j], pts[j + 1])
+                    if (dSeg < bestDist) {
+                        bestDist = dSeg
+                        bestIdx = j
+                    }
                 }
             }
 
-            // Key radius penalty: penalize missing the key heavily
-            totalKeyCost += bestDist * bestDist
-            currentSampleIdx = bestIdx
+            // Bounded Gaussian cost: error never explodes exponentially on corner cuts
+            val keyGaussian = 1.0f - exp(-bestDist * bestDist / GAUSSIAN_SIGMA_SQ)
+            totalKeyCost += keyGaussian * 1.5f
+
+            // Smooth progression
+            currentSampleIdx = maxOf(currentSampleIdx, minOf(bestIdx, expectedSample))
         }
 
         // Velocity-adaptive scale relaxation: corner-cutting naturally increases distance
         val effectiveKeyCost = if (velocityFactor > 0.0f) {
-            totalKeyCost / (1.0f + velocityFactor * 0.35f)
+            totalKeyCost / (1.0f + velocityFactor * 0.40f)
         } else {
             totalKeyCost
         }
 
-        // 4. Pivot alignment bonus (Laban Key characteristic with adaptive pivot radius)
+        // 4. Pivot alignment bonus (Laban Key & Gboard: rewarding intentional turns and pauses)
         var pivotBonus = 0.0
-        val pivotThreshold = 0.65f * (1.0f + velocityFactor * 0.25f)
+        val pivotThreshold = 0.75f * (1.0f + velocityFactor * 0.35f)
         if (pivots.isNotEmpty()) {
             for (pivot in pivots) {
                 var matched = false
@@ -284,22 +307,22 @@ object VietnameseTrajectoryGlide {
                     }
                 }
                 if (matched) {
-                    pivotBonus += 0.45
+                    pivotBonus += 0.55 * (1.0 + velocityFactor * 0.25)
                 }
             }
         }
 
-        // 5. Total Shape Cost
-        val shapeCost = effectiveKeyCost * 1.75f + lenDiff * 3.5f
+        // 5. Total Shape Cost (smooth length penalty)
+        val shapeCost = effectiveKeyCost * 1.45f + lenDiff * lenDiff * 3.0f
 
         // 6. Language Model log-frequency term
         val freqBonus = ln(1.0 + entry.freq) * 0.85
 
         // Tier base bonus
-        val tierBonus = if (entry.isUser) 2.8 else 1.4
+        val tierBonus = if (entry.isUser) 3.2 else 1.6
 
         val finalScore = tierBonus + freqBonus + pivotBonus - shapeCost
-        if (finalScore < -16.0) return null
+        if (finalScore < -18.0) return null
 
         return finalScore
     }
@@ -332,7 +355,7 @@ object VietnameseTrajectoryGlide {
             val angle = kotlin.math.acos(clampedDot)
 
             // Sharp turn >= 35 degrees (0.6 radians)
-            if (angle >= 0.6f) {
+            if (angle >= 0.55f) {
                 pivots.add(pCurr)
             }
         }
@@ -341,6 +364,7 @@ object VietnameseTrajectoryGlide {
 
     /**
      * Finds keys near a given point within maxDistance key widths.
+     * Takes top 5 nearby keys to ensure fast flick start/end positions are never dropped.
      */
     private fun findNearbyKeys(
         point: Point2D,
@@ -359,7 +383,22 @@ object VietnameseTrajectoryGlide {
             }
         }
         result.sortBy { it.second }
-        return result.take(3)
+        return result.take(5)
+    }
+
+    /**
+     * Minimum distance from a key point to a polyline segment between p1 and p2.
+     */
+    private fun distToSegment(kx: Float, ky: Float, p1: Point2D, p2: Point2D): Float {
+        val dx = p2.x - p1.x
+        val dy = p2.y - p1.y
+        val lenSq = dx * dx + dy * dy
+        if (lenSq < 1e-4f) return dist(kx, ky, p1.x, p1.y)
+        val t = ((kx - p1.x) * dx + (ky - p1.y) * dy) / lenSq
+        val clampedT = t.coerceIn(0.0f, 1.0f)
+        val projX = p1.x + clampedT * dx
+        val projY = p1.y + clampedT * dy
+        return dist(kx, ky, projX, projY)
     }
 
     /**

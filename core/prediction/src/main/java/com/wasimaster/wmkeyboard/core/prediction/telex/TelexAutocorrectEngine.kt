@@ -223,16 +223,17 @@ class TelexAutocorrectEngine private constructor() {
             }
         }
 
-        // Scoring weights
-        private const val EXACT_MATCH_BONUS = 220.0    // Favor exact match when context is neutral, but allow strong context to override
-        private const val WEIGHT_PENALTY = 160.0        // Penalty multiplier for fat-finger keystrokes
-        private const val WEIGHT_UNIGRAM = 0.5          // Base Unigram frequency weight
-        private const val WEIGHT_BIGRAM = 8.0           // Context Bigram weight (strengthened for Sogou-like context sensitivity)
-        private const val WEIGHT_TRIGRAM = 16.0         // Context Trigram weight
-        private const val WEIGHT_USER_UNIGRAM = 2.0     // Bonus weight for words learned from user
-        private const val WEIGHT_USER_BIGRAM = 10.0     // Bonus weight for word pairs learned from user
-        private const val WEIGHT_USER_TRIGRAM = 20.0    // Bonus weight for 3-word habits learned from user
-        private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty
+        // Scoring weights (calibrated for LabanKey-style balance: exact match protected when neutral,
+        // but high-frequency / strong context neighbors gracefully override obvious fat-finger typos)
+        private const val EXACT_MATCH_BONUS = 110.0   // Favor exact match when context is neutral
+        private const val WEIGHT_PENALTY = 55.0       // Penalty multiplier for fat-finger keystrokes
+        private const val WEIGHT_UNIGRAM = 0.65       // Base Unigram frequency weight
+        private const val WEIGHT_BIGRAM = 10.0        // Context Bigram weight (strengthened for Sogou/LabanKey context sensitivity)
+        private const val WEIGHT_TRIGRAM = 20.0       // Context Trigram weight
+        private const val WEIGHT_USER_UNIGRAM = 2.5   // Bonus weight for words learned from user
+        private const val WEIGHT_USER_BIGRAM = 12.0   // Bonus weight for word pairs learned from user
+        private const val WEIGHT_USER_TRIGRAM = 24.0  // Bonus weight for 3-word habits learned from user
+        private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty for short words
 
         /**
          * Key slips on Telex diacritic modifier keys (QWERTY adjacent keys).
@@ -840,9 +841,11 @@ class TelexAutocorrectEngine private constructor() {
         // 6. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
         // Only run proximity substitution on words of length >= 3. For 2-letter words,
         // substituting 1 character alters 50% of the word, producing false positives on abbreviations
-        // like "hn" -> "un" or "dt" -> "st".
+        // like "hn" -> "un" or "dt" -> "st". For longer words (>= 5), allow up to 2 proximity typos.
         if (cleanInput.length >= 3) {
             val charBuffer = CharArray(16)
+            val maxAllowedErrors = if (cleanInput.length >= 5) 2 else 1
+            val maxAllowedPenalty = if (cleanInput.length >= 5) 2.2 else MAX_PENALTY_THRESHOLD
 
             fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
                 if (idx == cleanInput.length) {
@@ -861,8 +864,8 @@ class TelexAutocorrectEngine private constructor() {
                     val nextTotalPenalty = currentPenalty + stepPenalty
                     val nextErrors = if (nextChar != targetChar) errorCount + 1 else errorCount
 
-                    // Strictly allow at most 1 substituted key (proximity edit distance <= 1) and penalty <= 1.4
-                    if (nextErrors <= 1 && nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
+                    // Allows 1 substituted key for short words, and 2 substituted keys for longer words (LabanKey style)
+                    if (nextErrors <= maxAllowedErrors && nextTotalPenalty <= maxAllowedPenalty) {
                         val nextNode = node.children[nextChar]
                         if (nextNode != null) {
                             charBuffer[idx] = nextChar
