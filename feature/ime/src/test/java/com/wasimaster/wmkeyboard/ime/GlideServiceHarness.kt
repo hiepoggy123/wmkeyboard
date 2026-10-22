@@ -2,9 +2,11 @@ package com.wasimaster.wmkeyboard.ime
 
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -12,6 +14,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.robolectric.RuntimeEnvironment
@@ -49,9 +52,13 @@ internal const val GLIDE_KEY_WIDTH = 60f
  * paths need comes from there. See `ServiceBootProbeTest`, which is the canary
  * for that claim.
  */
-internal class GlideKeyboard(private val editor: InputConnection) : WMKeyboardService() {
+internal class GlideKeyboard(
+    private val editor: InputConnection,
+    private val info: EditorInfo = EditorInfo().apply { inputType = InputType.TYPE_CLASS_TEXT },
+) : WMKeyboardService() {
     init { attachBaseContext(RuntimeEnvironment.getApplication()) }
     override fun getCurrentInputConnection(): InputConnection = editor
+    override fun getCurrentInputEditorInfo(): EditorInfo = info
 }
 
 /**
@@ -332,9 +339,14 @@ internal fun glideKeyboard(
  * the phone is locked.
  */
 internal fun plantPersonalStores(service: WMKeyboardService) {
-    val field = WMKeyboardService::class.java.getDeclaredField("snippetStore")
-    field.isAccessible = true
-    field.set(service, SnippetStore(null))
+    WMKeyboardService::class.java.getDeclaredField("snippetStore").apply {
+        isAccessible = true
+        set(service, SnippetStore(null))
+    }
+    WMKeyboardService::class.java.getDeclaredField("userLexicon").apply {
+        isAccessible = true
+        set(service, UserLexicon(null))
+    }
 }
 
 /**

@@ -49,11 +49,11 @@
     <string name="search_kw_about_diagnostics">log logcat debug troubleshoot</string>
     <string name="search_kw_about_app_language">interface translation translated locale display ui</string>
     <string name="search_kw_about_launcher_name">launcher label rename drawer</string>
-    <string name="search_kw_about_launcher_shown">hide icon launcher drawer home screen</string>
+    <string name="search_kw_about_launcher_shown">hide launcher</string>
     <string name="search_kw_about_licences">credits attribution third party</string>
     <string name="search_kw_about_replay_onboarding">onboarding wizard welcome tour</string>
     <string name="search_kw_about_report_bug">crash freeze feedback problem</string>
-    <string name="search_kw_about_telegram">community chat group help support discord forum</string>
+    <string name="search_kw_about_telegram">community chat help support discord forum</string>
     <string name="search_kw_about_follow">social media x twitter reddit instagram tiktok news</string>
     <string name="search_kw_about_source">github repository contribute</string>
     <string name="search_kw_about_storage">cache disk space free up</string>
@@ -107,7 +107,7 @@
     <string name="search_kw_ime_tool_wikipedia">encyclopedia wiki article</string>
     <string name="search_kw_keypress_all_accents">diacritics umlaut tilde cedilla circumflex</string>
     <string name="search_kw_keypress_native_letters">umlaut accent diacritics order long press german</string>
-    <string name="search_kw_keypress_top_row_holds">digits numbers symbols long press qwerty number row shortcuts hint</string>
+    <string name="search_kw_keypress_top_row_holds">digits numbers symbols long qwerty number shortcuts hint</string>
     <string name="search_kw_keypress_ctrl_raw">termux ssh vim emacs</string>
     <string name="search_kw_keypress_currency_keys">dollar euro pound rupee yen</string>
     <string name="search_kw_keypress_dnd_mute">dnd silent focus</string>
@@ -353,6 +353,7 @@
     <string name="search_kw_dictionary">learned words, user dictionary, my words, add word</string>
     <string name="search_kw_blacklist">banned words, never suggest, block words, ban</string>
     <string name="search_kw_learnedcorrections">learned corrections, my fixes, typo pairs, taught fixes, autocorrect learning, slips, habits</string>
+    <string name="search_kw_learnedphrases">learned phrases, bigrams, trigrams, skip-grams, word pairs, ngrams, n-grams, cum tu da hoc, cap tu</string>
     <string name="search_kw_cliprules">regex, pattern, tidy, strip, remove, replace, https, links, copy, clipboard</string>
     <string name="search_kw_phoneformats">phone number, dial code, country code, mobile number, clipboard chips</string>
     <string name="search_kw_codes">otp, one time password, 2fa, two factor, verification code, sms code, login code</string>

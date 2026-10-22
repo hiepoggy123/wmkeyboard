@@ -58,6 +58,7 @@ class ConversionCaretStripTest {
             service,
             glideReadyState(
                 glideReady = false,
+                fieldNoSuggestions = false,
                 settings = KeyboardSettings(
                     learnFromTyping = false,
                     haptics = HapticSettings(enabled = false),

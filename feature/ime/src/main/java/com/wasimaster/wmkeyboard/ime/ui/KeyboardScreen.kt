@@ -10268,6 +10268,13 @@ private fun stripToolSet(state: KeyboardUiState): Set<ToolbarTool> {
  * Its own composable: the strip's lambda sits near ART's 10,000-instruction
  * compile ceiling, and this loop would push it over.
  */
+private fun toolbarToolPaint(tool: ToolbarTool, state: KeyboardUiState): ToolPaint? =
+    if (state.settings.toolbarBehavior.coloredIcons) {
+        toolAccentPaint(tool, state.settings)
+    } else {
+        null
+    }
+
 @Composable
 private fun StripTools(
     state: KeyboardUiState,
@@ -10310,6 +10317,7 @@ private fun StripToolButton(
         drag.pinnedToolWidthPx.takeIf { it > 0 && !behavior.stripOwnSize }?.toDp()
     }
     val label = stringResource(toolLabelRes(tool))
+    val paint = toolbarToolPaint(tool, state)
     ToolCircle(
         // The emoji keeps an icon-pack slot of its own here, the one this
         // button has always had.
@@ -10329,6 +10337,8 @@ private fun StripToolButton(
         compact = compact,
         widthDp = behavior.stripToolWidthDp.takeIf { behavior.stripOwnSize },
         iconSizeDp = behavior.stripIconSizeDp.takeIf { behavior.stripOwnSize },
+        tint = paint?.color,
+        tintBrush = paint?.brush,
     ) { onToolTap(tool) }
 }
 
@@ -10713,6 +10723,7 @@ private fun RowScope.ToolbarRow(
                         onHoldMenu = { voiceMenuOpen = true },
                         holdDelayMs = state.settings.toolbarBehavior.holdDelayMs,
                     ) { dragModifier ->
+                        val paint = toolbarToolPaint(tool, state)
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
                             description = toolLabel(tool),
@@ -10770,6 +10781,8 @@ private fun RowScope.ToolbarRow(
                                     },
                                 ),
                             interactive = false,
+                            tint = paint?.color,
+                            tintBrush = paint?.brush,
                         ) {}
                     }
                     if (voiceMenuOpen) {
@@ -16834,6 +16847,32 @@ internal class KeyPreviewState(
     /** The long-press alternates took over: that key's bubble goes at once. */
     fun cancel(token: Any) {
         if (drop(token)) revision++
+    }
+
+    /** Updates the displayed label of an already-shown preview bubble (e.g. flicking). */
+    fun updateLabel(token: Any, label: String) {
+        updatePreview(token, label)
+    }
+
+    /** Updates the displayed label and colors of an already-shown preview bubble (e.g. flicking). */
+    fun updatePreview(
+        token: Any,
+        label: String,
+        background: Color? = null,
+        text: Color? = null,
+    ) {
+        val index = shown.indexOfFirst { it.token === token }
+        if (index >= 0) {
+            val current = shown[index]
+            if (current.label != label || current.popupBackground != background || current.popupText != text) {
+                shown[index] = current.copy(
+                    label = label,
+                    popupBackground = background,
+                    popupText = text,
+                )
+                revision++
+            }
+        }
     }
 
     /**
@@ -23424,7 +23463,29 @@ internal fun KeyButton(
                         alternatesHold.open()
                         keyPreview.cancel(previewToken)
                     },
-                    setFlickDirection = { flickDirection.value = it },
+                    setFlickDirection = { dir ->
+                        flickDirection.value = dir
+                        if (previewWanted.value && pressed.value) {
+                            val flickText = dir?.let { key.flick[it] }?.let { displayFlickText(it) }
+                            if (flickText != null) {
+                                val label = if (visual.label.firstOrNull()?.isUpperCase() == true) {
+                                    flickText.uppercase()
+                                } else {
+                                    flickText
+                                }
+                                val flickBg = kb.accent
+                                val flickTextCol = maxContrastOn(flickBg)
+                                keyPreview.updatePreview(previewToken, label, flickBg, flickTextCol)
+                            } else {
+                                keyPreview.updatePreview(
+                                    previewToken,
+                                    previewLabel.value,
+                                    previewColors.value.first,
+                                    previewColors.value.second,
+                                )
+                            }
+                        }
+                    },
                     setFlickReturned = { flickReturned.value = it },
                     flickDistanceDp = settings.layoutBehavior.flickDistanceDp,
                     swipeOnlyTapPeeks = settings.layoutBehavior.swipeOnlyTapShowsArms,
@@ -23649,6 +23710,7 @@ internal fun KeyButton(
             peek = flickPeek,
             shiftOn = visual.flickShiftOn,
             shiftCases = visual.flickShiftCases,
+            previewActive = previewWanted.value,
         )
 
         // Tooltip above the spacebar while a swipe is cycling languages: the
@@ -25145,7 +25207,9 @@ private fun KeyFlickPopup(
     shiftOn: Boolean,
     /** [KeyVisual.flickShiftCases]. */
     shiftCases: Boolean,
+    previewActive: Boolean = false,
 ) {
+    if (previewActive) return
     // A peek is asked for by its own setting, so it shows with the hold's
     // cross turned off as well.
     if (!key.hasFlicks() || (!enabled && !peek.value)) return
@@ -25170,10 +25234,20 @@ private fun KeyFlickPopup(
         }
     }
     if (!alternatesOpen && (peeking || (enabled && down && (held || flickDirection.value != null)))) {
+
         Popup(popupPositionProvider = FlickPopupPositionProvider) {
             FlickCrossPopup(key, flickDirection.value, flickReturned.value, fontScale, shiftOn, shiftCases)
         }
     }
+}
+
+private fun displayFlickText(raw: String): String = when (raw) {
+    "\u0301" -> "◌́"
+    "\u0300" -> "◌̀"
+    "\u0309" -> "◌̉"
+    "\u0303" -> "◌̃"
+    "\u0323" -> "◌̣"
+    else -> raw
 }
 
 /** How long a still finger holds a flick key before its cross comes up; a tap is over well before. */
@@ -25181,6 +25255,7 @@ private const val FlickPopupRevealMs = 250L
 
 /** How long a tap on a swipe-only key leaves its cross up, when that is asked for (#410). */
 private const val FlickPeekMs = 1200L
+
 
 /**
  * The flick preview shown while a flick key is held: the centre with its
@@ -25270,7 +25345,7 @@ private fun BoxScope.FlickCell(
     ) {
         when (arm) {
             is FlickArm.Text -> Text(
-                text = arm.text,
+                text = displayFlickText(arm.text),
                 fontSize = (20 * fontScale).sp,
                 color = tint,
             )
@@ -26101,7 +26176,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             val hint = if (key.hideHint) {
                 null
             } else {
-                key.longPress.firstOrNull()?.let {
+                (key.longPress.firstOrNull() ?: key.flick.values.firstOrNull()?.let { displayFlickText(it) })?.let {
                     rtlMirrored(shiftCased(it, visual.alternatesShifted), mirrorBrackets)
                 }
             }
@@ -26142,7 +26217,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                 transliterationRoman = if (key.hideHint) null else visual.transliterationRoman,
                 hintIcon = hintIcon.takeIf { showHints && !cornerTaken },
                 hint = authoredHint?.takeIf { showHints && !cornerTaken }
-                    ?: hint.takeIf { showHints && !cornerTaken && key.opensAlternatesPopup() },
+                    ?: hint.takeIf { showHints && !cornerTaken && (key.opensAlternatesPopup() || key.flick.isNotEmpty()) },
                 hintMask = hintMask,
                 hintColor = hintColor,
                 fontScale = fontScale,

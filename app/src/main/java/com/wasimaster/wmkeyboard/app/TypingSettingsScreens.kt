@@ -716,6 +716,7 @@ internal fun TypingSuggestionsSettings(
     onOpenBlacklist: () -> Unit,
     onOpenAutopilot: () -> Unit,
     onOpenOctopus: () -> Unit,
+    onOpenLearnedPhrases: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     // What decides which rows the group holds; each row reads its own value.
@@ -1089,6 +1090,14 @@ internal fun TypingSuggestionsSettings(
                 stringResource(R.string.typing_personal_dictionary_subtitle),
                 route = "dictionary",
                 onClick = onOpenDictionary,
+            )
+        }
+        item {
+            NavRow(
+                R.string.typing_learned_phrases_title,
+                stringResource(R.string.typing_learned_phrases_subtitle),
+                route = "learnedphrases",
+                onClick = onOpenLearnedPhrases,
             )
         }
         item {

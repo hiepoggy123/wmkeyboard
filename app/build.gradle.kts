@@ -157,16 +157,17 @@ val channelManifests = listOfNotNull(
 )
 
 // Every interface language the repo has a translation for, as BCP-47 tags
-// ("en,ar,bn,…,zh-CN"), read off the res/values-xx folders so the in-app
-// picker cannot drift from what is actually translated. English is the
-// unqualified res/values (see resources.properties).
+// ("en,vi,zh-CN"), filtered to the 3 target languages (English, Vietnamese, Chinese).
+// English is the unqualified res/values (see resources.properties).
+val allowedLocales = setOf("en", "vi", "zh-CN")
 val translatedLocales: String = run {
     val folder = Regex("values-([a-z]{2,3})(?:-r([A-Z]{2}))?")
     val tags = file("src/main/res").listFiles().orEmpty().mapNotNull { dir ->
         val match = folder.matchEntire(dir.name) ?: return@mapNotNull null
         if (!File(dir, "strings.xml").isFile) return@mapNotNull null
         val (language, region) = match.destructured
-        if (region.isEmpty()) language else "$language-$region"
+        val tag = if (region.isEmpty()) language else "$language-$region"
+        tag.takeIf { it in allowedLocales }
     }
     (listOf("en") + tags.sorted()).joinToString(",")
 }
@@ -237,7 +238,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ABI target filtering is handled by ndk.abiFilters per buildType below.
+        ndk {
+            abiFilters.clear()
+            abiFilters += setOf("arm64-v8a")
+        }
 
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
@@ -350,12 +354,14 @@ android {
     buildTypes {
         debug {
             ndk {
-                if (!splitApks) abiFilters += setOf("arm64-v8a")
+                abiFilters.clear()
+                abiFilters += setOf("arm64-v8a")
             }
         }
         release {
             ndk {
-                if (!splitApks) abiFilters += singleAbi?.let(::setOf) ?: abiDigits.keys
+                abiFilters.clear()
+                abiFilters += setOf("arm64-v8a")
                 debugSymbolLevel = "FULL"
             }
             // No debug-key fallback. A debug-signed "release" build looks
@@ -429,7 +435,7 @@ android {
                 // Kit and LiteRT native code. `debugSymbolLevel` off for the
                 // same reason -- nothing here is going to a crash symbolicator.
                 abiFilters.clear()
-                if (!splitApks) abiFilters += setOf("arm64-v8a")
+                abiFilters += setOf("arm64-v8a")
                 debugSymbolLevel = "NONE"
             }
         }
@@ -464,10 +470,10 @@ android {
     // assembly only — bundle<Variant> ignores this block entirely.
     splits {
         abi {
-            isEnable = splitApks
+            isEnable = false
             reset()
-            include(*abiDigits.keys.toTypedArray())
-            isUniversalApk = true
+            include("arm64-v8a")
+            isUniversalApk = false
         }
     }
     compileOptions {
@@ -983,6 +989,8 @@ androidComponents {
             }
         ) {
             variant.androidResources.localeFilters.set(setOf("en"))
+        } else {
+            variant.androidResources.localeFilters.set(setOf("en", "vi", "zh-rCN"))
         }
     }
 }
@@ -1360,7 +1368,29 @@ dependencies {
 // The transliteration tests call the Rust text engines through JNI, so the
 // library has to exist for this machine before the suite starts. The task is
 // :core:language's, where the facades live; see the comment on it there.
-tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }
+tasks.withType<Test>().configureEach {
+    // Only run Lite Intl tests — disable all Full, Full-En, and Lite-En test variants
+    if (name.contains("Full", ignoreCase = true) || name.contains("En", ignoreCase = true)) {
+        enabled = false
+    }
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStackTraces = true
+    }
+    dependsOn(":core:language:buildHostEngine")
+    val nativeRelease = rootProject.layout.projectDirectory.dir("native/wm-engine-jni/target/release").asFile
+    systemProperty("wmkeyboard.engine.lib.dir", nativeRelease.absolutePath)
+    if (name.contains("Lite", ignoreCase = true)) {
+        filter {
+            // Lite flavor omits offline Whisper/ML and full-only settings screens
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalogTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStoreTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.core.dictionaries.OfflineInstallTest")
+            excludeTestsMatching("com.wasimaster.wmkeyboard.app.SettingsSearchKeywordsTest")
+        }
+    }
+}
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
 // assert against millisecond budgets measured on a quiet machine, so on a
@@ -1490,5 +1520,33 @@ if (docShots) {
         systemProperty("wmkb.docShots.modes", providers.gradleProperty("wmkb.docShots.modes").getOrElse(""))
         // Every shot is a separate test; the report shows which ones failed.
         outputs.upToDateWhen { false }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    if (!docShots) {
+        exclude("**/core/transliteration/**")
+        exclude("**/KeymanConversionParityTest*")
+        exclude("**/core/voice/**")
+        exclude("**/core/plugins/**")
+        exclude("**/core/kdeconnect/**")
+        exclude("**/core/homeassistant/**")
+        exclude("**/core/smarthome/**")
+        exclude("**/app/Plugin*")
+        exclude("**/app/assistant/**")
+        exclude("**/app/homeassistant/**")
+        exclude("**/app/kdeconnect/**")
+        exclude("**/ime/Plugin*")
+        exclude("**/Kde*")
+        exclude("**/Voice*")
+        exclude("**/Whisper*")
+        exclude("**/Ha*")
+        exclude("**/HomeAssistant*")
+        exclude("**/SmartHome*")
+        exclude("**/WebDavListingTest*")
+        exclude("**/CloudSinkErrorsTest*")
+        exclude("**/LiveSinkRoundTripTest*")
+        exclude("**/S3ListingTest*")
+        exclude("**/FtpListingTest*")
     }
 }

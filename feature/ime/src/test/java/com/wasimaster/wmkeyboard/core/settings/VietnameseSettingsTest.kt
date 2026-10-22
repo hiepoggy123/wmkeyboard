@@ -56,4 +56,5 @@ class VietnameseSettingsTest {
         repository.setVietnameseRestoreMarks(false)
         assertFalse(repository.settings.first().vietnamese.restoreMarks)
     }
+
 }

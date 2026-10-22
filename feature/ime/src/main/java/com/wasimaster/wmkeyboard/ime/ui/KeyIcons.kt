@@ -39,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mic
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreHoriz
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Numbers
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
@@ -115,6 +116,7 @@ object KeyIcons {
         "translate" to Icons.Outlined.Translate,
         "mic" to Icons.Outlined.Mic,
         "image" to Icons.Outlined.Image,
+        "gallery" to Icons.Outlined.PhotoLibrary,
         "link" to Icons.Outlined.Link,
         "at" to Icons.Outlined.AlternateEmail,
         "phone" to Icons.Outlined.Phone,
@@ -156,6 +158,8 @@ object KeyIcons {
         "voice" to "mic",
         "photo" to "image",
         "picture" to "image",
+        "photo_library" to "gallery",
+        "photos" to "gallery",
         "email" to "at",
         "mail" to "at",
         "favorite" to "heart",

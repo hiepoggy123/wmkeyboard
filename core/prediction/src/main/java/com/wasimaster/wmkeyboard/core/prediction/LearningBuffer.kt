@@ -366,6 +366,7 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
         val key = WordKey.of(word)
         return entries.lastOrNull { it.suspended && WordKey.of(it.word) == key }?.origin
             ?: recent.lastOrNull { WordKey.of(it.word) == key }?.origin
+            ?: entries.lastOrNull { WordKey.of(it.word) == key }?.origin
     }
 
     /**

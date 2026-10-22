@@ -1899,6 +1899,11 @@ data class ToolbarBehavior(
      */
     val stripShortcutsAtEnd: Boolean = false,
     /**
+     * Tint pinned tool icons with their accent colours on the toolbar and
+     * suggestion strip, matching the toolbox. Guarded by [KeyboardSettings.coloredToolIcons].
+     */
+    val coloredIcons: Boolean = true,
+    /**
      * How long a pinned tool is held before the hold counts, in ms: the bound
      * hold action, the settings page, the pick-up for a reorder (#665). 0
      * follows the system's own touch-and-hold delay, which is what the bar
@@ -10232,6 +10237,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_STRIP_ICON_SIZE = intPreferencesKey("toolbar_strip_icon_size")
         private val TOOLBAR_STRIP_AT_END = booleanPreferencesKey("toolbar_strip_at_end")
         private val TOOLBAR_DRAG_REARRANGE = booleanPreferencesKey("toolbar_drag_rearrange")
+        private val TOOLBAR_COLORED_ICONS = booleanPreferencesKey("toolbar_colored_icons")
         private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
@@ -12380,6 +12386,7 @@ class SettingsRepository(private val context: Context) {
             stripToolWidthDp = p[TOOLBAR_STRIP_TOOL_WIDTH] ?: defaults.toolbarBehavior.stripToolWidthDp,
             stripIconSizeDp = p[TOOLBAR_STRIP_ICON_SIZE] ?: defaults.toolbarBehavior.stripIconSizeDp,
             stripShortcutsAtEnd = p[TOOLBAR_STRIP_AT_END] ?: defaults.toolbarBehavior.stripShortcutsAtEnd,
+            coloredIcons = p[TOOLBAR_COLORED_ICONS] ?: defaults.toolbarBehavior.coloredIcons,
             holdDelayMs = p[TOOLBAR_HOLD_DELAY] ?: defaults.toolbarBehavior.holdDelayMs,
         )
 
@@ -14487,6 +14494,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHardwareKeysAutoHide(value: Boolean) =
         editPrefs { it[HW_KEYS_AUTO_HIDE] = value }
+
+    suspend fun setToolbarColoredIcons(value: Boolean) =
+        editPrefs { it[TOOLBAR_COLORED_ICONS] = value }
 
     suspend fun setReverseToolbarForRtl(value: Boolean) =
         editPrefs { it[REVERSE_TOOLBAR_RTL] = value }
@@ -17552,6 +17562,7 @@ class SettingsRepository(private val context: Context) {
         it.remove(TOOLBAR_ICON_SIZE)
         it.remove(TOOLBAR_PADDING_TOP)
         it.remove(TOOLBAR_PADDING_BOTTOM)
+        it.remove(TOOLBAR_COLORED_ICONS)
     }
 
     /** The Toolbox page's reset: the tool grid's layout, columns, paging and labels. */

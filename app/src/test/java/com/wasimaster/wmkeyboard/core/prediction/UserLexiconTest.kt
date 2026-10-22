@@ -708,4 +708,18 @@ class UserLexiconTest {
         assertEquals(listOf("think"), lexicon.nextWords("i", 3))
         assertFalse(lexicon.learnWord(""))
     }
+
+    @Test
+    fun testUnlearnBigramAndTrigram() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram("đi", "về")
+        assertEquals(1, lexicon.bigramCount("đi", "về"))
+        lexicon.unlearnBigram("đi", "về")
+        assertEquals(0, lexicon.bigramCount("đi", "về"))
+
+        lexicon.learnTrigram("hôm", "nay", "vui")
+        assertEquals(1, lexicon.trigramCount("hôm", "nay", "vui"))
+        lexicon.unlearnTrigram("hôm", "nay", "vui")
+        assertEquals(0, lexicon.trigramCount("hôm", "nay", "vui"))
+    }
 }

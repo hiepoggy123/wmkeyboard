@@ -50,16 +50,21 @@ class RomanizedIndex private constructor(
     private val resolveSpelling: (String) -> List<String>,
     /** Code points the romanized side is written in — the coverage gate's input. */
     val alphabet: Set<Int>,
+    private val scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
+    private val personal: WordSource = PackedTrie.EMPTY,
+    val trajectoryDecoder: ((path: List<GesturePoint>, keys: GlideKeyMap, keyWidth: Float, limit: Int) -> List<GlideBeam.Candidate>)? = null,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
 
     /**
-     * The tries a stroke is decoded against. The curated list leads: it is a
-     * record of how people write these words, where the downloaded list is a
-     * record of which words exist.
+     * The tries a stroke is decoded against. The personal list leads with user tier,
+     * followed by curated list, then downloaded.
      */
     fun walkSources(): List<FuzzyBeamSearch.WalkSource> = buildList {
+        for (walker in personal.walkers()) {
+            add(FuzzyBeamSearch.WalkSource(walker, PERSONAL_BONUS, FuzzyBeamSearch.Tier.USER))
+        }
         for (walker in curated.walkers()) {
             add(FuzzyBeamSearch.WalkSource(walker, CURATED_BONUS, FuzzyBeamSearch.Tier.DICTIONARY))
         }
@@ -82,7 +87,8 @@ class RomanizedIndex private constructor(
         for (candidate in decoded) {
             val forms = resolveSpelling(candidate.word)
             for ((index, form) in forms.withIndex()) {
-                val score = candidate.score - index * ALTERNATE_STEP
+                val penalty = scoreForm?.invoke(candidate.word, form, index) ?: (-index * ALTERNATE_STEP)
+                val score = candidate.score + penalty
                 val existing = best[form]
                 if (existing == null || score > existing.score) {
                     best[form] = GlideBeam.Candidate(
@@ -156,8 +162,25 @@ class RomanizedIndex private constructor(
             return RomanizedIndex(personal, spellings, resolve, alphabet)
         }
 
+        /**
+         * A romanization mapping one spelling to multiple candidate forms,
+         * such as Vietnamese unaccented spellings resolving to accented syllables.
+         */
+        fun multiMap(
+            curated: WordSource,
+            downloaded: WordSource = PackedTrie.EMPTY,
+            alphabet: Set<Int>,
+            resolve: (String) -> List<String>,
+            scoreForm: ((spelling: String, form: String, index: Int) -> Double)? = null,
+            personal: WordSource = PackedTrie.EMPTY,
+            trajectoryDecoder: ((path: List<GesturePoint>, keys: GlideKeyMap, keyWidth: Float, limit: Int) -> List<GlideBeam.Candidate>)? = null,
+        ): RomanizedIndex = RomanizedIndex(curated, downloaded, resolve, alphabet, scoreForm, personal, trajectoryDecoder)
+
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35
+
+        /** Weight personal/user-learned spellings walk at, in Tier.USER. */
+        private val PERSONAL_BONUS = ln(4.0)
 
         /** Weight the curated spellings walk at, over the downloaded list's. */
         private val CURATED_BONUS = ln(3.0)

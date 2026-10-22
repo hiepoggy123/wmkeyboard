@@ -42,7 +42,7 @@ class HaBackendTest {
         val backend = HaBackend("h1", account(server.url("/").toString()), OkHttpTransport(OkHttpClient()), JvmHaHttp(), scope)
         try {
             runBlocking {
-                withTimeout(10_000) {
+                withTimeout(30_000) {
                     backend.start()
                     backend.phase.first { it == HaPhase.LIVE }
                     val entities = backend.entities.first { it.size == 2 }

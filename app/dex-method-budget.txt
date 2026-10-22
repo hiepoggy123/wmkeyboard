@@ -28,6 +28,7 @@ com.wasimaster.wmkeyboard.app.ThemeKeyboardPreviewKt.ThemeKeyboardPreview  3500 
 # ---- Keyboard, but off the per-keystroke path ----
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen  14500  4032  # outer keyboard composable: collects the state without reading it, so it recomposes only when the service recomposes the root (see its opening comment)
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen$lambda$155  500  3904  # the stable composition locals around KeyboardScreenFrame: recomposes with KeyboardScreen, not per key
+com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.TopBar$lambda$60$1$0$9  10300  1344  # toolbar content: recomposes on tool and strip changes, not per key
 com.wasimaster.wmkeyboard.ime.WMKeyboardService.restorePersistentSurface  1400  4096  # once per show
 com.wasimaster.wmkeyboard.ime.WMKeyboardService.openDictionary  1100  4032  # opening the dictionary tool
 com.wasimaster.wmkeyboard.ime.WMKeyboardService$refreshEmojiResults$1.invokeSuspend  1200  4096  # emoji panel search, debounced
@@ -49,3 +50,4 @@ com.wasimaster.wmkeyboard.ime.KeyboardUiState.<init>  3900  4416  # generated: o
 com.wasimaster.wmkeyboard.ime.KeyboardUiState.copy  1000  3904  # generated: one register per field
 com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.<init>  7400  4480  # generated: one register per field
 com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.copy  1300  4480  # generated: one register per field
+com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyRows  9100  2048  # 84 insns past 9,000 (ART's hard limit is 10,000, so it still compiles); fix: lift the per-row key loop into its own composable
