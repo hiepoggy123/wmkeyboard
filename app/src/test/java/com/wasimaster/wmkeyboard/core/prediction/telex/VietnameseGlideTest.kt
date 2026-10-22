@@ -339,4 +339,35 @@ class VietnameseGlideTest {
         org.junit.Assert.assertTrue(resolved.isNotEmpty())
         org.junit.Assert.assertEquals("việt", resolved[0].word)
     }
+
+    @Test
+    fun testLabanKeyBundledStemsAndCompounds() {
+        VietnameseGlide.resetForTesting()
+        val assetFile = java.io.File("src/main/assets/telex/vietnamese_stems.tsv")
+        val altFile = java.io.File("app/src/main/assets/telex/vietnamese_stems.tsv")
+        val target = if (assetFile.exists()) assetFile else altFile
+        if (!target.exists()) return // Skip if running in isolated runner without asset root
+
+        val index = java.io.FileInputStream(target).use { stream ->
+            VietnameseGlide.loadFromStream(stream)
+        }
+        org.junit.Assert.assertNotNull(index)
+        org.junit.Assert.assertNotNull(index.trajectoryDecoder)
+
+        // Verify common stems exist
+        val lookupViet = VietnameseGlide.lookup("viet")
+        org.junit.Assert.assertTrue("Lookup viet should contain việt", lookupViet.contains("việt"))
+
+        val lookupQuehuong = VietnameseGlide.lookup("quehuong")
+        org.junit.Assert.assertTrue("Lookup quehuong should contain quê hương", lookupQuehuong.contains("quê hương"))
+
+        val lookupCamon = VietnameseGlide.lookup("camon")
+        org.junit.Assert.assertTrue("Lookup camon should contain cảm ơn", lookupCamon.contains("cảm ơn"))
+
+        // Verify resolution of compound candidate
+        val compCandidate = GlideBeam.Candidate("quehuong", 2.5, 0.0, FuzzyBeamSearch.Tier.DICTIONARY)
+        val resolved = index.resolve(listOf(compCandidate))
+        org.junit.Assert.assertTrue(resolved.isNotEmpty())
+        org.junit.Assert.assertEquals("quê hương", resolved[0].word)
+    }
 }

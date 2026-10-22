@@ -230,7 +230,7 @@ object VietnameseTrajectoryGlide {
         val kEnd = keyCoords.last()
         val dStart = dist(pts.first(), kStart)
         val dEnd = dist(pts.last(), kEnd)
-        if (dStart > maxEndpointDist * 1.30f || dEnd > maxEndpointDist * 1.30f) return null
+        if (dStart > maxEndpointDist * 1.35f || dEnd > maxEndpointDist * 1.35f) return null
 
         // 2. Ideal polyline length
         var idealLength = 0f
@@ -239,19 +239,21 @@ object VietnameseTrajectoryGlide {
         }
 
         val lenDiff = abs(strokeLength - idealLength) / maxOf(strokeLength, idealLength, 1.0f)
-        if (actualLen >= 3 && lenDiff > maxLenDiscrepancy * 1.30f) return null
+        val maxAllowedLenDiff = if (entry.isCompound) maxLenDiscrepancy * 1.65f else maxLenDiscrepancy * 1.30f
+        if (actualLen >= 3 && lenDiff > maxAllowedLenDiff) return null
 
         // 3. Continuous point-to-segment trajectory matching (Gboard corner-cutting tolerance)
         val numSamples = pts.size
         var currentSampleIdx = 0
         var totalKeyCost = 0.0f
 
-        // Endpoint gaussian costs
+        // Endpoint gaussian costs (Gboard: higher scaling on first and last keys)
         val startCost = 1.0f - exp(-dStart * dStart / GAUSSIAN_SIGMA_SQ)
         val endCost = 1.0f - exp(-dEnd * dEnd / GAUSSIAN_SIGMA_SQ)
-        totalKeyCost += 1.8f * (startCost + endCost)
+        totalKeyCost += (startCost * 2.2f + endCost * 2.0f)
 
         val windowPadding = 3 + (velocityFactor * 4.0f).toInt()
+        val worstAlignThreshold = 18.0f * (1.0f + velocityFactor * 0.40f)
 
         for (r in 1 until actualLen - 1) {
             val targetKey = keyCoords[r]
@@ -279,9 +281,13 @@ object VietnameseTrajectoryGlide {
                 }
             }
 
-            // Bounded Gaussian cost: error never explodes exponentially on corner cuts
+            // Gboard spatial score decay: intermediate keys allow more corner cutting
+            val spatialDecay = 0.85f + 0.15f * (1.0f - (r.toFloat() / actualLen))
             val keyGaussian = 1.0f - exp(-bestDist * bestDist / GAUSSIAN_SIGMA_SQ)
-            totalKeyCost += keyGaussian * 1.5f
+            totalKeyCost += keyGaussian * (1.25f * spatialDecay)
+
+            // Gboard early pruning cutoff
+            if (totalKeyCost > worstAlignThreshold) return null
 
             // Smooth progression
             currentSampleIdx = maxOf(currentSampleIdx, minOf(bestIdx, expectedSample))
@@ -289,7 +295,7 @@ object VietnameseTrajectoryGlide {
 
         // Velocity-adaptive scale relaxation: corner-cutting naturally increases distance
         val effectiveKeyCost = if (velocityFactor > 0.0f) {
-            totalKeyCost / (1.0f + velocityFactor * 0.40f)
+            totalKeyCost / (1.0f + velocityFactor * 0.45f)
         } else {
             totalKeyCost
         }
@@ -307,22 +313,23 @@ object VietnameseTrajectoryGlide {
                     }
                 }
                 if (matched) {
-                    pivotBonus += 0.55 * (1.0 + velocityFactor * 0.25)
+                    pivotBonus += 0.60 * (1.0 + velocityFactor * 0.25)
                 }
             }
         }
 
-        // 5. Total Shape Cost (smooth length penalty)
-        val shapeCost = effectiveKeyCost * 1.45f + lenDiff * lenDiff * 3.0f
+        // 5. Total Shape Cost (smooth length penalty with compound scaling)
+        val lenPenaltyWeight = if (entry.isCompound) 2.2f else 3.0f
+        val shapeCost = effectiveKeyCost * 1.40f + lenDiff * lenDiff * lenPenaltyWeight
 
         // 6. Language Model log-frequency term
         val freqBonus = ln(1.0 + entry.freq) * 0.85
 
-        // Tier base bonus
-        val tierBonus = if (entry.isUser) 3.2 else 1.6
+        // Tier base bonus (compound and user words prioritized)
+        val tierBonus = if (entry.isUser) 3.5 else (if (entry.isCompound) 2.4 else 1.8)
 
         val finalScore = tierBonus + freqBonus + pivotBonus - shapeCost
-        if (finalScore < -18.0) return null
+        if (finalScore < -20.0) return null
 
         return finalScore
     }
@@ -383,7 +390,7 @@ object VietnameseTrajectoryGlide {
             }
         }
         result.sortBy { it.second }
-        return result.take(5)
+        return result.take(6)
     }
 
     /**

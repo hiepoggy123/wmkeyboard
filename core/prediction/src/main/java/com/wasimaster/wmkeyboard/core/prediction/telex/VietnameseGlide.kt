@@ -32,6 +32,7 @@ import kotlin.math.ln
  * dynamic multi-word compound stem synthesis from UserLexicon with phonotactic gating.
  */
 object VietnameseGlide {
+    private const val STEMS_ASSET_PATH = "telex/vietnamese_stems.tsv"
     private const val UNIGRAMS_ASSET_PATH = "telex/unigrams.json"
     private const val BIGRAMS_ASSET_PATH = "telex/bigrams.json"
     private const val VIETNAMESE_KEYS = "abcdefghijklmnopqrstuvwxyz"
@@ -268,7 +269,16 @@ object VietnameseGlide {
                 } else {
                     emptyMap()
                 }
-                buildFromUnigrams(unigrams, bigrams, userLexicon, filesDir)
+                val stemsStream = try {
+                    assets.open(STEMS_ASSET_PATH)
+                } catch (_: Exception) {
+                    null
+                }
+                if (stemsStream != null) {
+                    stemsStream.use { loadFromStream(it, unigrams, bigrams, userLexicon, filesDir) }
+                } else {
+                    buildFromUnigrams(unigrams, bigrams, userLexicon, filesDir)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -532,7 +542,7 @@ object VietnameseGlide {
                 val snapshot = userCompoundsSnapshot
                 val userMax = snapshot.stemMaxFreq[unaccented]
                 val compoundDamping = if (isCompound && contextBonus < 0.1 && userMax == null) {
-                    if (hasSingleSyllable) -1.8 else -0.8
+                    if (hasSingleSyllable) -1.8 else 0.0
                 } else 0.0
 
                 val orthographyBonus = if (!isCompound && VietnameseOrthography.isValidVietnameseSyllable(formLower)) 0.35 else 0.0
