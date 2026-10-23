@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx8g -Dorg.gradle.daemon=false
   # Sideload build — no Play Store or GMS dependencies needed.
   WMKB_ENABLE_PLAY_STORE: 'false'
   WMKB_ENABLE_GMS: 'false'
