@@ -634,7 +634,10 @@ class TelexAutocorrectEngine private constructor() {
 
         // 2. Static completions boosted by Bigram context when previousWord is present
         val candidates = languageModel.unigrams.entries
-            .filter { (it.key.startsWith(clean) || matchesVietnamesePrefix(it.key, clean)) && it.key != clean }
+            .filter {
+                (clean.contains(' ') || !it.key.contains(' ')) &&
+                (it.key.startsWith(clean) || matchesVietnamesePrefix(it.key, clean)) && it.key != clean
+            }
 
         val sorted = if (!prev.isNullOrEmpty()) {
             candidates.sortedByDescending { entry ->

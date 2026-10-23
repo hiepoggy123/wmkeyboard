@@ -13501,16 +13501,6 @@ open class WMKeyboardService : InputMethodService() {
                 // again on the way out and count the rejection twice.
                 correctionWatch.drop(revert.original, revert.committed)
                 learningBuffer.drop(revert.committed)
-                val cleanCommitted = revert.committed.trim { !WordContext.isWordChar(it) }.lowercase().ifEmpty { null }
-                if (!cleanCommitted.isNullOrEmpty() && ::userLexicon.isInitialized) {
-                    previousWord?.let { p ->
-                        userLexicon.unlearnBigram(p, cleanCommitted)
-                        val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                        if (!prev2.isNullOrEmpty()) {
-                            userLexicon.unlearnTrigram(prev2, p, cleanCommitted)
-                        }
-                    }
-                }
                 // The chip was about this correction, and this correction is
                 // no longer in the field.
                 clearUndoChip()
