@@ -12,13 +12,5 @@ package com.wasimaster.wmkeyboard.core.transliteration
 object AvroPhonetic {
 
     /** Transliterates one romanized word (or free text) into Bengali script. */
-    fun transliterate(input: String): String = if (EngineNative.isLoaded) {
-        try {
-            EngineNative.avro(input)
-        } catch (_: UnsatisfiedLinkError) {
-            input
-        }
-    } else {
-        input
-    }
+    fun transliterate(input: String): String = EngineNative.avro(input)
 }
