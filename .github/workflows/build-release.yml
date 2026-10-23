@@ -49,22 +49,45 @@ jobs:
       - name: Restore keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_PASS: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
-            echo "SIGNING_AVAILABLE=true" >> "$GITHUB_ENV"
+            echo "RELEASE_STORE_FILE=release.keystore" >> "$GITHUB_ENV"
+            echo "RELEASE_STORE_PASSWORD=${KEY_PASS}" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "::notice::Using configured keystore from secrets."
           else
-            echo "::warning::KEYSTORE_BASE64 secret is not set. Building unsigned release APK."
-            echo "SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::KEYSTORE_BASE64 secret is not set. Generating temporary self-signed keystore for installable release APK."
+            keytool -genkeypair -v -keystore release.keystore -alias releaseKey -keyalg RSA -keysize 2048 -validity 10000 -storepass wmkeyboard -keypass wmkeyboard -dname "CN=WMKeyboard, OU=Mod, O=WM, L=Unknown, S=Unknown, C=VN"
+            echo "RELEASE_STORE_FILE=release.keystore" >> "$GITHUB_ENV"
+            echo "RELEASE_STORE_PASSWORD=wmkeyboard" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_ALIAS=releaseKey" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_PASSWORD=wmkeyboard" >> "$GITHUB_ENV"
           fi
 
       - name: Build release APK (arm64 only)
-        env:
-          RELEASE_STORE_FILE: ${{ env.SIGNING_AVAILABLE == 'true' && 'release.keystore' || '' }}
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleIntlRelease -Pwmkb.abi=arm64-v8a --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleIntlRelease -Pwmkb.abi=arm64-v8a -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace 2>&1 | tee gradle-build.log
+
+      - name: Output error to Step Summary on failure
+        if: failure()
+        run: |
+          echo "## Gradle Build Failure" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 250 gradle-build.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: gradle-build.log
+          retention-days: 7
 
       - name: Collect artifacts
         run: |
