@@ -442,6 +442,10 @@ class UserLexicon(private val storageFile: File?) {
         return result.sortedByDescending { it.count }
     }
 
+    fun unlearnBigram(previous: String, next: String) = forgetBigram(previous, next)
+    fun unlearnTrigram(prev2: String, prev1: String, next: String) = forgetTrigram(prev2, prev1, next)
+    fun unlearnSkipgram(previous: String, next: String, skipDistance: Int) = forgetSkipgram(previous, next, skipDistance)
+
     @Synchronized
     fun forgetBigram(previous: String, next: String) {
         val file = storageFile ?: return
