@@ -114,6 +114,9 @@ class UserLexicon(private val storageFile: File?) {
         PredictionNative.lexAddWord(native, key, caseEvidence, surface, boost, pinCase)
     }
 
+    /** Compatibility alias for [addWord] used in tests and compound synthesis. */
+    fun addWordByHand(word: String, boost: Int = 1) = addWord(word, boost = boost)
+
     /** Whether the user put [word] in themselves (#164); see [addWord]. */
     fun isAddedByHand(word: String): Boolean = PredictionNative.lexIsAddedByHand(native, WordKey.of(word))
 

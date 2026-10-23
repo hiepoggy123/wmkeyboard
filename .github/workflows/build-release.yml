@@ -92,10 +92,12 @@ jobs:
       - name: Output error to Step Summary on failure
         if: failure()
         run: |
-          echo "## Gradle Build Failure" >> "$GITHUB_STEP_SUMMARY"
-          echo '```text' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 250 gradle-build.log >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f gradle-build.log ]; then
+            echo "## Gradle Build Failure" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 250 gradle-build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload build log
         if: always()
