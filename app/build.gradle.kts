@@ -1041,7 +1041,8 @@ androidComponents {
             }
         ) {
             variant.androidResources.localeFilters.set(setOf("en"))
-
+        } else {
+            variant.androidResources.localeFilters.set(setOf("en", "vi", "zh-rCN"))
         }
     }
 }

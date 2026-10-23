@@ -68,6 +68,22 @@ jobs:
             echo "RELEASE_KEY_PASSWORD=wmkeyboard" >> "$GITHUB_ENV"
           fi
 
+      - name: Cache the Rust engine host build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/wm-engine-jni
+
+      - name: Run unit tests
+        run: ./gradlew unitTests -Pwmkb.skipBenchmarks=true --stacktrace
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 7
+
       - name: Build release APK (arm64 only)
         run: |
           set -o pipefail
