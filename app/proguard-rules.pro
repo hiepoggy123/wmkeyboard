@@ -63,14 +63,22 @@
 -keep class com.wasimaster.wmkeyboard.core.layout.KeyAction { *; }
 -keep class com.wasimaster.wmkeyboard.core.layout.KeyAction$* { *; }
 
-# --- Harper grammar engine (JNI) ---------------------------------------------
-# libharper_jni.so binds by the mangled Java name
-# (Java_com_wasimaster_wmkeyboard_core_grammar_HarperNative_*), so neither the
-# class name nor the external method names may be renamed or stripped.
--keep class com.wasimaster.wmkeyboard.core.grammar.HarperNative { *; }
+# --- Native gates (JNI) ------------------------------------------------------
+# Each library of native/gates.json that binds by the mangled Java name
+# (Java_com_wasimaster_wmkeyboard_core_grammar_HarperNative_* and so on) names
+# its JNI class there (`keep`), and the wmkeyboard.native-gates convention
+# generates one `-keep class ... { *; }` for each, so neither the class name
+# nor the external method names may be renamed or stripped. Every native
+# method of every class keeps its name regardless:
 -keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
 }
+
+# --- Google's gesture library (user-imported libjni_latinime.so) ---------------
+# Its JNI_OnLoad RegisterNatives every method of these classes by name and
+# signature, and fails the whole load if one is missing, so even the natives
+# this app never calls must survive shrinking, under exactly these names.
+-keep class com.android.inputmethod.** { *; }
 
 # The grammar lint models are decoded from JSON produced by that native code —
 # keep their serializers explicitly so a rules regression can never silently
@@ -205,6 +213,13 @@
     *;
 }
 
+# --- Google Home bridge -------------------------------------------------------
+# GoogleHomeBridge is reached ONLY by reflection from the Play facade
+# (src/googlehomeplay in :feature:ime), out of the :feature:googlehome split.
+-keep class com.wasimaster.wmkeyboard.ime.homeassistant.googlehome.GoogleHomeBridge {
+    <init>();
+}
+
 # --- On-device translation bridge ---------------------------------------------
 # The same arrangement and the same reason: MlKitTranslateRuntime is reached
 # ONLY by reflection (OnDeviceTranslator's facade), from the base APK in
@@ -228,6 +243,11 @@
     *;
 }
 -keep class com.wasimaster.wmkeyboard.core.ocr.bridge.LitertPaddleRuntime {
+    <init>();
+    *;
+}
+# Search by meaning's EmbeddingGemma graphs (EmbeddingEngine's facade), the same way.
+-keep class com.wasimaster.wmkeyboard.core.semantic.bridge.LitertEmbeddingRuntime {
     <init>();
     *;
 }

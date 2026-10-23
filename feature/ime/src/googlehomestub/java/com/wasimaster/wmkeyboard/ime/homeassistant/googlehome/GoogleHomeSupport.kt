@@ -4,20 +4,22 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import com.wasimaster.wmkeyboard.core.homeassistant.backend.HomeAccount
 import com.wasimaster.wmkeyboard.core.homeassistant.backend.HomeBackend
+import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** The structure Google let the app into, as the consent flow reported it. */
-data class GoogleHomeGrant(val structureId: String, val structureName: String, val account: String = "", val stamp: Long = 0)
-
 /**
- * The lite flavour carries no Home APIs: a Google Home row can never be
- * added, and one restored from a backup stays unavailable. Same shape as the
- * full flavour's, so the settings app and the hub compile either way.
+ * A build without the Home APIs SDK (a checkout that lacks it, or F-Droid's):
+ * a Google Home row can never be added, and one restored from a backup stays
+ * unavailable. Same shape as the real one, so the settings app and the hub
+ * compile either way.
  */
 object GoogleHomeSupport {
     const val AVAILABLE = false
+
+    /** Never anything to fetch: there is no Google Home in this build. */
+    val moduleState: StateFlow<ModuleState> = MutableStateFlow(ModuleState.Installed)
 
     /** The structure granted in this process, null while none is; the editor waits on it after [requestAccess]. */
     val grants: StateFlow<GoogleHomeGrant?> = MutableStateFlow(null)

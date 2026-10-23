@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantGate
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
@@ -48,11 +48,9 @@ import com.wasimaster.wmkeyboard.core.tools.orderedAiActions
 import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.providers.ProviderTool
-import com.wasimaster.wmkeyboard.core.providers.ProviderTypes
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.AiProviders
 import com.wasimaster.wmkeyboard.core.settings.aiRows
-import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import com.wasimaster.wmkeyboard.core.settings.AiToolRoundsRange
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.hasSearchKey
@@ -104,6 +102,10 @@ internal fun AiHubSettings(
             }
         }
     }
+    // Not an AI tool, but the same kind of thing: a model on the device, and
+    // nobody looks for it under Clipboard or Emoji, which it serves alike.
+    SemanticSearchGroup(repository, settings)
+    val assistant = settings.watch { SettingsAssistantGate.offered(it) }
     SettingsGroup(stringResource(R.string.toolai_ai_chat_group_title)) {
         item {
             NavRow(
@@ -113,12 +115,36 @@ internal fun AiHubSettings(
                 onClick = { onNavigate("ai_chat") },
             )
         }
+        // The assistant's own off switch (#830), and its row while it is on.
         item {
+            ToggleSetting(
+                R.string.toolai_hub_settings_assistant_title,
+                stringResource(R.string.toolai_hub_settings_assistant_subtitle),
+                assistant,
+                default = SettingsDefaults.appUi.settingsAssistant,
+            ) { on ->
+                // Off sends nothing more (#877): a question still out is
+                // retired, and its late answer goes nowhere.
+                if (!on) com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantSession.stop()
+                scope.launch { repository.setSettingsAssistant(on) }
+            }
+        }
+        item(visible = assistant) {
             NavRow(
                 title = R.string.settings_assistant_title,
                 subtitle = stringResource(R.string.settings_assistant_nav_subtitle),
                 route = "settings_assistant",
                 onClick = { onNavigate("settings_assistant") },
+            )
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_memory_group_title)) {
+        item {
+            NavRow(
+                title = R.string.toolai_memory_screen_title,
+                subtitle = stringResource(R.string.toolai_memory_nav_subtitle),
+                route = "ai_memory",
+                onClick = { onNavigate("ai_memory") },
             )
         }
     }
@@ -161,6 +187,7 @@ internal fun AiToolSettings(
     // here and captured. The format also puts the number through the locale,
     // which is what gives Bengali or Arabic digits.
     val numberFormat = stringResource(R.string.values_number)
+    val assistantOn = settings.watch { SettingsAssistantGate.offered(it) }
     // What decides which groups and rows the screen holds; each row reads its
     // own value.
     val aiProvider = settings.watch { it.ai.provider }
@@ -209,21 +236,8 @@ internal fun AiToolSettings(
             }
         }
     }
-    // The on-device row stands for whichever model is downloaded and picked here.
-    if (settings.watch { s -> s.resolveProviders(ProviderTool.AI, all = true).any { it.typeId == ProviderTypes.ON_DEVICE_AI.id } }) {
-        LocalLlmModelManager(repository, settings)
-    }
-    // Every provider reached over HTTP can take extra headers (#648); these
-    // are the ones for the kind in use.
-    if (rows.isNotEmpty() && aiProvider != AiProvider.ON_DEVICE) AiProviderHeadersGroup(repository, settings, aiProvider)
-    ServerFieldsGroup(
-        repository,
-        settings,
-        endpoints = listOf(
-            ServiceEndpoint.ANTHROPIC, ServiceEndpoint.OPENAI, ServiceEndpoint.GEMINI,
-            ServiceEndpoint.XAI, ServiceEndpoint.DEEPSEEK, ServiceEndpoint.BRAVE_SEARCH,
-        ),
-    )
+    // The on-device model manager, each service's extra headers and its
+    // F-Droid server address are on that provider's own screen.
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (aiProvider != AiProvider.ON_DEVICE) {
             item {
@@ -368,7 +382,8 @@ internal fun AiToolSettings(
                 onClick = { onNavigate("ai_chat") },
             )
         }
-        item {
+        // Gone while the assistant is turned off (#830).
+        item(visible = assistantOn) {
             NavRow(
                 title = R.string.settings_assistant_title,
                 subtitle = stringResource(R.string.settings_assistant_nav_subtitle),
@@ -385,6 +400,25 @@ internal fun AiToolSettings(
                 settings.watch { it.ai.chatEnterSends },
                 default = SettingsDefaults.ai.chatEnterSends,
             ) { scope.launch { repository.setAiChatEnterSends(it) } }
+        }
+        // The model that answered names the chat (#882), on both chats.
+        item {
+            ToggleSetting(
+                R.string.toolai_chat_auto_rename_title,
+                stringResource(R.string.toolai_chat_auto_rename_subtitle),
+                settings.watch { it.ai.chatAutoRename },
+                default = SettingsDefaults.ai.chatAutoRename,
+            ) { scope.launch { repository.setAiChatAutoRename(it) } }
+        }
+        // "Ask AI" in other apps' selection menus (#897). AskAiSelectionMenu
+        // switches the entry from the setting, here or from a backup alike.
+        item {
+            ToggleSetting(
+                R.string.toolai_ai_selection_menu_title,
+                stringResource(R.string.toolai_ai_selection_menu_subtitle),
+                settings.watch { it.ai.selectionMenu },
+                default = SettingsDefaults.ai.selectionMenu,
+            ) { scope.launch { repository.setAiSelectionMenu(it) } }
         }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {
@@ -538,8 +572,16 @@ internal fun AiActionsSettings(
         }
         for (action in ordered) {
             if (reordering) break
-            item {
+            item(key = action.id) {
                 val on = settings.watch { action.id !in it.ai.hiddenActions }
+                // Delete for an action of your own; for a shipped one that you
+                // changed, Reset, which is the same call bringing it back.
+                val stored = settings.watch { s -> s.ai.customActions.any { it.id == action.id } }
+                val shipped = BuiltInAiActions.byId(action.id) ?: BuiltInAiReplyTones.byId(action.id)
+                val editLabel = stringResource(R.string.toolai_ai_action_edit_desc)
+                val removeLabel = stringResource(
+                    if (shipped != null) R.string.toolai_ai_action_reset_action else R.string.toolai_ai_action_delete_action,
+                )
                 WmRow(
                     title = names[action.id].orEmpty(),
                     supporting = {
@@ -566,6 +608,16 @@ internal fun AiActionsSettings(
                                 }
                             },
                         )
+                    },
+                    swipeActions = buildList {
+                        add(SwipeAction(Icons.Outlined.Edit, editLabel) { onNavigate("ai_action_edit/${action.id}") })
+                        if (stored) {
+                            val remove = { scope.launch { repository.deleteAiAction(action.id) }; Unit }
+                            add(
+                                if (shipped != null) SwipeAction(Icons.Outlined.Refresh, removeLabel, onClick = remove)
+                                else deleteSwipeAction(removeLabel, remove),
+                            )
+                        }
                     },
                     trailing = {
                         IconButton(onClick = { onNavigate("ai_action_edit/${action.id}") }) {

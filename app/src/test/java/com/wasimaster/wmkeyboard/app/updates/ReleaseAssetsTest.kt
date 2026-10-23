@@ -80,6 +80,8 @@ class ReleaseAssetsTest {
         assertNull(ReleaseAssets.parseAssetName("wmkeyboard-0.5.12-vc30-full-intl-nointernet-arm64-v8a.apk"))
         assertNull(ReleaseAssets.parseAssetName("wmkeyboard-0.5.12-vc30-full-intl-nointernet-universal.apk"))
         assertNull(ReleaseAssets.parseAssetName("wmkeyboard-0.5.14-vc32-lite-en-nointernet-arm64-v8a.apk"))
+        assertNull(ReleaseAssets.parseAssetName("wmkeyboard-0.6.4-vc380-full-en-nointernet-arm64-v8a.apk"))
+        assertNull(ReleaseAssets.parseAssetName("wmkeyboard-0.6.4-vc380-full-en-nointernet-universal.apk"))
     }
 
     @Test
@@ -117,6 +119,23 @@ class ReleaseAssetsTest {
     fun `never offers the other edition`() {
         val release = release(names = listOf("wmkeyboard-0.5.3-vc14-lite-arm64-v8a.apk"))
         assertNull(ReleaseAssets.pickAsset(release, "full", listOf("arm64-v8a")))
+    }
+
+    @Test
+    fun `lite and all-languages installs move onto the standard build`() {
+        val release = release(
+            names = listOf(
+                "wmkeyboard-0.6.3-vc36-full-en-arm64-v8a.apk",
+                "wmkeyboard-0.6.3-vc36-full-en-universal.apk",
+                "wmkeyboard-0.6.3-vc36-lang-fr.apk",
+            ),
+        )
+        for ((flavor, languages) in listOf("lite" to "en", "lite" to "intl", "full" to "intl")) {
+            assertEquals(
+                "wmkeyboard-0.6.3-vc36-full-en-arm64-v8a.apk",
+                ReleaseAssets.pickAsset(release, flavor, listOf("arm64-v8a"), languages)?.name,
+            )
+        }
     }
 
     @Test

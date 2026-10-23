@@ -349,6 +349,8 @@ import com.wasimaster.wmkeyboard.ime.top
 import com.wasimaster.wmkeyboard.ime.glideAnchor
 import com.wasimaster.wmkeyboard.ime.HINT_FLICK_MIN_TRAVEL_HEIGHTS
 import com.wasimaster.wmkeyboard.ime.hintFlick
+import com.wasimaster.wmkeyboard.ime.inAnotherLetterCore
+import com.wasimaster.wmkeyboard.ime.NoLetter
 import com.wasimaster.wmkeyboard.core.clipboard.clipPreviewText
 import com.wasimaster.wmkeyboard.ime.KeyFlickDirection
 import com.wasimaster.wmkeyboard.ime.keyFlick
@@ -414,6 +416,7 @@ import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.barRowsAboveKeys
 import com.wasimaster.wmkeyboard.core.settings.barRowsBelowKeys
+import com.wasimaster.wmkeyboard.core.settings.RecentWordPlacement
 import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
@@ -536,6 +539,7 @@ import com.wasimaster.wmkeyboard.ime.SnippetOfferKind
 import com.wasimaster.wmkeyboard.ime.SnippetOfferSet
 import com.wasimaster.wmkeyboard.ime.SnippetPickerUi
 import com.wasimaster.wmkeyboard.ime.StripOfferAction
+import com.wasimaster.wmkeyboard.ime.ZawgyiOffer
 import com.wasimaster.wmkeyboard.ime.WordMenuAction
 import com.wasimaster.wmkeyboard.ime.WordMenuFacts
 import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
@@ -547,6 +551,8 @@ import com.wasimaster.wmkeyboard.ime.CaptureTarget
 import com.wasimaster.wmkeyboard.ime.CaptureSelectionAction
 import com.wasimaster.wmkeyboard.ime.CaptureVoiceAction
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.SearchTab
+import com.wasimaster.wmkeyboard.ime.RecentBarWord
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
@@ -555,6 +561,7 @@ import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.fieldVoiceSpeaks
 import com.wasimaster.wmkeyboard.ime.voiceChipOnly
+import com.wasimaster.wmkeyboard.ime.voiceStripShown
 import com.wasimaster.wmkeyboard.ime.supportedVoiceModes
 import com.wasimaster.wmkeyboard.ime.SizingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
@@ -588,6 +595,7 @@ import com.wasimaster.wmkeyboard.core.layout.AlternateEntry
 import com.wasimaster.wmkeyboard.core.layout.alternateEntries
 import com.wasimaster.wmkeyboard.core.layout.flickKey
 import com.wasimaster.wmkeyboard.core.layout.asKanaVariantKey
+import com.wasimaster.wmkeyboard.core.layout.withModeNames
 import com.wasimaster.wmkeyboard.core.layout.clipboardAlternate
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -1545,6 +1553,11 @@ fun KeyboardScreen(
                 anchor = bodyState.captureAnchorIndex(),
                 onSelect = capture.onSelect,
                 onSelectionAction = capture.onSelectionAction,
+                // The focus switch (#665), on every field that can let go of the keys.
+                toApp = bodyState.captureHandedToApp,
+                onFocusSwitch = capture.onFocusSwitch.takeIf {
+                    bodyState.panelFieldTarget()?.handsKeysToApp == true
+                },
             ),
             LocalSelectionTools provides selectionTools(bodyState, capture.onAiChat),
             LocalOctopusWords provides rememberUpdatedState(bodyState.octopus),
@@ -2157,33 +2170,41 @@ private fun KeyboardScreenFrame(
                         // window with no background; the service restricts the
                         // touchable region to the panel so everything else
                         // falls through to the app behind.
-                        FloatingKeyboardFrame(
-                            state = state,
-                            onDock = { onFloatingChange(false) },
-                            onMoved = onFloatingMoved,
-                            onResized = { widthDp, heightScale ->
-                                onSizingAction(SizingAction.Floating(widthDp, heightScale))
-                            },
-                            onBounds = onFloatingBounds,
-                            keyPreview = keyPreview,
-                            keyGridFocus = panelFocus.keyGrid,
-                            onRingKey = onKey,
-                            onRingText = onText,
-                            content = { heightScale ->
-                                // Key height carries the whole layout (panels
-                                // included), so scaling it scales the
-                                // keyboard's height.
-                                val scaled = if (heightScale == 1f) {
-                                    state
-                                } else {
-                                    state.withKeyHeights(
-                                        (state.settings.keyHeightDp * heightScale).roundToInt(),
-                                        (state.settings.numberRowHeightDp * heightScale).roundToInt(),
-                                    )
-                                }
-                                movableBody(scaled)
-                            },
-                        )
+                        //
+                        // No window blur here: the window spans the screen, so
+                        // a blur would soften the whole app. Hiding the host
+                        // tells the glass so, and the board falls back to the
+                        // theme's fallback opacity (or the wallpaper backdrop)
+                        // instead of sitting see-through on a sharp app.
+                        CompositionLocalProvider(LocalWindowFrost provides NoWindowFrost) {
+                            FloatingKeyboardFrame(
+                                state = state,
+                                onDock = { onFloatingChange(false) },
+                                onMoved = onFloatingMoved,
+                                onResized = { widthDp, heightScale ->
+                                    onSizingAction(SizingAction.Floating(widthDp, heightScale))
+                                },
+                                onBounds = onFloatingBounds,
+                                keyPreview = keyPreview,
+                                keyGridFocus = panelFocus.keyGrid,
+                                onRingKey = onKey,
+                                onRingText = onText,
+                                content = { heightScale ->
+                                    // Key height carries the whole layout (panels
+                                    // included), so scaling it scales the
+                                    // keyboard's height.
+                                    val scaled = if (heightScale == 1f) {
+                                        state
+                                    } else {
+                                        state.withKeyHeights(
+                                            (state.settings.keyHeightDp * heightScale).roundToInt(),
+                                            (state.settings.numberRowHeightDp * heightScale).roundToInt(),
+                                        )
+                                    }
+                                    movableBody(scaled)
+                                },
+                            )
+                        }
                     } else {
                         DockedKeyboardFrame(
                             state = state,
@@ -3597,9 +3618,14 @@ private fun TopBar(
     // rests, the chevron is not offered for them, and the first key moves the
     // caret off the start, at which point the candidates take the row as they
     // always did.
+    // The same goes for the openers after a sentence end or at the start of a
+    // new line (#889): a new line is not the line above going on, and the
+    // toolbar is what someone starting one reaches for.
     // Not in an email field, where the strip only ever holds addresses: the
     // remembered ones are offered at the start of the field on purpose (#475).
-    val openersAtRest = !suggestionsFirst && state.caretAtFieldStart &&
+    val atSentenceStart = state.caretAtFieldStart ||
+        (state.suggestions.isNotEmpty() && state.suggestions === state.sentenceOpeners)
+    val openersAtRest = !suggestionsFirst && atSentenceStart &&
         state.fieldKind != FieldKind.EMAIL &&
         state.composingPreview.isEmpty() &&
         (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty())
@@ -3627,6 +3653,9 @@ private fun TopBar(
         // And its conversion twin, which now also goes up as the layout does,
         // before anything is typed.
         state.conversionPackOffer != null ||
+        // And the Zawgyi chip, which lands on a paste or on entering a field,
+        // both moments with nothing being typed.
+        state.zawgyiOffer != null ||
         // And the one offering a swiped word's path to the whole dictionary,
         // which is up while the caret rests inside that word (#135).
         state.glideSearchChip != null ||
@@ -3711,9 +3740,12 @@ private fun TopBar(
     // the row takes in the bar order, since that is where it will appear.
     val barOrder = state.settings.barOrder
     val toolsRowAbove = barOrder.indexOf(BarRow.TOOLS) < barOrder.indexOf(BarRow.TOPBAR)
+    // The number pad types into the field, and a snippet it triggers (#815)
+    // is offered on the strip: the toolbar must not cover the chip (#876).
+    val numpadOffer = state.panel == PanelMode.NUMPAD && state.snippetOffers != null
     val wantToolbar = !toolsOwnRow &&
         (
-            state.panel != PanelMode.NONE || toolbarOverride ||
+            (state.panel != PanelMode.NONE && !numpadOffer) || toolbarOverride ||
                 (!hasSuggestions && emptySettled && !suggestionsFirst)
             )
 
@@ -3988,7 +4020,7 @@ private fun TopBar(
         // Interactive voice typing gets a microphone button instead and the
         // strip carries on: there the keys are used all through the session,
         // so the candidates have to stay reachable. See [VoiceMicChip].
-        if (state.voice.strip) {
+        if (state.voiceStripShown()) {
             if (state.voiceChipOnly()) {
                 VoiceMicChip(state = state, onToggle = onVoiceToggle)
             } else {
@@ -4370,8 +4402,24 @@ private fun RowScope.StripOfferChips(
     // wants ANSI is the one being typed in, and that is when it is
     // reached for.
     if (state.language.id == "bn" && state.settings.suggestionStrip.bengaliAnsiAllowed) {
-        AnsiToggle(active = state.settings.suggestionStrip.bengaliAnsiOn) {
+        EncodingToggle(
+            active = state.settings.suggestionStrip.bengaliAnsiOn,
+            label = stringResource(R.string.ime_ansi_button),
+            description = stringResource(R.string.ime_ansi_output),
+        ) {
             onStripOfferAction(StripOfferAction.ToggleAnsi)
+        }
+    }
+    // Burmese's Zawgyi button, the same switch for the same reason. Lit by
+    // what the layout writes now, which the strip's offer can turn on for one
+    // field without the setting.
+    if (state.language.id == "my" && state.settings.suggestionStrip.burmeseZawgyiAllowed) {
+        EncodingToggle(
+            active = state.zawgyiOutput,
+            label = stringResource(R.string.ime_zawgyi_button),
+            description = stringResource(R.string.ime_zawgyi_output),
+        ) {
+            onStripOfferAction(StripOfferAction.ToggleZawgyi)
         }
     }
     // Autofill chips take the whole strip while they are up: they
@@ -4638,6 +4686,31 @@ private fun RowScope.StripOfferChips(
             onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
             onDismiss = { onStripOfferAction(StripOfferAction.Decline) },
         )
+    }
+    // Zawgyi found where Unicode was expected: text just pasted, or the field
+    // the user is typing Burmese into. After every chip about the word being
+    // typed, since it is about text already in the field.
+    val zawgyiOffer = state.zawgyiOffer
+    if (snippetOffer == null && learnOffer == null && sandboxOffer == null &&
+        wordListOffer == null && packOffer == null && searchChip == null && zawgyiOffer != null
+    ) {
+        val zawgyiShares = suggestionsShowing || state.smart != null
+        OfferChip(
+            label = stringResource(
+                if (zawgyiOffer is ZawgyiOffer.Pasted) R.string.ime_zawgyi_paste_offer else R.string.ime_zawgyi_field_offer,
+            ),
+            icon = Icons.Outlined.Translate,
+            declineDescription = stringResource(R.string.ime_zawgyi_offer_dismiss_desc),
+            onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
+            onDecline = { onStripOfferAction(StripOfferAction.Decline) },
+            stretch = !zawgyiShares,
+            modifier = if (zawgyiShares) {
+                Modifier.widthIn(max = 260.dp).padding(horizontal = 4.dp)
+            } else {
+                Modifier.weight(1f).padding(horizontal = 4.dp)
+            },
+        )
+        if (!zawgyiShares) return true
     }
     // Stickers of the user's own that the text before the cursor asked
     // for (#329), in the two styles that put them here rather than in
@@ -5140,10 +5213,6 @@ private fun RowScope.StripWords(
                 }
             }
         }
-        // The recent-word bar (#787), ahead of the live words.
-        if (state.recentBar.isNotEmpty() && state.settings.suggestionStrip.recentWordBar) {
-            RecentWordBar(state.recentBar, suggestionHold)
-        }
         LatinSuggestionChips(
             // One slot, so the word sits centred across the whole strip
             // rather than in the first of three (see [glideStripOnly]).
@@ -5188,6 +5257,23 @@ private fun RowScope.StripWords(
             primarySlot = (1 - leadSlots).coerceAtLeast(0),
             tinted = state.settings.suggestionStrip.tintedSlots,
         )
+        // A strip that scrolls gets the arrow the conversion strip has (#890):
+        // past the words it scrolls through, the rest of the ranked list opens
+        // in the same grid a swipe down does. Outside the scroll, as there, so
+        // it cannot scroll away itself.
+        if (state.settings.suggestionStrip.scrollable && state.settings.suggestionStrip.moreArrow &&
+            !glideStripOnly && shownSuggestions.size > wordSlots
+        ) {
+            IconHint(stringResource(R.string.ime_candidates_more_desc)) {
+                IconButton(onClick = onCandidatesExpand, enabled = suggestionsShowing) {
+                    Icon(
+                        Icons.Outlined.ArrowDropDown,
+                        contentDescription = stringResource(R.string.ime_candidates_more_desc),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
         // The word card (#99) is a window over the whole keyboard, so
         // where it is composed does not matter; it lives beside the
         // strip that opens it. It steps aside while its own spelling
@@ -5391,7 +5477,7 @@ private fun RowScope.InlineEmojiChips(
  * read inside a graphics layer so the fade does not recompose the row.
  */
 @Composable
-private fun RowScope.LatinSuggestionChips(
+internal fun RowScope.LatinSuggestionChips(
     candidates: List<String>,
     enabled: Boolean,
     alpha: () -> Float,
@@ -5594,7 +5680,13 @@ private fun RowScope.LatinSuggestionChips(
                     // Hold, then slide (#790): up lifts the word, down sinks
                     // it, and far enough down never suggests it again. Only
                     // watched once the hold has fired, so a tap, a swipe
-                    // along the strip and a plain hold are untouched.
+                    // along the strip and a plain hold are untouched. The
+                    // hold opens the menu first, and the first full step of
+                    // a slide closes it: the two never answer together
+                    // (#843). A word already on the never-suggest list does
+                    // not slide; its menu's Allow again is the way back, and
+                    // a rank saved for a word that stays hidden changes
+                    // nothing anyone can see.
                     .pointerInput(suggestion, enabled) {
                         if (!enabled) return@pointerInput
                         val stepPx = RankSlideStep.toPx()
@@ -5602,31 +5694,53 @@ private fun RowScope.LatinSuggestionChips(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             var anchorY = Float.NaN
                             var held = 0
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                if (anchorY.isNaN() && heldWord == suggestion) {
-                                    anchorY = change.position.y
-                                    held = heldFacts.rankSteps
-                                }
-                                if (!anchorY.isNaN() && change.pressed) {
-                                    val steps = ((anchorY - change.position.y) / stepPx).toInt()
-                                    val current = rankSlide
-                                    if (steps != 0 || current != null) {
-                                        if (current == null || current.steps != steps) {
-                                            rankSlide = RankSlide(suggestion, held, steps)
+                            var lifted = false
+                            // The badge goes however the gesture ends (#843):
+                            // a strip that changes the word in this slot
+                            // restarts this block and cancels the loop, and
+                            // nothing after it would run. Nothing is saved then.
+                            try {
+                                while (true) {
+                                    // The Initial pass, where a lift is still
+                                    // unconsumed: the long press consumes
+                                    // everything up to the lift in the Main
+                                    // pass, while Compose's synthetic cancel
+                                    // arrives consumed in every pass (#824).
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (anchorY.isNaN() && heldWord == suggestion && !heldFacts.blacklisted) {
+                                        // Where the finger was when the hold
+                                        // fired: this event may already be the
+                                        // first step of the slide.
+                                        anchorY = change.previousPosition.y
+                                        held = heldFacts.rankSteps
+                                    }
+                                    if (!anchorY.isNaN() && change.pressed) {
+                                        val steps = ((anchorY - change.position.y) / stepPx).toInt()
+                                        val current = rankSlide
+                                        if (steps != 0 || current != null) {
+                                            if (current == null || current.steps != steps) {
+                                                rankSlide = RankSlide(suggestion, held, steps)
+                                            }
+                                            // The menu was the hold's answer; a slide is a different one.
+                                            heldWord = null
+                                            change.consume()
                                         }
-                                        // The menu was the hold's answer; a slide is a different one.
-                                        heldWord = null
-                                        change.consume()
+                                    }
+                                    if (!change.pressed) {
+                                        lifted = !change.isConsumed
+                                        break
                                     }
                                 }
-                                if (!change.pressed) break
-                            }
-                            val slide = rankSlide
-                            rankSlide = null
-                            if (slide != null && slide.word == suggestion && slide.steps != 0) {
-                                suggestionHold.onRankSlide(slide.word, slide.target, slide.blocks)
+                                val slide = rankSlide
+                                rankSlide = null
+                                // Only a real lift saves the preview (#824); a
+                                // cancelled touch leaves the word as it was.
+                                if (lifted && slide != null && slide.word == suggestion && slide.steps != 0) {
+                                    suggestionHold.onRankSlide(slide.word, slide.target, slide.blocks)
+                                }
+                            } finally {
+                                if (rankSlide?.word == suggestion) rankSlide = null
                             }
                         }
                     }
@@ -5854,6 +5968,15 @@ private fun RowScope.LatinSuggestionChips(
                         label = stringResource(R.string.ime_word_menu_synonyms, held),
                         icon = Icons.Outlined.SwapHoriz,
                     ) { act(WordMenuAction.Synonyms(held)) }
+                }
+                // About the caret's word too, like the search above: take it
+                // back out and type it again (#844), with no binding needed.
+                val retypable = heldFacts.retypable
+                if (retypable != null) {
+                    WordMenuRow(
+                        label = stringResource(R.string.ime_word_menu_retype, retypable),
+                        icon = Icons.AutoMirrored.Outlined.Undo,
+                    ) { act(WordMenuAction.Retype(retypable)) }
                 }
                 // Always offered: the card carries every action above but
                 // Synonyms too, so a menu trimmed to this one item still
@@ -8389,6 +8512,9 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CLIPBOARD -> R.string.ime_tool_clipboard
     ToolbarTool.CLIPBOARD_SEARCH -> R.string.ime_tool_clipboard_search
     ToolbarTool.RECENT_COPIES -> R.string.ime_tool_recent_copies
+    ToolbarTool.LEAVE_FIELD -> R.string.ime_tool_leave_field
+    ToolbarTool.QUICK_NOTE -> R.string.ime_tool_quick_note
+    ToolbarTool.READ_BACK -> R.string.ime_tool_read_back
     ToolbarTool.SNIPPETS -> R.string.ime_tool_snippets
     ToolbarTool.TEXT_EDIT -> R.string.ime_tool_text_edit
     ToolbarTool.TRACKPAD -> R.string.ime_tool_trackpad
@@ -8534,7 +8660,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.GIF -> state.panel == PanelMode.GIF
     ToolbarTool.STICKER -> state.panel == PanelMode.STICKER
     ToolbarTool.WEB_SEARCH -> state.panel == PanelMode.WEB_SEARCH
-    ToolbarTool.IMAGE_SEARCH -> state.panel == PanelMode.IMAGE_SEARCH
+    ToolbarTool.IMAGE_SEARCH -> state.panel == PanelMode.WEB_SEARCH && state.searchTab == SearchTab.IMAGES
     ToolbarTool.OCR -> state.panel == PanelMode.OCR
     ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
     ToolbarTool.DOC_SCAN -> false
@@ -8542,6 +8668,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.STATISTICS -> false
     ToolbarTool.FIND_REPLACE -> state.panel == PanelMode.FIND_REPLACE
     ToolbarTool.NOTES -> state.panel == PanelMode.NOTES
+    ToolbarTool.QUICK_NOTE -> state.panel == PanelMode.NOTES && state.notes.quick
     ToolbarTool.LOCATION -> state.panel == PanelMode.LOCATION
     ToolbarTool.CLOCK -> state.panel == PanelMode.CLOCK
     ToolbarTool.HOME_ASSISTANT -> state.panel == PanelMode.HOME_ASSISTANT
@@ -8587,9 +8714,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     // The clipboard trio the same: they act and are done.
     ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
     // A one-shot action too — it hides the keyboard, nothing to keep lit.
-    ToolbarTool.HIDE_KEYBOARD -> false
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD -> false
     // Switches and is done, like the 🌐 key it stands in for.
     ToolbarTool.LANGUAGE -> false
+    // Lit while it reads, so the second tap reads as Stop.
+    ToolbarTool.READ_BACK -> state.readingBack
 }
 
 /**
@@ -10343,16 +10472,16 @@ private fun StripToolButton(
 }
 
 /**
- * The ANSI button on a Bengali layout's strip: the word ANSI on a pill the
- * height of a compact [ToolCircle], filled while the layouts write ANSI. A word
- * rather than an icon, because ANSI is what the fonts that want it call it and
- * no glyph says it better.
+ * The ANSI button on a Bengali layout's strip, and the Zawgyi one on a Burmese
+ * layout's: the encoding's name on a pill the height of a compact
+ * [ToolCircle], filled while the layouts write it. A word rather than an icon,
+ * because ANSI and Zawgyi are what the fonts that want them are called and no
+ * glyph says it better.
  */
 @Composable
-private fun AnsiToggle(active: Boolean, onClick: () -> Unit) {
+private fun EncodingToggle(active: Boolean, label: String, description: String, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
     val shape = kb.toolShape()
-    val description = stringResource(R.string.ime_ansi_output)
     Box(
         modifier = Modifier
             .height(CompactToolSide.dp)
@@ -10371,7 +10500,7 @@ private fun AnsiToggle(active: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            stringResource(R.string.ime_ansi_button),
+            label,
             color = if (active) kb.toolCircleActiveIcon else kb.toolbarIcon,
             fontSize = 11.sp,
             lineHeight = 12.sp,
@@ -11491,6 +11620,7 @@ private fun ToolboxGrid(
     }
     FlowRow(
         modifier = Modifier
+            .highFrameRateWhile(gridScroll.isScrollInProgress)
             .verticalScroll(gridScroll)
             .onGloballyPositioned {
                 gridCoords = it
@@ -12597,6 +12727,7 @@ internal fun fullBleedHiddenRows(
         (if (state.settings.rows.dictionaryBarEnabled) DictionaryRowHeight else 0.dp) +
         // Avro's candidate row rides above the strip, so it hides with it.
         (if (phoneticCandidateBarShown(state)) PhoneticCandidateRowHeight else 0.dp) +
+        (if (recentRowShown(state)) RecentRowHeight else 0.dp) +
         // The macro row is state-driven, so unlike the on-demand tools row it
         // can be counted: whether it is on screen is in the ui state this
         // function already has.
@@ -12831,7 +12962,9 @@ private const val ShortLandscapeMaxHeightDp = 480
  * draws [TypingTestStrip] in it, and the word card's spelling bar *is* it.
  */
 internal fun captureStripShown(state: KeyboardUiState): Boolean {
-    val target = state.captureTarget() ?: return false
+    // The tool's field, keys or not: the focus switch (#665) leaves the row
+    // standing, empty, rather than resizing the panel on every press.
+    val target = state.panelFieldTarget() ?: return false
     return target.takesWords &&
         target != CaptureTarget.TYPING_TEST &&
         target != CaptureTarget.WORD_SPELL &&
@@ -13300,52 +13433,76 @@ private fun KeyboardBody(
                             // The strip given up for the tools' own row (#302).
                             // Compact dictation still takes it: that bar is the
                             // session's only status and its only way out.
-                            state.settings.toolbarBehavior.stripHidden && !state.voice.strip -> {}
-                            stripGivenToCapture && !state.voice.strip -> {}
+                            state.settings.toolbarBehavior.stripHidden && !state.voiceStripShown() -> {}
+                            stripGivenToCapture && !state.voiceStripShown() -> {}
                             else -> {
                                 // Avro's candidate list, when the phonetic layout's
                                 // language asks for it in a row of its own, sits
                                 // directly over the strip it belongs to.
                                 if (phoneticCandidateBarShown(state)) PhoneticCandidateBar(state, onSuggestion)
-                                WithNetActivityDot(
-                                    state.settings.networkLog.showOnKeyboard,
-                                    state.settings.toolColorOverrides,
-                                ) { TopBar(
-                                    state,
-                                    toolsRowOpen = toolsRowOpen,
-                                    onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
-                                    onSuggestion = onSuggestion,
-                                    suggestionHold = suggestionHold,
-                                    onJoinSuggestion = onJoinSuggestion,
-                                    onRevisionSuggestion = onRevisionSuggestion,
-                                    onCandidate = onCandidate,
-                                    onCandidatesExpand = onCandidatesExpand,
-                                    onEmoji = onEmoji,
-                                    onEmojiSuggestion = onEmojiSuggestion,
-                                    onPunctuation = onPunctuation,
-                                    onPanelChange = onPanelChange,
-                                    onToolTap = onToolTap,
-                                    drag = drag,
-                                    onVoiceToggle = onVoiceToggle,
-                                    onVoiceUndo = onVoiceUndo,
-                                    onVoicePermissionRequest = onVoicePermissionRequest,
-                                    onOpenVoiceSettings = onOpenVoiceSettings,
-                                    onVoiceAction = onVoiceRailKey,
-                                    onDismissInlineSuggestions = onDismissInlineSuggestions,
-                                    onSmartAccept = onSmartAccept,
-                                    onSmartOpen = onSmartOpen,
-                                    vocab = toolHold.vocab,
-                                    stickerOffer = toolHold.stickerOffer,
-                                    onStripOfferAction = onStripOfferAction,
-                                    onClipboardSuggestion = onClipboardItem,
-                                    onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
-                                    onRecentClipsToggle = onRecentClipsToggle,
-                                    onClipboardEntity = onClipboardEntity,
-                                    onOtpAccept = onOtpAccept,
-                                    onOtpDismiss = onOtpDismiss,
-                                    onEmojiRowShown = onEmojiRowShown,
-                                    onSwipeDownHide = onHideKeyboard,
-                                ) }
+                                @Composable
+                                fun StripWithDot() {
+                                    WithNetActivityDot(
+                                        state.settings.networkLog.showOnKeyboard,
+                                        state.settings.toolColorOverrides,
+                                    ) { TopBar(
+                                        state,
+                                        toolsRowOpen = toolsRowOpen,
+                                        onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
+                                        onSuggestion = onSuggestion,
+                                        suggestionHold = suggestionHold,
+                                        onJoinSuggestion = onJoinSuggestion,
+                                        onRevisionSuggestion = onRevisionSuggestion,
+                                        onCandidate = onCandidate,
+                                        onCandidatesExpand = onCandidatesExpand,
+                                        onEmoji = onEmoji,
+                                        onEmojiSuggestion = onEmojiSuggestion,
+                                        onPunctuation = onPunctuation,
+                                        onPanelChange = onPanelChange,
+                                        onToolTap = onToolTap,
+                                        drag = drag,
+                                        onVoiceToggle = onVoiceToggle,
+                                        onVoiceUndo = onVoiceUndo,
+                                        onVoicePermissionRequest = onVoicePermissionRequest,
+                                        onOpenVoiceSettings = onOpenVoiceSettings,
+                                        onVoiceAction = onVoiceRailKey,
+                                        onDismissInlineSuggestions = onDismissInlineSuggestions,
+                                        onSmartAccept = onSmartAccept,
+                                        onSmartOpen = onSmartOpen,
+                                        vocab = toolHold.vocab,
+                                        stickerOffer = toolHold.stickerOffer,
+                                        onStripOfferAction = onStripOfferAction,
+                                        onClipboardSuggestion = onClipboardItem,
+                                        onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
+                                        onRecentClipsToggle = onRecentClipsToggle,
+                                        onClipboardEntity = onClipboardEntity,
+                                        onOtpAccept = onOtpAccept,
+                                        onOtpDismiss = onOtpDismiss,
+                                        onEmojiRowShown = onEmojiRowShown,
+                                        onSwipeDownHide = onHideKeyboard,
+                                    ) }
+                                }
+                                // At the start of the strip, when the recent
+                                // words are set to go there rather than in a
+                                // row of their own (#894).
+                                val inlineRecent = recentWordsInline(state)
+                                if (inlineRecent) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        RecentWordRow(
+                                            state.recentBar,
+                                            suggestionHold,
+                                            Modifier.widthIn(max = InlineRecentMaxWidth).height(topBarHeight(state.settings)),
+                                        )
+                                        VerticalDivider(
+                                            modifier = Modifier.height(20.dp),
+                                            thickness = SuggestionDividerWidth,
+                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                        )
+                                        Box(Modifier.weight(1f)) { StripWithDot() }
+                                    }
+                                } else {
+                                    StripWithDot()
+                                }
                             }
                         }
                         BarRow.EMOJI -> if (showEmojiRow) {
@@ -13454,6 +13611,20 @@ private fun KeyboardBody(
                             val trayFitsPanel = !fullBleed || state.panel == PanelMode.EMOJI
                             if (trayFitsPanel && !lockHidden && !clipboardSearching && !emojiSearching) {
                                 StickerTrayRow(state, toolHold.stickerOffer)
+                            }
+                        }
+                        // The recent words in a row of their own (#814, #894),
+                        // wherever the order puts it. They go with the strip,
+                        // so whatever takes the strip away takes them too;
+                        // kept steady, the row holds its height while empty.
+                        BarRow.RECENT -> if (
+                            state.wordSpell == null && topBarVisible && !stripMacros &&
+                            !stripGivenToCapture && recentRowShown(state)
+                        ) {
+                            if (state.recentBar.isEmpty()) {
+                                Spacer(Modifier.fillMaxWidth().height(RecentRowHeight))
+                            } else {
+                                RecentWordRow(state.recentBar, suggestionHold)
                             }
                         }
                         // Stands for the keys themselves: the split below draws
@@ -13675,26 +13846,22 @@ private fun KeyboardBody(
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic, onOpenRoute)
                 PanelMode.NUMPAD -> NumpadPanelHost(state, panelCallbacks)
                 PanelMode.CANDIDATES -> CandidateGridPanel(state, onCandidate, suggestionHold.onCandidateAdjust)
-                PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
-                    HandwritingPanelHost(
-                        state, panelCallbacks,
-                        onStroke = onHandwritingStroke,
-                        onUndoStroke = onHandwritingUndo,
-                        onDownloadModel = onHandwritingDownload,
-                    )
-                } else {
-                    onPanelChange(PanelMode.SNIPPETS)
-                }
+                PanelMode.HANDWRITING -> HandwritingPanelHost(
+                    state, panelCallbacks,
+                    onStroke = onHandwritingStroke,
+                    onUndoStroke = onHandwritingUndo,
+                    onDownloadModel = onHandwritingDownload,
+                )
                 PanelMode.CAMERA -> CameraPanel(
                     state = state,
                     onSend = onCameraSend,
                     onRequestPermission = onCameraPermissionRequest,
-                    // Toggling the open panel closes it; opened from image
-                    // search, back goes back there, and from a clip (#807), to the clipboard.
+                    // Toggling the open panel closes it; opened from search,
+                    // back goes back there, and from a clip (#807), to the clipboard.
                     onClose = {
                         onPanelChange(
                             when {
-                                state.cameraSearchOnly -> PanelMode.IMAGE_SEARCH
+                                state.cameraSearchOnly -> PanelMode.WEB_SEARCH
                                 state.cameraImage != null -> PanelMode.CLIPBOARD
                                 else -> PanelMode.CAMERA
                             },
@@ -13703,29 +13870,21 @@ private fun KeyboardBody(
                     location = toolHold.location,
                     photo = toolHold.photo,
                 )
-                PanelMode.OCR -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
-                    OcrPanel(
-                        state = state,
-                        onInsert = onScannedInsert,
-                        onRequestPermission = onCameraPermissionRequest,
-                        // Opened on a clip's picture (#371), back goes back to the clipboard.
-                        onClose = { onPanelChange(if (state.ocrImage != null) PanelMode.CLIPBOARD else PanelMode.OCR) },
-                        onTranslate = toolHold.photo.onTranslateText,
-                    )
-                } else {
-                    onPanelChange(PanelMode.SNIPPETS)
-                }
-                PanelMode.QR_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
-                    QrScanPanel(
-                        state = state,
-                        onInsert = onScannedInsert,
-                        onOpenUrl = onScannedUrlOpen,
-                        onRequestPermission = onCameraPermissionRequest,
-                        onClose = { onPanelChange(PanelMode.QR_SCAN) },
-                    )
-                } else {
-                    onPanelChange(PanelMode.SNIPPETS)
-                }
+                PanelMode.OCR -> OcrPanel(
+                    state = state,
+                    onInsert = onScannedInsert,
+                    onRequestPermission = onCameraPermissionRequest,
+                    // Opened on a clip's picture (#371), back goes back to the clipboard.
+                    onClose = { onPanelChange(if (state.ocrImage != null) PanelMode.CLIPBOARD else PanelMode.OCR) },
+                    onTranslate = toolHold.photo.onTranslateText,
+                )
+                PanelMode.QR_SCAN -> QrScanPanel(
+                    state = state,
+                    onInsert = onScannedInsert,
+                    onOpenUrl = onScannedUrlOpen,
+                    onRequestPermission = onCameraPermissionRequest,
+                    onClose = { onPanelChange(PanelMode.QR_SCAN) },
+                )
                 PanelMode.VOICE -> VoicePanel(
                     state = state,
                     onToggle = onVoiceToggle,
@@ -13896,36 +14055,19 @@ private fun KeyboardBody(
                         )
                     }
                 }
-                PanelMode.WEB_SEARCH -> FullBleedTool(
+                // Image search is this panel's Images tab (#879); the service
+                // never leaves IMAGE_SEARCH up, but it draws the same if it did.
+                PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH -> FullBleedTool(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.WEB_SEARCH) },
                     compact = state.mediaSearchActive,
                     headerActions = {
                         MediaHeaderSearchBar(
                             state = state,
-                            placeholder = stringResource(R.string.ime_web_search_hint),
-                            onQueryTap = onMediaQueryTap,
-                            onClear = onMediaQueryClear,
-                            attribution = searchAttribution(state.settings),
-                        )
-                    },
-                ) {
-                    WebSearchPanel(
-                        state = state,
-                        onRetry = onMediaRetry,
-                        onResult = onWebResult,
-                        onOpen = onWebResultOpen,
-                        onOpenToolSettings = onOpenToolSettings,
-                    )
-                }
-                PanelMode.IMAGE_SEARCH -> FullBleedTool(
-                    state, title = "",
-                    onClose = { onPanelChange(PanelMode.IMAGE_SEARCH) },
-                    compact = state.mediaSearchActive,
-                    headerActions = {
-                        MediaHeaderSearchBar(
-                            state = state,
-                            placeholder = stringResource(R.string.ime_image_search_hint),
+                            placeholder = stringResource(
+                                if (state.searchTab == SearchTab.IMAGES) R.string.ime_image_search_hint
+                                else R.string.ime_web_search_hint,
+                            ),
                             onQueryTap = onMediaQueryTap,
                             onClear = onMediaQueryClear,
                             attribution = searchAttribution(state.settings),
@@ -13933,11 +14075,12 @@ private fun KeyboardBody(
                         SearchByPhotoButton { onPanelChange(PanelMode.CAMERA) }
                     },
                 ) {
-                    ImageSearchPanel(
+                    WebSearchPanel(
                         state = state,
                         onRetry = onMediaRetry,
-                        onResult = onImageResult,
-                        onResultLink = onImageResultLink,
+                        onResult = onWebResult,
+                        onOpen = onWebResultOpen,
+                        onImageResult = onImageResult,
                         onOpenToolSettings = onOpenToolSettings,
                     )
                 }
@@ -13983,9 +14126,12 @@ private fun KeyboardBody(
                         )
                     }
                 }
+                // Collapsed over the key rows while the focus switch sends the
+                // keys to the app's field (#665), like any tool whose box lets go.
                 PanelMode.CALCULATOR -> FullBleedTool(
                     state, stringResource(R.string.ime_tool_calculator),
                     onClose = { onPanelChange(PanelMode.CALCULATOR) },
+                    compact = state.captureHandedToApp,
                 ) { CalculatorPanel(state, onToolInsert, converter) }
                 // The converters open at the calculator's height too (#665): their
                 // keypad is the flexible part and shrinks to fit under the unit
@@ -13993,10 +14139,12 @@ private fun KeyboardBody(
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
                     state, stringResource(R.string.ime_unit_convert_title),
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
+                    compact = state.captureHandedToApp,
                 ) { UnitConverterPanel(state, onToolInsert, converter, onToolPrefillConsumed) }
                 PanelMode.CURRENCY -> FullBleedTool(
                     state, stringResource(R.string.ime_tool_currency),
                     onClose = { onPanelChange(PanelMode.CURRENCY) },
+                    compact = state.captureHandedToApp,
                 ) {
                     CurrencyPanel(
                         state = state,
@@ -15530,6 +15678,15 @@ internal fun KeyRects.hintFlickTarget(point: Offset): Pair<Key, Rect>? {
 }
 
 /**
+ * The test a flick off the key in [cell] asks at its lift (#859): whether a
+ * point, in the box space of a stroke whose box sits at [origin] in root space,
+ * is in the core of another letter key. See [inAnotherLetterCore].
+ */
+internal fun KeyRects.anotherLetterFrom(cell: Rect, origin: Offset): (Float, Float) -> Boolean = { x, y ->
+    inAnotherLetterCore(x + origin.x, y + origin.y, cell) { rx, ry -> letterCellAt(Offset(rx, ry)) }
+}
+
+/**
  * What a short flick up off this key types (the up-flick capital), or null when
  * it takes none: the shifted character the layout gave it, else its letter's
  * capital. A key whose shift changes nothing (a digit with no shifted twin, a
@@ -15620,7 +15777,7 @@ internal fun panelLayerDragMode(source: Key?, current: LayoutMode): LayoutMode? 
 // the JIT got to it — every keystroke right after an install or an update —
 // it ran in the slow one. A plain function pays for the width on its own
 // frame, once per call, and leaves the composable narrow. The dex method
-// check in :app (`checkDexMethodsFullIntlFast`) is what notices a new one.
+// check in :app (`checkDexMethodsIntlFast`) is what notices a new one.
 
 private fun KeyboardUiState.withSettings(settings: KeyboardSettings): KeyboardUiState = copy(settings = settings)
 
@@ -16486,6 +16643,10 @@ internal fun keyVisual(
     // The Select key of the text-editing pad is lit while selection mode is on,
     // whichever surface armed it — the old panel's one piece of state.
     val selectLit = action is KeyAction.Edit && action.op == TextEditAction.SELECT && state.selectingText
+    // No space armed for the next key (#863) lights both its keys, the way
+    // an armed Shift looks held.
+    val noSpaceLit = action is KeyAction.Edit && state.noSpaceArmed &&
+        (action.op == TextEditAction.NO_SPACE || action.op == TextEditAction.NO_SPACE_NEXT)
     // A theme with no key shape gives a key at rest no face, so its label sits on
     // the bare board. The latch and select states below still light theirs, and a
     // colour the theme gave this one key still paints it.
@@ -16496,14 +16657,14 @@ internal fun keyVisual(
     val background = overrideBackground ?: when {
         latch == ModifierState.LOCKED -> palette.accent
         latch == ModifierState.ARMED -> palette.pressedKey
-        selectLit -> palette.accent
+        selectLit || noSpaceLit -> palette.accent
         faceless -> Color.Transparent
         action == KeyAction.Enter -> palette.enterKey
         action != KeyAction.Text -> palette.modifierKey
         else -> palette.key
     }
     val contentColor = override?.text?.let { Color(it.toInt()) } ?: when {
-        selectLit -> palette.enterKeyText
+        selectLit || noSpaceLit -> palette.enterKeyText
         // Enter's label colour is picked for its accent face. With no face it sits
         // on the board like the other modifier labels, so it takes their colour.
         action == KeyAction.Enter && !faceless -> palette.enterKeyText
@@ -16692,6 +16853,8 @@ private fun rememberKeyGrid(
         state.activeFancyStyleId,
         // A text-editing Select key on the grid lights with selection mode.
         state.selectingText,
+        // And a No space key with its arm for the next key (#863).
+        state.noSpaceArmed,
         // Whether the corners read the transliteration at all. The reading
         // itself follows the buffer and is not a key here: [KeyCornerHint]
         // reads it through [LocalTransliterationPreview], so a letter typed
@@ -17265,13 +17428,12 @@ private fun KeyRows(
     } else {
         state
     }
-    // Letter-area swipes are drawing handwriting rather than gliding a word
-    // (full builds only). Capture arms whenever the mode is selected; the
-    // service decides whether the drawn ink recognizes or prompts a download.
+    // Letter-area swipes are drawing handwriting rather than gliding a word.
+    // Capture arms whenever the mode is selected; the service decides
+    // whether the drawn ink recognizes or prompts a download.
     // A handwriting layout (#557) has its own canvas above the keys and no
     // letters to swipe across, so neither the swipe ink nor glide applies.
-    val handwriteSwipe = BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
-        !state.layouts.handwriting &&
+    val handwriteSwipe = !state.layouts.handwriting &&
         state.settings.gestureTyping &&
         state.settings.letterSwipeAction == LetterSwipeAction.HANDWRITE &&
         state.layoutMode == LayoutMode.LETTERS &&
@@ -17295,9 +17457,12 @@ private fun KeyRows(
     val glideInCapture = state.captureTarget()?.takesWords == true &&
         state.captureTarget() != CaptureTarget.TYPING_TEST &&
         state.settings.gestureTyping
+    // A tool whose field sent its keys to the app's field (#665) glides into
+    // that field, as the keys do with no panel open.
+    val glideIntoApp = state.captureHandedToApp && state.settings.gestureTyping
     val gestureEnabled = !handwriteSwipe && !slideSelect && !state.layouts.handwriting &&
         (
-            glideInTest || glideInCapture ||
+            glideInTest || glideInCapture || glideIntoApp ||
                 (state.settings.gestureTyping && state.panel == PanelMode.NONE)
             ) &&
         state.layoutMode == LayoutMode.LETTERS &&
@@ -17646,14 +17811,20 @@ private fun KeyRows(
         gesture.apostropheKey != GlideApostropheKey.SPACE
     // Two-thumb typing (#638) runs its own pointer loop. Only on the app's
     // field: a test run and the keyboard's own boxes keep the one-finger glide.
-    val twoThumbOn = gesture.twoThumbGlide && state.panel == PanelMode.NONE && !state.typingTestActive
+    // And a panel's own text box that has the keys, a plugin's included
+    // (#831): with the one-finger loop there, two thumbs at once drew one
+    // stroke between them. Not the word card's spelling bar, which takes a
+    // glide as the whole word.
+    val twoThumbTarget = state.captureTarget()
+    val twoThumbOn = gesture.twoThumbGlide && !state.typingTestActive &&
+        (state.panel == PanelMode.NONE || (twoThumbTarget != null && twoThumbTarget != CaptureTarget.WORD_SPELL))
     // Multi-finger swipes (#647): the letters, and since #712 the keys under a
     // tool whose own box has them (the translator, a search, a note), never a
     // typing test. The bindings are read live inside the loop, and so is the
     // box: its selection actions take select all, copy, cut, paste and undo.
     val keysInBox = state.keysTakenByKeyboard
     val fingerSwipesOn = gesture.multiFingerSwipes && !state.typingTestActive &&
-        (state.panel == PanelMode.NONE || keysInBox)
+        (state.panel == PanelMode.NONE || keysInBox || state.captureHandedToApp)
     val fingerSwipeMap = rememberUpdatedState(gesture.fingerSwipes)
     val boxSelection = rememberUpdatedState(
         if (keysInBox) LocalCaptureCaret.current.onSelectionAction else null,
@@ -18304,6 +18475,7 @@ private fun KeyRows(
                         // the way a tap under a held shift does: a capital flick
                         // can start "Hello" and the thumbs carry on.
                         onCapitalFlick = { key -> stampedOnKey(shiftChordKey(key) ?: key) },
+                        anotherLetterFrom = { cell, at -> liveRects.value.anotherLetterFrom(cell, at) },
                         restGate = restGate,
                     )
                     return@pointerInput
@@ -18388,6 +18560,12 @@ private fun KeyRows(
                     // is a `var` holding a mutable buffer on purpose.
                     @Suppress("DoubleMutabilityForCollection")
                     var seg = ArrayList<GesturePoint>()
+                    // Where the finger lifted. The lift branch below leaves
+                    // without adding it to [seg], so the hint and capital
+                    // flicks are judged with it on the end (#896): a fast
+                    // stroke lifts a few pixels past its last move, and that
+                    // can be inside the next letter's core.
+                    var liftAt: GesturePoint? = null
                     // Which samples the spacebar takes out of the word, and
                     // which of them end it (#428).
                     val crossings = SpacebarCrossings()
@@ -18573,6 +18751,7 @@ private fun KeyRows(
                             return@awaitEachGesture
                         }
                         if (!change.pressed) {
+                            liftAt = GesturePoint(change.position.x, change.position.y, change.uptimeMillis)
                             // Lifted off a flick key while still undecided: the
                             // judge says whether that was a word after all, and
                             // only then is the lift taken from the key (#720).
@@ -18745,14 +18924,17 @@ private fun KeyRows(
                         // decode. A preview it managed to send is retired the way
                         // a cancelled stroke's is, and the hint is typed as a
                         // popup's pick would be.
+                        val flickPoints = liftAt?.let { seg + it } ?: seg
                         if (hintTarget != null && segments.isEmpty() && !picker.isOpen &&
                             hintFlick(
-                                points = seg,
+                                points = flickPoints,
                                 keyHeightPx = hintTarget.second.height,
                                 minTravelPx = maxOf(
                                     hintTarget.second.height * HINT_FLICK_MIN_TRAVEL_HEIGHTS,
                                     slop * effectiveSlop * OCTOPUS_SLOP_CLEARANCE,
                                 ),
+                                // "ok" from `o` lifts on `k` (#859).
+                                landsOnLetter = liveRects.value.anotherLetterFrom(hintTarget.second, boxOrigin),
                             )
                         ) {
                             trail.release()
@@ -18768,13 +18950,15 @@ private fun KeyRows(
                         if (capitalTarget != null && flickAnchor == null && segments.isEmpty() &&
                             !picker.isOpen &&
                             keyFlick(
-                                points = seg,
+                                points = flickPoints,
                                 keyHeightPx = capitalTarget.second.height,
                                 minTravelPx = maxOf(
                                     capitalTarget.second.height * HINT_FLICK_MIN_TRAVEL_HEIGHTS,
                                     slop * effectiveSlop * OCTOPUS_SLOP_CLEARANCE,
                                 ),
                                 direction = KeyFlickDirection.UP,
+                                // And "de" from `d` lifts on `e`.
+                                landsOnLetter = liveRects.value.anotherLetterFrom(capitalTarget.second, boxOrigin),
                             )
                         ) {
                             trail.release()
@@ -18983,11 +19167,14 @@ private fun KeyRows(
                         if (change.isConsumed || alternatesGate.open) return@awaitEachGesture
                         points.add(GesturePoint(change.position.x, change.position.y, change.uptimeMillis))
                         if (!change.pressed) {
+                            // Lifting on another letter's core is a word, not a
+                            // flick (#859), even with glide typing off.
+                            val ontoLetter = liveRects.value.anotherLetterFrom(cell, boxOrigin)
                             val typed = when {
-                                hint != null && hintFlick(points, cell.height, minTravel) ->
+                                hint != null && hintFlick(points, cell.height, minTravel, ontoLetter) ->
                                     hint.first.longPress.first()
                                 capital != null &&
-                                    keyFlick(points, cell.height, minTravel, KeyFlickDirection.UP) ->
+                                    keyFlick(points, cell.height, minTravel, KeyFlickDirection.UP, ontoLetter) ->
                                     capital.first
                                 else -> null
                             }
@@ -20990,20 +21177,23 @@ internal enum class ThumbFlick { NONE, HINT, CAPITAL }
  * short vertical swipe (`e→d`) is the same under both: [hintFlick] and
  * [keyFlick], and a floor of half a key's height or a little past the stroke's
  * own start distance ([startSlopPx], the cooldown included), whichever is more.
- * The hint is asked first, as there.
+ * The hint is asked first, as there. [landsOnLetter] is the one-finger
+ * loop's test too: a fragment that lifts inside another letter's core, which
+ * a two-thumb fragment like `o`→`k` mostly is, is part of the word (#859).
  */
 internal fun flickForKey(
     points: List<GesturePoint>,
     hintKeyHeightPx: Float?,
     capitalKeyHeightPx: Float?,
     startSlopPx: Float,
+    landsOnLetter: (x: Float, y: Float) -> Boolean = NoLetter,
 ): ThumbFlick {
     fun floor(height: Float) = maxOf(height * HINT_FLICK_MIN_TRAVEL_HEIGHTS, startSlopPx * OCTOPUS_SLOP_CLEARANCE)
-    if (hintKeyHeightPx != null && hintFlick(points, hintKeyHeightPx, floor(hintKeyHeightPx))) {
+    if (hintKeyHeightPx != null && hintFlick(points, hintKeyHeightPx, floor(hintKeyHeightPx), landsOnLetter)) {
         return ThumbFlick.HINT
     }
     if (capitalKeyHeightPx != null &&
-        keyFlick(points, capitalKeyHeightPx, floor(capitalKeyHeightPx), KeyFlickDirection.UP)
+        keyFlick(points, capitalKeyHeightPx, floor(capitalKeyHeightPx), KeyFlickDirection.UP, landsOnLetter)
     ) {
         return ThumbFlick.CAPITAL
     }
@@ -21092,6 +21282,11 @@ private suspend fun PointerInputScope.twoThumbGlide(
     capitalAt: (Offset) -> Pair<Key, Rect>?,
     onHintFlick: (Key) -> Unit,
     onCapitalFlick: (Key) -> Unit,
+    /**
+     * Whether a box-space point lifts in another letter's core than the one
+     * in this root-space cell, so a short fragment is not a flick (#859).
+     */
+    anotherLetterFrom: (cell: Rect, origin: Offset) -> (Float, Float) -> Boolean,
     /** Resting fingers, shared with the keys' long press (#737). */
     restGate: RestGate,
 ) {
@@ -21240,6 +21435,8 @@ private suspend fun PointerInputScope.twoThumbGlide(
                             hintKeyHeightPx = stroke.hint?.second?.height,
                             capitalKeyHeightPx = stroke.capital?.second?.height,
                             startSlopPx = stroke.startSlopPx,
+                            landsOnLetter = (stroke.hint ?: stroke.capital)?.second
+                                ?.let { cell -> anotherLetterFrom(cell, origin()) } ?: NoLetter,
                         )
                     }
                     if (flick != ThumbFlick.NONE) {
@@ -21321,7 +21518,11 @@ private suspend fun PointerInputScope.twoThumbGlide(
                     trails[stroke.slot].add(change.position.x, change.position.y, change.uptimeMillis, trailMs)
                 }
                 val keys = stroke.keys
-                if (keys != null && change.uptimeMillis - stroke.lastPreviewMs >= PREVIEW_INTERVAL_MS &&
+                // Each preview now reads the whole word (#849), so two thumbs
+                // drawing at once share the one-finger rate between them
+                // rather than doubling it.
+                val drawing = strokes.values.count { it.swiping && !it.ignored }.coerceAtLeast(1)
+                if (keys != null && change.uptimeMillis - stroke.lastPreviewMs >= PREVIEW_INTERVAL_MS * drawing &&
                     stroke.points.size >= PREVIEW_MIN_POINTS
                 ) {
                     stroke.lastPreviewMs = change.uptimeMillis
@@ -21612,7 +21813,9 @@ private fun typesQuestionMark(key: Key, mark: String): Boolean {
 internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
         state.layouts.numeric?.let { pad ->
-            return if (state.layouts.numericAuthored) pad else pad.withNumpadActionKeys(state)
+            // Mode keys on a pad draw their mode's name too (#874).
+            val names = state.settings.keyboardModes.associate { it.id to it.name }
+            return (if (state.layouts.numericAuthored) pad else pad.withNumpadActionKeys(state)).withModeKeyNames(names)
         }
     }
     val grid = when (state.layoutMode) {
@@ -21824,6 +22027,9 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // Issue #340: the keys that stand in for 小゛゜ while the reading ends in a
     // kana that has one of those forms.
     val kanaVariantKeys = state.kanaVariantReady
+    // Mode keys draw their mode's name as it is now, looked up by id (#821),
+    // and a mode that is gone draws as gone (#835).
+    val modeNames = state.settings.keyboardModes.associate { it.id to it.name }
     // Fancy Text: every digit key holds the digit's styled forms.
     val fancyDigits = fancyStyleFor(state) != null
     if (!commaAsEmoji && !globeAsEmoji && !stripDigits && !digitSymbols &&
@@ -21834,7 +22040,8 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         questionMark == null && questionSwap == null && periodAlternates.isEmpty() &&
         !reorderAlternates && !numpadOnHold && !fancyDigits
     ) {
-        return base
+        // With every rewrite off, mode keys still draw their mode's name (#874).
+        return base.withModeKeyNames(modeNames)
     }
     val bottom = base.rows.lastIndex
     // copy rather than KeyboardLayout(name, rows): a positional rebuild
@@ -22090,10 +22297,23 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             if (kanaVariantKeys && rowKey.kanaVariantWhileComposing) {
                 mapped = mapped.asKanaVariantKey()
             }
-            mapped
+            mapped.withModeNames(modeNames)
         }
     }
     return base.copy(rows = rewritten)
+}
+
+/**
+ * [this] with every key's mode bindings labelled by [withModeNames], for the
+ * paths that return a layout without the per-key pass (#874). The same
+ * layout when no key is bound to a mode.
+ */
+private fun KeyboardLayout.withModeKeyNames(names: Map<String, String>): KeyboardLayout {
+    var changed = false
+    val named = rows.map { row ->
+        row.map { key -> key.withModeNames(names).also { if (it !== key) changed = true } }
+    }
+    return if (changed) copy(rows = named) else this
 }
 
 /**
@@ -22594,11 +22814,14 @@ internal fun barClipboardSearching(state: KeyboardUiState): Boolean =
  * to type into it. Asked by the body, which draws them, and by
  * [FullBleedTool], which has to leave them room.
  */
-internal fun keyRowsUnderPanel(state: KeyboardUiState): Boolean = when (state.captureTarget()) {
+internal fun keyRowsUnderPanel(state: KeyboardUiState): Boolean = when (state.panelFieldTarget()) {
     // No field of the keyboard's own: the keys stay under the clipboard only
     // when it is stacked over them (#414), and then they type into the app.
     null -> clipboardStacked(state)
-    CaptureTarget.CALC, CaptureTarget.CONVERTER, CaptureTarget.WORD_SPELL -> false
+    // Their own keypads type into them; the key rows come up only while the
+    // focus switch has sent the keys to the app's field (#665).
+    CaptureTarget.CALC, CaptureTarget.CONVERTER -> state.captureHandedToApp
+    CaptureTarget.WORD_SPELL -> false
     // The emoji and clipboard panels reroute their search pills;
     // the rest are only ever up with their own panel open.
     CaptureTarget.EMOJI_SEARCH, CaptureTarget.KAOMOJI_SEARCH,
@@ -23795,6 +24018,7 @@ internal fun KeyButton(
                                 switchIds,
                                 settings.customLayouts,
                                 settings.layoutBehavior.spacebarDisplay,
+                                settings.layoutDisplayNames,
                             )
                             val chipFontSize = (14 * settings.popup.fontScale).sp
                             val chipFont = layoutLabelFont(label, chipLayoutId, settings.customLayouts)
@@ -23874,6 +24098,7 @@ internal fun KeyButton(
                     currentLayoutId = layoutId,
                     customLayouts = settings.customLayouts,
                     displayMode = settings.layoutBehavior.spacebarDisplay,
+                    displayNames = settings.layoutDisplayNames,
                     highlightIndex = pickerDragIndex,
                     onPick = onPick,
                     onOtherKeyboards = onOtherKeyboards,
@@ -23886,6 +24111,7 @@ internal fun KeyButton(
                     currentLayoutId = layoutId,
                     customLayouts = settings.customLayouts,
                     displayMode = settings.layoutBehavior.spacebarDisplay,
+                    displayNames = settings.layoutDisplayNames,
                     highlightIndex = pickerDragIndex,
                     onPick = onPick,
                     onOtherKeyboards = onOtherKeyboards,
@@ -25398,6 +25624,7 @@ private fun LanguagePickerPopup(
     currentLayoutId: String,
     customLayouts: List<LayoutSpec>,
     displayMode: SpacebarDisplay,
+    displayNames: Map<String, String>,
     onPick: (String) -> Unit,
     onOtherKeyboards: () -> Unit,
     onDismiss: () -> Unit,
@@ -25460,7 +25687,8 @@ private fun LanguagePickerPopup(
                     for ((index, layoutId) in enabledLayoutIds.withIndex()) {
                         val selected = layoutId == currentLayoutId
                         val dragged = index == highlightIndex
-                        val label = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode)
+                        val label =
+                            layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode, displayNames)
                         Text(
                             text = label,
                             fontFamily = layoutLabelFont(label, layoutId, customLayouts),
@@ -25546,6 +25774,7 @@ private fun LanguageCarouselPopup(
     currentLayoutId: String,
     customLayouts: List<LayoutSpec>,
     displayMode: SpacebarDisplay,
+    displayNames: Map<String, String>,
     onPick: (String) -> Unit,
     onOtherKeyboards: () -> Unit,
     onDismiss: () -> Unit,
@@ -25604,7 +25833,8 @@ private fun LanguageCarouselPopup(
                         for ((index, layoutId) in enabledLayoutIds.withIndex()) {
                             val selected = layoutId == currentLayoutId
                             val dragged = index == highlightIndex
-                            val label = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode)
+                            val label =
+                                layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode, displayNames)
                             Text(
                                 text = label,
                                 fontFamily = layoutLabelFont(label, layoutId, customLayouts),
@@ -25728,13 +25958,19 @@ private const val LatinExtendedEnd = 0x024F
  * picker). Follows the same rule as the spacebar label: the language name, the
  * layout name, or "Language (Layout)" — and always the combined form when more
  * than one enabled layout shares the language, so the rows stay distinct.
+ *
+ * A name the user gave the layout ([customNames], from
+ * `KeyboardSettings.layoutDisplayNames`) wins over all of that: they chose it
+ * to tell their layouts apart, so the same-language rule has nothing to add.
  */
-internal fun layoutSwitchLabel(
+fun layoutSwitchLabel(
     layoutId: String,
     enabledLayoutIds: List<String>,
     customLayouts: List<LayoutSpec>,
     mode: SpacebarDisplay,
+    customNames: Map<String, String> = emptyMap(),
 ): String {
+    customNames[layoutId]?.takeIf { it.isNotBlank() }?.let { return it }
     val spec = resolveLayout(customLayouts, layoutId)
     // The short half of the registry's "native · english" display name — the
     // full form overflows the preview row and picker with even three
@@ -26561,6 +26797,7 @@ internal fun spacebarText(state: KeyboardUiState): String {
         state.settings.enabledLayoutIds,
         state.settings.customLayouts,
         state.settings.layoutBehavior.spacebarDisplay,
+        state.settings.layoutDisplayNames,
     )
     val label = state.settings.spacebarLabel
     return if (label.isEmpty()) name else label.replace("%s", name)
@@ -27108,15 +27345,23 @@ private fun Modifier.pointerInputKey(
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
         (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE ||
-            spaceSwipeDownHide || textEditing.spaceSwipeUpTouchpad)
+            spaceSwipeDownHide || textEditing.spaceSwipeUpTouchpad || key.hasFlicks())
     ) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
             hapticOnLongPress, hapticOnLongPressRelease, vibrateOnSpace, spaceCursor2d,
             spaceSwipeDownHide, textEditing, alternates, pickerIsCarousel, pickerForLongRing,
             switcherExtraStop, languageEchoTotalMs, spaceTouchpad, keyRepeat, vibrateOnRepeat, soundOnRepeat,
+            flickDistanceDp,
         ) {
-            val slopPx = 12.dp.toPx()
+            // The space bar's flick arms (#863), on the delete key's terms
+            // (#769): an arm takes the directions it covers, and a swipe waits
+            // until the finger is past the flick distance heading somewhere no
+            // arm is. With no arms every distance below is what it always was.
+            val hasArm: (FlickDirection) -> Boolean = { key.flickArm(it) != null }
+            val armed = FlickDirection.entries.any(hasArm)
+            val flickSlopPx = flickDistanceDp.dp.toPx()
+            val slopPx = if (armed) maxOf(12.dp.toPx(), flickSlopPx) else 12.dp.toPx()
             val reachPx = AlternatesReachDp.toPx()
             val steerPx = AlternatesSteerDp.toPx()
             val cursorStepPx = textEditing.spaceCursorStepDp.dp.toPx()
@@ -27137,10 +27382,10 @@ private fun Modifier.pointerInputKey(
             val pickerRowPx = PickerRowHeightDp.dp.toPx()
             // A swipe-down must clear this before it dismisses the keyboard —
             // well past the slop so a diagonal cursor drag never trips it.
-            val hideThresholdPx = 40.dp.toPx()
+            val hideThresholdPx = 40.dp.toPx().let { if (armed) maxOf(it, flickSlopPx) else it }
             // A swipe up must clear this before it opens the touchpad (#444):
             // twice the slop, so a tap that rolls upward still types a space.
-            val swipeUpPx = SpaceSwipeUpTouchpadDp.dp.toPx()
+            val swipeUpPx = SpaceSwipeUpTouchpadDp.dp.toPx().let { if (armed) maxOf(it, flickSlopPx) else it }
             // Extra travel demanded before the language list wraps around at
             // either end — the boundary acts like a detent, not a wall.
             val langWrapPx = langStepPx * 2.5f
@@ -27202,6 +27447,13 @@ private fun Modifier.pointerInputKey(
                     var liftAt = 0L
                     // When the touchpad was activated, used to delay gesture processing until longPressDelayMs has elapsed.
                     var touchpadActivatedAt = 0L
+                    // The arm the finger is on, and whether one was ever
+                    // reached: once it has, this press is a flick and never a
+                    // swipe, a hold or a space.
+                    var arm: FlickDirection? = null
+                    var flicked = false
+                    var armRepeat: Job? = null
+                    var armRepeated = false
                     // With language switching on the short-swipe slot, holding
                     // the spacebar just past a normal tap shows the language
                     // picker without needing any initial swipe. The action is
@@ -27396,6 +27648,41 @@ private fun Modifier.pointerInputKey(
                             }
                             change.consume()
                             continue
+                        }
+                        // An arm (#863) is read until the press is something
+                        // else: a swipe that has resolved, or a hold that put
+                        // the language preview up or repeated the space.
+                        if (armed && action == null && !holdPreviewShown && !spaceRepeated) {
+                            val offset = change.position - down.position
+                            val live = resolveFlickDirection(offset.x, offset.y, flickSlopPx, hasArm)
+                            if (live != arm) {
+                                arm = live
+                                setFlickDirection(live)
+                                armRepeat?.cancel()
+                                armRepeat = null
+                                if (live != null) {
+                                    flicked = true
+                                    holdJob?.cancel()
+                                    onKeyHaptic()
+                                    // An arrow or a delete on the arm keeps
+                                    // going while the finger stays out on it.
+                                    armRepeat = key.flickKey(live)?.takeIf { it.flickArmRepeats() }?.let { armKey ->
+                                        scope.launch {
+                                            delay(keyRepeat.startDelayMs.toLong())
+                                            armRepeated = true
+                                            while (true) {
+                                                repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
+                                                onKeyRepeat(armKey)
+                                                delay(textEditing.repeatMs.toLong())
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (flicked) {
+                                change.consume()
+                                continue
+                            }
                         }
                         // The action this gesture would resolve to right now (short
                         // vs long by hold time). Used to decide whether the 2-D pad
@@ -27713,6 +28000,8 @@ private fun Modifier.pointerInputKey(
                         }
                     }
                     holdJob?.cancel()
+                    armRepeat?.cancel()
+                    if (flicked) setFlickDirection(null)
                     if (caretDragOpen) {
                         onCaretDrag(false)
                         caretDragOpen = false
@@ -27722,10 +28011,17 @@ private fun Modifier.pointerInputKey(
                     onKeyRelease()
                     setLanguagePreview(null)
                     setPreviewExtraStop(false)
+                    val armKey = arm?.let { key.flickKey(it) }
                     when {
                         // A swipe-down already dismissed the keyboard: the finger
                         // lifting must not also type a space.
                         hidden -> {}
+                        // The arm already ran while held, or it runs now.
+                        armRepeated -> {}
+                        armKey != null -> onKey(armKey)
+                        // Out to an arm and back inside the flick distance:
+                        // the cancel it is on every flick key.
+                        flicked -> {}
                         // The hold opened the alternates popup: the lift commits
                         // whatever it has highlighted, and types no space. With
                         // hold-to-select off there is nothing to commit and the
@@ -27776,6 +28072,8 @@ private fun Modifier.pointerInputKey(
             } finally {
                 if (caretDragOpen) onCaretDrag(false)
                 spaceTouchpad?.active = false
+                // A no-op after a lift; after a cancel, the press that never saw one (#665).
+                setPressed(false)
             }
         }
     } else if (
@@ -27877,112 +28175,125 @@ private fun Modifier.pointerInputKey(
                         delay(repeatMs)
                     }
                 }
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) {
-                        change.consume()
-                        break
-                    }
-                    // Once the hold has started repeating the press is a hold, and
-                    // stays one. A thumb resting on the key for the length of a
-                    // long URL rolls a few pixels sideways, and turning that into
-                    // a swipe cancelled the repeat under it: delete just stopped,
-                    // the finger still down (#662).
-                    if (armed && !swiping && !longPressFired) {
-                        val offset = change.position - down.position
-                        val live = resolveFlickDirection(offset.x, offset.y, flickSlopPx, hasArm)
-                        if (live != arm) {
-                            arm = live
-                            setFlickDirection(live)
-                            armRepeat?.cancel()
-                            armRepeat = null
-                            if (live != null) {
-                                flicked = true
-                                repeat.cancel()
-                                onKeyHaptic()
-                                // A forward delete or an arrow on the arm keeps
-                                // going while the finger stays out on it.
-                                armRepeat = key.flickKey(live)?.takeIf { it.flickArmRepeats() }?.let { armKey ->
-                                    scope.launch {
-                                        delay(keyRepeat.startDelayMs.toLong())
-                                        armRepeated = true
-                                        while (true) {
-                                            repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
-                                            onKeyRepeat(armKey)
-                                            delay(keyRepeat.deleteMs.toLong())
+                // Cancelled with the finger down (see the flick key's handler),
+                // the repeat kept deleting until the field was empty (#665).
+                var lifted = false
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) {
+                            change.consume()
+                            break
+                        }
+                        // Once the hold has started repeating the press is a hold, and
+                        // stays one. A thumb resting on the key for the length of a
+                        // long URL rolls a few pixels sideways, and turning that into
+                        // a swipe cancelled the repeat under it: delete just stopped,
+                        // the finger still down (#662).
+                        if (armed && !swiping && !longPressFired) {
+                            val offset = change.position - down.position
+                            val live = resolveFlickDirection(offset.x, offset.y, flickSlopPx, hasArm)
+                            if (live != arm) {
+                                arm = live
+                                setFlickDirection(live)
+                                armRepeat?.cancel()
+                                armRepeat = null
+                                if (live != null) {
+                                    flicked = true
+                                    repeat.cancel()
+                                    onKeyHaptic()
+                                    // A forward delete or an arrow on the arm keeps
+                                    // going while the finger stays out on it.
+                                    armRepeat = key.flickKey(live)?.takeIf { it.flickArmRepeats() }?.let { armKey ->
+                                        scope.launch {
+                                            delay(keyRepeat.startDelayMs.toLong())
+                                            armRepeated = true
+                                            while (true) {
+                                                repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
+                                                onKeyRepeat(armKey)
+                                                delay(keyRepeat.deleteMs.toLong())
+                                            }
                                         }
                                     }
                                 }
                             }
+                            if (flicked) {
+                                change.consume()
+                                continue
+                            }
                         }
-                        if (flicked) {
+                        if (swipeOn && !swiping && !longPressFired && abs(change.position.x - down.position.x) > swipeSlopPx) {
+                            swiping = true
+                            repeat.cancel()
+                            anchorX = down.position.x
+                        }
+                        if (swiping) {
+                            // Claim the drag so nothing upstream reinterprets it.
                             change.consume()
-                            continue
-                        }
-                    }
-                    if (swipeOn && !swiping && !longPressFired && abs(change.position.x - down.position.x) > swipeSlopPx) {
-                        swiping = true
-                        repeat.cancel()
-                        anchorX = down.position.x
-                    }
-                    if (swiping) {
-                        // Claim the drag so nothing upstream reinterprets it.
-                        change.consume()
-                        // How far the finger has gone *the way the deletion
-                        // goes* since the anchor; negative is a drag back.
-                        fun travelled(): Float = (change.position.x - anchorX) * dir
-                        while (travelled() >= stepPx(taken)) {
-                            // Held over the whole iteration: the anchor only
-                            // walks for a step that was actually taken, so a
-                            // swipe stopped by the start of the text does not
-                            // silently owe the drag back an extra step before
-                            // the preview starts shrinking again.
-                            val step = stepPx(taken)
-                            if (previewing) {
-                                val covered = deleteSwipe.onSelect(taken + 1, byWord, forward)
-                                if (covered >= 0) {
-                                    // A preview that stops growing has reached
-                                    // the start of the text: no buzz, and no
-                                    // step, for a drag that deletes nothing.
-                                    if (covered <= taken) break
-                                    anchorX += step * dir
-                                    taken = covered
-                                    stepFeedback()
-                                    continue
+                            // How far the finger has gone *the way the deletion
+                            // goes* since the anchor; negative is a drag back.
+                            fun travelled(): Float = (change.position.x - anchorX) * dir
+                            while (travelled() >= stepPx(taken)) {
+                                // Held over the whole iteration: the anchor only
+                                // walks for a step that was actually taken, so a
+                                // swipe stopped by the start of the text does not
+                                // silently owe the drag back an extra step before
+                                // the preview starts shrinking again.
+                                val step = stepPx(taken)
+                                if (previewing) {
+                                    val covered = deleteSwipe.onSelect(taken + 1, byWord, forward)
+                                    if (covered >= 0) {
+                                        // A preview that stops growing has reached
+                                        // the start of the text: no buzz, and no
+                                        // step, for a drag that deletes nothing.
+                                        if (covered <= taken) break
+                                        anchorX += step * dir
+                                        taken = covered
+                                        stepFeedback()
+                                        continue
+                                    }
+                                    // No preview to be had here (a panel search owns
+                                    // backspace, or the editor will not say where its
+                                    // cursor is). Bank what is already selected and
+                                    // delete outright from here on.
+                                    if (taken > 0) deleteSwipe.onCommit()
+                                    previewing = false
+                                    taken = 0
                                 }
-                                // No preview to be had here (a panel search owns
-                                // backspace, or the editor will not say where its
-                                // cursor is). Bank what is already selected and
-                                // delete outright from here on.
-                                if (taken > 0) deleteSwipe.onCommit()
-                                previewing = false
+                                if (!canDeleteHere()) break
+                                anchorX += step * dir
+                                taken++
+                                stepFeedback()
+                                deleteSwipe.onDeleteUnit(byWord, forward)
+                            }
+                            if (previewing) {
+                                // Dragging back gives the text back a unit at a
+                                // time — the whole point of selecting first. The
+                                // step returned is the one that was spent to take
+                                // the unit, so the gesture retraces its own path.
+                                while (taken > 0 && -travelled() >= stepPx(taken - 1)) {
+                                    anchorX -= stepPx(taken - 1) * dir
+                                    taken--
+                                    stepFeedback()
+                                    deleteSwipe.onSelect(taken, byWord, forward)
+                                }
+                            } else if (travelled() < 0f) {
+                                // Nothing to give back once the text is gone, so a
+                                // reversal only re-anchors and resets the
+                                // acceleration: it stops the run, never replays it.
+                                anchorX = change.position.x
                                 taken = 0
                             }
-                            if (!canDeleteHere()) break
-                            anchorX += step * dir
-                            taken++
-                            stepFeedback()
-                            deleteSwipe.onDeleteUnit(byWord, forward)
                         }
-                        if (previewing) {
-                            // Dragging back gives the text back a unit at a
-                            // time — the whole point of selecting first. The
-                            // step returned is the one that was spent to take
-                            // the unit, so the gesture retraces its own path.
-                            while (taken > 0 && -travelled() >= stepPx(taken - 1)) {
-                                anchorX -= stepPx(taken - 1) * dir
-                                taken--
-                                stepFeedback()
-                                deleteSwipe.onSelect(taken, byWord, forward)
-                            }
-                        } else if (travelled() < 0f) {
-                            // Nothing to give back once the text is gone, so a
-                            // reversal only re-anchors and resets the
-                            // acceleration: it stops the run, never replays it.
-                            anchorX = change.position.x
-                            taken = 0
-                        }
+                    }
+                    lifted = true
+                } finally {
+                    if (!lifted) {
+                        repeat.cancel()
+                        armRepeat?.cancel()
+                        if (flicked) setFlickDirection(null)
+                        setPressed(false)
                     }
                 }
                 repeat.cancel()
@@ -28020,22 +28331,41 @@ private fun Modifier.pointerInputKey(
         // that runs an action (issue #549), on a text key or an action key
         // alike. One pointer owns the whole gesture (like space/backspace) so
         // the cross popup can track the live direction; a long press still
-        // opens the alternates popup.
+        // opens the alternates popup. A still hold is not a flick, so the
+        // holds ?123 and the globe have without arms keep working with them
+        // (#820): the symbol chord, the number pad and the language picker.
         Modifier.pointerInput(
             key, longPressDelayMs, hapticOnLongPress, hapticOnLongPressRelease, alternates,
             keyRepeat, textEditing, vibrateOnRepeat, soundOnRepeat, flickDistanceDp, swipeOnlyTapPeeks,
-            restGate, chordGate,
+            restGate, chordGate, symbolsLongPressNumpad,
         ) {
             val slopPx = flickDistanceDp.dp.toPx()
             val reachPx = AlternatesReachDp.toPx()
             val steerPx = AlternatesSteerDp.toPx()
             val hasArm: (FlickDirection) -> Boolean = { key.flickArm(it) != null }
+            val chordTrigger = key.action == KeyAction.Symbols
+            // What a still hold does when the key has no alternates to open.
+            val numpadHold = key.action == KeyAction.Symbols && symbolsLongPressNumpad
+            val pickerHold = key.action == KeyAction.LanguageSwitch
             awaitEachGesture {
                 val down = awaitFirstDown()
                 setPressed(true)
                 onKeyPress()
-                // A ?123 held for a chord (#754) holds its own press back now.
-                chordGate?.otherDown()
+                // ?123 is a chord's trigger (#754), armed or not; any other
+                // key held for one holds its own press back now.
+                var chordLabels: Job? = null
+                if (chordTrigger && chordGate?.active == true) {
+                    chordGate.triggerDown(down.id)
+                    chordLabels = scope.launch {
+                        delay(CHORD_LABEL_DELAY_MS)
+                        chordGate.showLabels(down.id)
+                    }
+                } else if (!chordTrigger) {
+                    chordGate?.otherDown()
+                }
+                // The number pad or the language picker opened on the hold:
+                // the lift is that hold's, not a tap.
+                var holdRan = false
                 var dir: FlickDirection? = null
                 // The finger went out to [dir] and came back more than halfway:
                 // the lift types the arm's capital, FlickBoard's swipe-and-return.
@@ -28053,94 +28383,169 @@ private fun Modifier.pointerInputKey(
                 // the gesture has done its typing and the lift adds nothing.
                 var armRepeat: Job? = null
                 var armRepeated = false
-                val longJob = if (key.opensAlternatesPopup()) {
+                // A chord ran before the finger reached an arm: the lift is the chord's.
+                var chordWon = false
+                // A caret key with arms (#865) still repeats on a still hold,
+                // as it does without them; once it has, arms are off and the
+                // lift adds nothing.
+                var centreRepeated = false
+                val centreRepeat = if (key.action is KeyAction.Edit && key.holdRepeats() &&
+                    !key.opensAlternatesPopup()
+                ) {
                     scope.launch {
-                        delay(longPressDelayMs.toLong())
-                        // A thumb resting while the other types (#737).
-                        if (dir == null && restGate?.quiets(down.id) != true) {
-                            restGate?.longPressed(down.id)
-                            longFired = true
-                            if (hapticOnLongPress) onKeyPress()
-                            openAlternates()
+                        delay(keyRepeat.startDelayMs.toLong())
+                        if (dir != null) return@launch
+                        centreRepeated = true
+                        while (true) {
+                            repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
+                            onKeyRepeat(key)
+                            delay(textEditing.repeatMs.toLong())
                         }
                     }
                 } else {
                     null
                 }
-                while (true) {
-                    val event = awaitPointerEvent()
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (change.isConsumed) { stolen = true; break }
-                    if (!change.pressed) { change.consume(); break }
-                    // The popup is up: the finger is choosing in it, not picking
-                    // a kana arm. The two cannot both read this drag, and the
-                    // popup is the one the user is looking at.
-                    if (longFired && alternates != null) {
-                        alternates.moveTo(change.position, reachPx, steerPx)
-                        change.consume()
-                        continue
-                    }
-                    val offset = change.position - down.position
-                    val dist = offset.getDistance()
-                    if (dist > extremeDist) {
-                        extremeDist = dist
-                        extreme = change.position
-                    }
-                    // Only directions the key actually defines count, so a
-                    // flick toward an empty arm falls back to the centre tap
-                    // rather than committing nothing. An arm with a capital of
-                    // its own is the arm the finger *reached*, and a return
-                    // towards the centre asks for that capital; any other arm
-                    // follows the finger, so coming back inside the slop is the
-                    // cancel it always was on a kana pad.
-                    val live = resolveFlickDirection(offset.x, offset.y, slopPx, hasArm)
-                    val peak = resolveFlickDirection(
-                        extreme.x - down.position.x, extreme.y - down.position.y, slopPx, hasArm,
-                    )
-                    val resolved: FlickDirection?
-                    val nowReturned: Boolean
-                    if (peak != null && key.flickShiftedText(peak) != null) {
-                        resolved = peak
-                        nowReturned = flickReturned(extremeDist, (change.position - extreme).getDistance())
-                    } else {
-                        resolved = live
-                        nowReturned = false
-                    }
-                    if (nowReturned != returned) {
-                        returned = nowReturned
-                        setFlickReturned(returned)
-                    }
-                    if (resolved != dir) {
-                        dir = resolved
-                        setFlickDirection(dir)
-                        // Committing to a flick arm cancels the pending long
-                        // press, and says so under the finger.
-                        if (dir != null) {
-                            longJob?.cancel()
-                            onKeyHaptic()
-                        }
-                        armRepeat?.cancel()
-                        armRepeat = dir?.let { key.flickKey(it) }?.takeIf { it.flickArmRepeats() }?.let { arm ->
-                            val intervalMs = when {
-                                arm.action is KeyAction.Edit && !arm.action.deletesBackward() &&
-                                    !arm.action.deletesForward() -> textEditing.repeatMs
-                                else -> keyRepeat.deleteMs
-                            }.toLong()
-                            scope.launch {
-                                delay(keyRepeat.startDelayMs.toLong())
-                                armRepeated = true
-                                while (true) {
-                                    repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
-                                    onKeyRepeat(arm)
-                                    delay(intervalMs)
+                val longJob = if (key.opensAlternatesPopup() || numpadHold || pickerHold) {
+                    scope.launch {
+                        delay(longPressDelayMs.toLong())
+                        // A thumb resting while the other types (#737), or a
+                        // ?123 whose partner has landed: the chord's press.
+                        if (dir == null && restGate?.quiets(down.id) != true &&
+                            !(chordGate?.isTrigger(down.id) == true && chordGate.partnerLanded)
+                        ) {
+                            restGate?.longPressed(down.id)
+                            if (hapticOnLongPress) onKeyPress()
+                            when {
+                                key.opensAlternatesPopup() -> {
+                                    longFired = true
+                                    openAlternates()
+                                }
+                                numpadHold -> {
+                                    holdRan = true
+                                    onKey(key.copy(action = KeyAction.Numpad))
+                                }
+                                else -> {
+                                    holdRan = true
+                                    openLanguagePicker()
                                 }
                             }
                         }
                     }
-                    change.consume()
+                } else {
+                    null
+                }
+                // The handler can be cancelled with the finger still down: its
+                // pointerInput restarts when any of its keys change, a settings
+                // write under a held key among them. The jobs above run in the
+                // key's own scope, which outlives that, so a cancelled gesture
+                // left the press lit, its cross popup up over the keys around
+                // it, and a repeating arm firing forever: a stuck key, dead
+                // neighbours, and text deleting itself (#665).
+                var lifted = false
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (change.isConsumed) { stolen = true; break }
+                        if (!change.pressed) { change.consume(); break }
+                        // The popup is up: the finger is choosing in it, not picking
+                        // a kana arm. The two cannot both read this drag, and the
+                        // popup is the one the user is looking at.
+                        if (longFired && alternates != null) {
+                            alternates.moveTo(change.position, reachPx, steerPx)
+                            change.consume()
+                            continue
+                        }
+                        // The hold is repeating the key: no arm now.
+                        if (centreRepeated) {
+                            change.consume()
+                            continue
+                        }
+                        val offset = change.position - down.position
+                        val dist = offset.getDistance()
+                        if (dist > extremeDist) {
+                            extremeDist = dist
+                            extreme = change.position
+                        }
+                        // Only directions the key actually defines count, so a
+                        // flick toward an empty arm falls back to the centre tap
+                        // rather than committing nothing. An arm with a capital of
+                        // its own is the arm the finger *reached*, and a return
+                        // towards the centre asks for that capital; any other arm
+                        // follows the finger, so coming back inside the slop is the
+                        // cancel it always was on a kana pad.
+                        val live = resolveFlickDirection(offset.x, offset.y, slopPx, hasArm)
+                        val peak = resolveFlickDirection(
+                            extreme.x - down.position.x, extreme.y - down.position.y, slopPx, hasArm,
+                        )
+                        val resolved: FlickDirection?
+                        val nowReturned: Boolean
+                        if (peak != null && key.flickShiftedText(peak) != null) {
+                            resolved = peak
+                            nowReturned = flickReturned(extremeDist, (change.position - extreme).getDistance())
+                        } else {
+                            resolved = live
+                            nowReturned = false
+                        }
+                        if (nowReturned != returned) {
+                            returned = nowReturned
+                            setFlickReturned(returned)
+                        }
+                        if (resolved != dir) {
+                            dir = resolved
+                            setFlickDirection(dir)
+                            // Committing to a flick arm cancels the pending long
+                            // press, and the chord a still ?123 would have been,
+                            // and says so under the finger.
+                            if (dir != null) {
+                                longJob?.cancel()
+                                centreRepeat?.cancel()
+                                chordLabels?.cancel()
+                                // One action wins (#875): the arm, unless a
+                                // chord already ran during this hold.
+                                if (chordTrigger && chordGate?.armTaken(down.id) == true) chordWon = true
+                                onKeyHaptic()
+                            }
+                            armRepeat?.cancel()
+                            armRepeat = dir?.let { key.flickKey(it) }?.takeIf { it.flickArmRepeats() }?.let { arm ->
+                                val intervalMs = when {
+                                    arm.action is KeyAction.Edit && !arm.action.deletesBackward() &&
+                                        !arm.action.deletesForward() -> textEditing.repeatMs
+                                    else -> keyRepeat.deleteMs
+                                }.toLong()
+                                scope.launch {
+                                    delay(keyRepeat.startDelayMs.toLong())
+                                    armRepeated = true
+                                    while (true) {
+                                        repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
+                                        onKeyRepeat(arm)
+                                        delay(intervalMs)
+                                    }
+                                }
+                            }
+                        }
+                        change.consume()
+                    }
+                    lifted = true
+                } finally {
+                    if (!lifted) {
+                        longJob?.cancel()
+                        armRepeat?.cancel()
+                        centreRepeat?.cancel()
+                        chordLabels?.cancel()
+                        if (chordTrigger) chordGate?.triggerUp(down.id)
+                        if (longFired) alternates?.cancel()
+                        setPressed(false)
+                        setFlickDirection(null)
+                        setFlickReturned(false)
+                    }
                 }
                 longJob?.cancel()
                 armRepeat?.cancel()
+                centreRepeat?.cancel()
+                chordLabels?.cancel()
+                // ?123 let go after a chord ran: the chord's, not a tap (#754).
+                val chorded = (chordTrigger && chordGate?.triggerUp(down.id) == true) || chordWon
                 setPressed(false)
                 onKeyRelease()
                 setFlickDirection(null)
@@ -28154,7 +28559,11 @@ private fun Modifier.pointerInputKey(
                 // shift label, so an armed Shift and the return agree on it.
                 val capital = dir?.takeIf { returned }?.let { key.flickShiftedText(it) }
                 when {
-                    armRepeated -> Unit
+                    armRepeated || centreRepeated -> Unit
+                    // A chord ran during this hold: the arm the finger
+                    // went on to does not type as well (#875).
+                    chorded -> Unit
+                    holdRan && chosen == null -> if (hapticOnLongPressRelease) onKeyPress()
                     chosen != null && capital != null -> onKey(chosen.copy(output = capital, shiftLabel = capital))
                     chosen != null -> onKey(chosen)
                     // The long press already opened alternates; release commits
@@ -28208,172 +28617,128 @@ private fun Modifier.pointerInputKey(
             // ?123 is a chord's trigger (#754); every other key may be its partner.
             val chordTrigger = key.action == KeyAction.Symbols
             val presses = HashMap<PointerId, Press>()
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    for (change in event.changes) {
-                        val press = presses[change.id]
-                        when {
-                            press == null && change.changedToDown() -> {
-                                val p = Press()
-                                presses[change.id] = p
-                                setPressed(true)
-                                // Space press buzz is gated on its own toggle;
-                                // the key sound (if on) still plays either way.
-                                if (key.action == KeyAction.Space && !vibrateOnSpace) {
-                                    onKeySound()
-                                } else {
-                                    onKeyPress()
-                                }
-                                // A braille dot key chords: it reports the press
-                                // itself (the chord engine gathers dots on the way
-                                // down, commits when the last finger lifts) and has
-                                // no tap-vs-long-press distinction, so no timer.
-                                // Through the un-debounced sink: the tremor filter
-                                // would eat the up half of a quick chord and leave
-                                // the engine counting a finger that already left.
-                                if (key.action is KeyAction.BrailleDot) {
-                                    onKeyRepeat(key)
-                                    continue
-                                }
-                                if (chordTrigger && chordGate?.active == true) {
-                                    val trigger = change.id
-                                    chordGate.triggerDown(trigger)
-                                    p.chordLabels = scope.launch {
-                                        delay(CHORD_LABEL_DELAY_MS)
-                                        chordGate.showLabels(trigger)
+            // The loop only ever ends by cancellation: this pointerInput
+            // restarting under a held finger. The presses still in the map never
+            // saw a lift, and their repeat jobs run in the key's own scope, so
+            // without this the key stayed lit and kept repeating (#665).
+            try {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        for (change in event.changes) {
+                            val press = presses[change.id]
+                            when {
+                                press == null && change.changedToDown() -> {
+                                    val p = Press()
+                                    presses[change.id] = p
+                                    setPressed(true)
+                                    // Space press buzz is gated on its own toggle;
+                                    // the key sound (if on) still plays either way.
+                                    if (key.action == KeyAction.Space && !vibrateOnSpace) {
+                                        onKeySound()
+                                    } else {
+                                        onKeyPress()
                                     }
-                                } else if (!chordTrigger) {
-                                    chordGate?.otherDown()
-                                }
-                                // One timer, two meanings: on a repeating key it
-                                // is how long before the repeat starts, and on
-                                // every other key it is how long before the
-                                // accent popup opens. They were the same number
-                                // until the repeat got its own, so pick here
-                                // rather than after the wait.
-                                // Issue #57: a spacebar carrying alternates has
-                                // given its hold away, so it stops repeating —
-                                // the repeat is the default the popup replaces,
-                                // and a second tap still types a second space.
-                                // A text-editing key repeats when its operation
-                                // does (the moves, backspace), at the text-edit
-                                // tool's own cadence; Home, End and the selection
-                                // commands hold to their alternates instead. And
-                                // any key at all repeats when its author said so
-                                // (issue #231) — the answer lives on the key so
-                                // the sheet that offers the switch and the draw
-                                // that drops the hint cannot disagree with this.
-                                val editOp = (key.action as? KeyAction.Edit)?.op
-                                val repeats = key.holdRepeats()
-                                val id = change.id
-                                p.job = scope.launch {
-                                    delay(
-                                        if (repeats) keyRepeat.startDelayMs.toLong()
-                                        else longPressDelayMs.toLong(),
-                                    )
-                                    // A thumb waiting its turn under two-thumb
-                                    // typing (#737): no popup, no hold action,
-                                    // no repeat. The press stays a tap, and the
-                                    // two-thumb loop takes even that away if the
-                                    // thumb rests on to its lift.
-                                    if (restGate?.quiets(id) == true) return@launch
-                                    // ?123 held for a chord (#754). A finger that
-                                    // landed on another key meanwhile is the chord
-                                    // under way, so no popup and no number pad. And
-                                    // with nothing else for the hold to do, it
-                                    // waits for the lift to switch layer, rather
-                                    // than switching under a partner about to tap.
-                                    if (chordGate?.isTrigger(id) == true &&
-                                        (chordGate.partnerLanded ||
-                                            (!key.opensAlternatesPopup() && !key.hasHoldAction() &&
-                                                !symbolsLongPressNumpad))
-                                    ) {
-                                        return@launch
+                                    // A braille dot key chords: it reports the press
+                                    // itself (the chord engine gathers dots on the way
+                                    // down, commits when the last finger lifts) and has
+                                    // no tap-vs-long-press distinction, so no timer.
+                                    // Through the un-debounced sink: the tremor filter
+                                    // would eat the up half of a quick chord and leave
+                                    // the engine counting a finger that already left.
+                                    if (key.action is KeyAction.BrailleDot) {
+                                        onKeyRepeat(key)
+                                        continue
                                     }
-                                    restGate?.longPressed(id)
-                                    p.longPressFired = true
-                                    if (repeats) {
-                                        // Space and the two deletes each hold to
-                                        // a different purpose, so each has its
-                                        // own cadence.
-                                        val deletesBack = key.action.deletesBackward()
-                                        val deletesFwd = key.action.deletesForward()
-                                        // A held delete key can clear whole
-                                        // words (issue #216), which is slower
-                                        // on purpose and so keeps its own
-                                        // number. The text-edit pad's delete
-                                        // keys are delete keys too (issue
-                                        // #226), so they count here as well.
-                                        val holdWords = textEditing.deleteHoldDeletesWords &&
-                                            (deletesBack || deletesFwd)
-                                        val intervalMs = when {
-                                            key.action == KeyAction.Space -> keyRepeat.spaceMs
-                                            holdWords -> keyRepeat.wordDeleteMs
-                                            // Before the edit-key cadence, so a
-                                            // delete key on the pad repeats at
-                                            // the delete interval like every
-                                            // other delete key (issue #226).
-                                            deletesBack || deletesFwd -> keyRepeat.deleteMs
-                                            editOp != null -> textEditing.repeatMs
-                                            // Everything left is a key an author
-                                            // turned the repeat on for.
-                                            else -> keyRepeat.customKeyMs
-                                        }.toLong()
-                                        // Held backspace stops once there is
-                                        // nothing left to delete — no point
-                                        // buzzing against an empty field. ⌦
-                                        // runs out at the other end of the text,
-                                        // so it polls its own predicate.
-                                        while (
-                                            when {
-                                                deletesBack -> canDelete()
-                                                deletesFwd -> canForwardDelete()
-                                                else -> true
-                                            }
-                                        ) {
-                                            repeatFeedback(
-                                                vibrateOnRepeat, soundOnRepeat,
-                                                onKeyPress, onKeySound, onKeyHaptic,
-                                            )
-                                            // The swipe's one-step call is what
-                                            // knows how to take a word; the key
-                                            // itself only ever takes one
-                                            // character.
-                                            if (holdWords) {
-                                                deleteSwipe.onDeleteUnit(true, deletesFwd)
-                                            } else {
-                                                onKeyRepeat(key)
-                                            }
-                                            delay(intervalMs)
+                                    if (chordTrigger && chordGate?.active == true) {
+                                        val trigger = change.id
+                                        chordGate.triggerDown(trigger)
+                                        p.chordLabels = scope.launch {
+                                            delay(CHORD_LABEL_DELAY_MS)
+                                            chordGate.showLabels(trigger)
                                         }
-                                    } else if (key.clipboardAction != null) {
-                                        // Clipboard shortcut replaces the alternates popup
-                                        // on this key; the action fires immediately.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        key.clipboardAction?.let(onClipboardKey)
-                                    } else if (key.hasHoldAction()) {
-                                        // The hold runs one action outright, no
-                                        // popup in between. A move or a delete
-                                        // keeps going while the finger stays
-                                        // down, after the same pause a held key
-                                        // takes before it repeats; the lift
-                                        // cancels this job and so stops it.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        key.holdActionKey()?.let { held ->
-                                            if (!held.flickArmRepeats()) {
-                                                onKey(held)
-                                                return@launch
-                                            }
-                                            val deletesBack = held.action.deletesBackward()
-                                            val deletesFwd = held.action.deletesForward()
-                                            val intervalMs = if (deletesBack || deletesFwd) {
-                                                keyRepeat.deleteMs
-                                            } else {
-                                                textEditing.repeatMs
+                                    } else if (!chordTrigger) {
+                                        chordGate?.otherDown()
+                                    }
+                                    // One timer, two meanings: on a repeating key it
+                                    // is how long before the repeat starts, and on
+                                    // every other key it is how long before the
+                                    // accent popup opens. They were the same number
+                                    // until the repeat got its own, so pick here
+                                    // rather than after the wait.
+                                    // Issue #57: a spacebar carrying alternates has
+                                    // given its hold away, so it stops repeating —
+                                    // the repeat is the default the popup replaces,
+                                    // and a second tap still types a second space.
+                                    // A text-editing key repeats when its operation
+                                    // does (the moves, backspace), at the text-edit
+                                    // tool's own cadence; Home, End and the selection
+                                    // commands hold to their alternates instead. And
+                                    // any key at all repeats when its author said so
+                                    // (issue #231) — the answer lives on the key so
+                                    // the sheet that offers the switch and the draw
+                                    // that drops the hint cannot disagree with this.
+                                    val editOp = (key.action as? KeyAction.Edit)?.op
+                                    val repeats = key.holdRepeats()
+                                    val id = change.id
+                                    p.job = scope.launch {
+                                        delay(
+                                            if (repeats) keyRepeat.startDelayMs.toLong()
+                                            else longPressDelayMs.toLong(),
+                                        )
+                                        // A thumb waiting its turn under two-thumb
+                                        // typing (#737): no popup, no hold action,
+                                        // no repeat. The press stays a tap, and the
+                                        // two-thumb loop takes even that away if the
+                                        // thumb rests on to its lift.
+                                        if (restGate?.quiets(id) == true) return@launch
+                                        // ?123 held for a chord (#754). A finger that
+                                        // landed on another key meanwhile is the chord
+                                        // under way, so no popup and no number pad. And
+                                        // with nothing else for the hold to do, it
+                                        // waits for the lift to switch layer, rather
+                                        // than switching under a partner about to tap.
+                                        if (chordGate?.isTrigger(id) == true &&
+                                            (chordGate.partnerLanded ||
+                                                (!key.opensAlternatesPopup() && !key.hasHoldAction() &&
+                                                    !symbolsLongPressNumpad))
+                                        ) {
+                                            return@launch
+                                        }
+                                        restGate?.longPressed(id)
+                                        p.longPressFired = true
+                                        if (repeats) {
+                                            // Space and the two deletes each hold to
+                                            // a different purpose, so each has its
+                                            // own cadence.
+                                            val deletesBack = key.action.deletesBackward()
+                                            val deletesFwd = key.action.deletesForward()
+                                            // A held delete key can clear whole
+                                            // words (issue #216), which is slower
+                                            // on purpose and so keeps its own
+                                            // number. The text-edit pad's delete
+                                            // keys are delete keys too (issue
+                                            // #226), so they count here as well.
+                                            val holdWords = textEditing.deleteHoldDeletesWords &&
+                                                (deletesBack || deletesFwd)
+                                            val intervalMs = when {
+                                                key.action == KeyAction.Space -> keyRepeat.spaceMs
+                                                holdWords -> keyRepeat.wordDeleteMs
+                                                // Before the edit-key cadence, so a
+                                                // delete key on the pad repeats at
+                                                // the delete interval like every
+                                                // other delete key (issue #226).
+                                                deletesBack || deletesFwd -> keyRepeat.deleteMs
+                                                editOp != null -> textEditing.repeatMs
+                                                // Everything left is a key an author
+                                                // turned the repeat on for.
+                                                else -> keyRepeat.customKeyMs
                                             }.toLong()
-                                            onKeyRepeat(held)
-                                            delay(keyRepeat.startDelayMs.toLong())
+                                            // Held backspace stops once there is
+                                            // nothing left to delete — no point
+                                            // buzzing against an empty field. ⌦
+                                            // runs out at the other end of the text,
+                                            // so it polls its own predicate.
                                             while (
                                                 when {
                                                     deletesBack -> canDelete()
@@ -28385,137 +28750,207 @@ private fun Modifier.pointerInputKey(
                                                     vibrateOnRepeat, soundOnRepeat,
                                                     onKeyPress, onKeySound, onKeyHaptic,
                                                 )
-                                                onKeyRepeat(held)
+                                                // The swipe's one-step call is what
+                                                // knows how to take a word; the key
+                                                // itself only ever takes one
+                                                // character.
+                                                if (holdWords) {
+                                                    deleteSwipe.onDeleteUnit(true, deletesFwd)
+                                                } else {
+                                                    onKeyRepeat(key)
+                                                }
                                                 delay(intervalMs)
                                             }
+                                        } else if (key.clipboardAction != null) {
+                                            // Clipboard shortcut replaces the alternates popup
+                                            // on this key; the action fires immediately.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            key.clipboardAction?.let(onClipboardKey)
+                                        } else if (key.hasHoldAction()) {
+                                            // The hold runs one action outright, no
+                                            // popup in between. A move or a delete
+                                            // keeps going while the finger stays
+                                            // down, after the same pause a held key
+                                            // takes before it repeats; the lift
+                                            // cancels this job and so stops it.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            key.holdActionKey()?.let { held ->
+                                                if (!held.flickArmRepeats()) {
+                                                    onKey(held)
+                                                    return@launch
+                                                }
+                                                val deletesBack = held.action.deletesBackward()
+                                                val deletesFwd = held.action.deletesForward()
+                                                val intervalMs = if (deletesBack || deletesFwd) {
+                                                    keyRepeat.deleteMs
+                                                } else {
+                                                    textEditing.repeatMs
+                                                }.toLong()
+                                                onKeyRepeat(held)
+                                                delay(keyRepeat.startDelayMs.toLong())
+                                                while (
+                                                    when {
+                                                        deletesBack -> canDelete()
+                                                        deletesFwd -> canForwardDelete()
+                                                        else -> true
+                                                    }
+                                                ) {
+                                                    repeatFeedback(
+                                                        vibrateOnRepeat, soundOnRepeat,
+                                                        onKeyPress, onKeySound, onKeyHaptic,
+                                                    )
+                                                    onKeyRepeat(held)
+                                                    delay(intervalMs)
+                                                }
+                                            }
+                                        } else if (key.opensAlternatesPopup()) {
+                                            p.holdsAlternates = alternates != null
+                                            // Characters, actions, or both: any key with
+                                            // alternates opens the popup, which is what
+                                            // puts them on the enter key (issue #22).
+                                            //
+                                            // Tactile cue that the long press registered and the
+                                            // finger can be released (alternates are open / the
+                                            // long-press action fired). Delete/space skip it:
+                                            // their repeat loop already buzzes per repeat.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            openAlternates()
+                                        } else if (key.action == KeyAction.Symbols &&
+                                            symbolsLongPressNumpad
+                                        ) {
+                                            // Opt-in: long-pressing ?123 opens the
+                                            // numpad panel instead of acting like a tap.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            onKey(key.copy(action = KeyAction.Numpad))
+                                        } else if (key.action == KeyAction.LanguageSwitch) {
+                                            // Tap cycles to the next language; the
+                                            // long press opens the full picker.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            openLanguagePicker()
+                                        } else if (
+                                            editOp == TextEditAction.SELECT &&
+                                            textEditing.selectionModeHold
+                                        ) {
+                                            // Issue #41: the same momentary arm the
+                                            // Selection mode tool's hold gives —
+                                            // selection extends while the finger is
+                                            // down and stops when it lifts. Below
+                                            // the alternates branch on purpose: a
+                                            // Select key the user has hung a second
+                                            // action on keeps that action, and the
+                                            // panel editor says so as it is bound.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            p.armedSelection = true
+                                            onSelectionHold(true)
+                                        } else if (editOp == TextEditAction.NO_SPACE) {
+                                            // Issue #863: a hold arms No space for
+                                            // the next key, as a double tap does,
+                                            // the way a hold locks Shift.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            onKey(Key(label = key.label, action = KeyAction.Edit(TextEditAction.NO_SPACE_NEXT)))
+                                        } else {
+                                            // No alternates: long press behaves like a tap.
+                                            if (hapticOnLongPress) onKeyPress()
+                                            onKey(key)
                                         }
-                                    } else if (key.opensAlternatesPopup()) {
-                                        p.holdsAlternates = alternates != null
-                                        // Characters, actions, or both: any key with
-                                        // alternates opens the popup, which is what
-                                        // puts them on the enter key (issue #22).
-                                        //
-                                        // Tactile cue that the long press registered and the
-                                        // finger can be released (alternates are open / the
-                                        // long-press action fired). Delete/space skip it:
-                                        // their repeat loop already buzzes per repeat.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        openAlternates()
-                                    } else if (key.action == KeyAction.Symbols &&
-                                        symbolsLongPressNumpad
-                                    ) {
-                                        // Opt-in: long-pressing ?123 opens the
-                                        // numpad panel instead of acting like a tap.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        onKey(key.copy(action = KeyAction.Numpad))
-                                    } else if (key.action == KeyAction.LanguageSwitch) {
-                                        // Tap cycles to the next language; the
-                                        // long press opens the full picker.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        openLanguagePicker()
-                                    } else if (
-                                        editOp == TextEditAction.SELECT &&
-                                        textEditing.selectionModeHold
-                                    ) {
-                                        // Issue #41: the same momentary arm the
-                                        // Selection mode tool's hold gives —
-                                        // selection extends while the finger is
-                                        // down and stops when it lifts. Below
-                                        // the alternates branch on purpose: a
-                                        // Select key the user has hung a second
-                                        // action on keeps that action, and the
-                                        // panel editor says so as it is bound.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        p.armedSelection = true
-                                        onSelectionHold(true)
-                                    } else {
-                                        // No alternates: long press behaves like a tap.
-                                        if (hapticOnLongPress) onKeyPress()
-                                        onKey(key)
                                     }
                                 }
-                            }
-                            // Another handler claimed the pointer (glide typing
-                            // consumed the move/up on the Initial pass): the
-                            // press must not commit.
-                            press != null && change.isConsumed -> {
-                                press.job?.cancel()
-                                // A layer peek took ?123 (#108): no longer a chord's trigger.
-                                press.chordLabels?.cancel()
-                                chordGate?.triggerUp(change.id)
-                                if (press.holdsAlternates) alternates?.cancel()
-                                if (press.armedSelection) onSelectionHold(false)
-                                presses.remove(change.id)
-                                if (presses.isEmpty()) setPressed(false)
-                                onKeyRelease()
-                                // The chord engine counted this finger on the way
-                                // down; a stolen pointer still has to count as a
-                                // lift or the engine waits forever for it.
-                                if (key.action is KeyAction.BrailleDot) {
-                                    onKeyRepeat(brailleRelease(key))
-                                }
-                            }
-                            press != null && change.changedToUp() -> {
-                                change.consume()
-                                press.job?.cancel()
-                                press.chordLabels?.cancel()
-                                // ?123 let go after a chord ran: that was the
-                                // chord's, not a tap switching layer (#754).
-                                val chorded = chordGate?.triggerUp(change.id) == true
-                                if (press.armedSelection) onSelectionHold(false)
-                                presses.remove(change.id)
-                                if (presses.isEmpty()) setPressed(false)
-                                onKeyRelease()
-                                if (key.action is KeyAction.BrailleDot) {
-                                    // No bounds test: the dot was gathered on the
-                                    // press, so the lift only closes the chord —
-                                    // sliding off cannot un-press what already
-                                    // counted, it just must not strand the engine.
-                                    onKeyRepeat(brailleRelease(key))
-                                    continue
-                                }
-                                // Forgiving bounds: a sloppy fast tap that drifts
-                                // slightly off the cell still commits; a deliberate
-                                // slide well away (≥ half a key beyond the edge)
-                                // cancels, preserving slide-off-to-cancel.
-                                val inBounds =
-                                    change.position.x > -size.width * 0.5f &&
-                                        change.position.x < size.width * 1.5f &&
-                                        change.position.y > -size.height * 0.5f &&
-                                        change.position.y < size.height * 1.5f
-                                when {
-                                    chorded -> Unit
-                                    // Smart key-hit may swap in a likelier
-                                    // neighbour chosen when this pointer went down.
-                                    // Tapped while ?123 is held, a key runs its
-                                    // chord instead, if it has one (#754).
-                                    !press.longPressFired ->
-                                        if (inBounds && chordGate?.tap(key) != true) {
-                                            onKey(smartResolve(key, change.id))
-                                        }
-                                    // The lift chooses: whatever the popup has
-                                    // highlighted, which is the first entry when
-                                    // the finger never moved off the key. No
-                                    // bounds test of its own — the highlight is
-                                    // already null once the finger has strayed
-                                    // out of reach of the popup.
-                                    press.holdsAlternates -> {
-                                        alternates?.commit()
-                                        if (hapticOnLongPressRelease) onKeyPress()
+                                // Another handler claimed the pointer (glide typing
+                                // consumed the move/up on the Initial pass): the
+                                // press must not commit.
+                                press != null && change.isConsumed -> {
+                                    press.job?.cancel()
+                                    // A layer peek took ?123 (#108): no longer a chord's trigger.
+                                    press.chordLabels?.cancel()
+                                    chordGate?.triggerUp(change.id)
+                                    if (press.holdsAlternates) alternates?.cancel()
+                                    if (press.armedSelection) onSelectionHold(false)
+                                    presses.remove(change.id)
+                                    if (presses.isEmpty()) setPressed(false)
+                                    onKeyRelease()
+                                    // The chord engine counted this finger on the way
+                                    // down; a stolen pointer still has to count as a
+                                    // lift or the engine waits forever for it.
+                                    if (key.action is KeyAction.BrailleDot) {
+                                        onKeyRepeat(brailleRelease(key))
                                     }
-                                    hapticOnLongPressRelease -> onKeyPress()
                                 }
-                            }
-                            // Steering an open popup. Last, so a lift or a
-                            // stolen pointer is dealt with first; the popup is
-                            // in a window of its own, so these moves keep
-                            // arriving here even under it.
-                            press != null && press.holdsAlternates && change.pressed -> {
-                                alternates?.moveTo(change.position, reachPx, steerPx)
-                                change.consume()
+                                press != null && change.changedToUp() -> {
+                                    change.consume()
+                                    press.job?.cancel()
+                                    press.chordLabels?.cancel()
+                                    // ?123 let go after a chord ran: that was the
+                                    // chord's, not a tap switching layer (#754).
+                                    val chorded = chordGate?.triggerUp(change.id) == true
+                                    if (press.armedSelection) onSelectionHold(false)
+                                    presses.remove(change.id)
+                                    if (presses.isEmpty()) setPressed(false)
+                                    onKeyRelease()
+                                    if (key.action is KeyAction.BrailleDot) {
+                                        // No bounds test: the dot was gathered on the
+                                        // press, so the lift only closes the chord —
+                                        // sliding off cannot un-press what already
+                                        // counted, it just must not strand the engine.
+                                        onKeyRepeat(brailleRelease(key))
+                                        continue
+                                    }
+                                    // Forgiving bounds: a sloppy fast tap that drifts
+                                    // slightly off the cell still commits; a deliberate
+                                    // slide well away (≥ half a key beyond the edge)
+                                    // cancels, preserving slide-off-to-cancel.
+                                    val inBounds =
+                                        change.position.x > -size.width * 0.5f &&
+                                            change.position.x < size.width * 1.5f &&
+                                            change.position.y > -size.height * 0.5f &&
+                                            change.position.y < size.height * 1.5f
+                                    when {
+                                        chorded -> Unit
+                                        // Smart key-hit may swap in a likelier
+                                        // neighbour chosen when this pointer went down.
+                                        // Tapped while ?123 is held, a key runs its
+                                        // chord instead, if it has one (#754).
+                                        !press.longPressFired ->
+                                            if (inBounds && chordGate?.tap(key) != true) {
+                                                onKey(smartResolve(key, change.id))
+                                            }
+                                        // The lift chooses: whatever the popup has
+                                        // highlighted, which is the first entry when
+                                        // the finger never moved off the key. No
+                                        // bounds test of its own — the highlight is
+                                        // already null once the finger has strayed
+                                        // out of reach of the popup.
+                                        press.holdsAlternates -> {
+                                            alternates?.commit()
+                                            if (hapticOnLongPressRelease) onKeyPress()
+                                        }
+                                        hapticOnLongPressRelease -> onKeyPress()
+                                    }
+                                }
+                                // Steering an open popup. Last, so a lift or a
+                                // stolen pointer is dealt with first; the popup is
+                                // in a window of its own, so these moves keep
+                                // arriving here even under it.
+                                press != null && press.holdsAlternates && change.pressed -> {
+                                    alternates?.moveTo(change.position, reachPx, steerPx)
+                                    change.consume()
+                                }
                             }
                         }
                     }
+                }
+            } finally {
+                if (presses.isNotEmpty()) {
+                    for ((id, press) in presses) {
+                        press.job?.cancel()
+                        press.chordLabels?.cancel()
+                        chordGate?.triggerUp(id)
+                        if (press.holdsAlternates) alternates?.cancel()
+                        if (press.armedSelection) onSelectionHold(false)
+                        // The chord engine counted this finger on the way down.
+                        if (key.action is KeyAction.BrailleDot) onKeyRepeat(brailleRelease(key))
+                    }
+                    presses.clear()
+                    setPressed(false)
                 }
             }
         }
@@ -31201,72 +31636,95 @@ internal fun signedRank(steps: Int): String = when {
     else -> "0"
 }
 
+/** Height of the recent-word row (#814): a touch target's worth, since every word in it is one. */
+internal val RecentRowHeight = 48.dp
+
 /**
- * The recent-word bar (#787): the last words written, newest on the right,
- * each a chip that opens what else it could have been. A pick replaces that
- * occurrence where it stands; the live words to the right are untouched.
+ * Whether the recent-word row is up: the setting is on, the words have a row
+ * of their own, the strip is showing, and the row has words or keeps its
+ * height without them (#894).
+ */
+internal fun recentRowShown(state: KeyboardUiState): Boolean =
+    state.settings.suggestionStrip.recentWordBar &&
+        state.settings.rows.recentWordPlacement == RecentWordPlacement.OWN_ROW &&
+        !state.settings.toolbarBehavior.stripHidden &&
+        (state.recentBar.isNotEmpty() || state.settings.rows.recentWordSteady)
+
+/** Whether the recent words sit at the start of the strip instead (#894). */
+internal fun recentWordsInline(state: KeyboardUiState): Boolean =
+    state.recentBar.isNotEmpty() && state.settings.suggestionStrip.recentWordBar &&
+        state.settings.rows.recentWordPlacement == RecentWordPlacement.INLINE
+
+/** How wide the recent words may grow at the start of the strip; they scroll past it. */
+private val InlineRecentMaxWidth = 168.dp
+
+/**
+ * The recent-word row (#787, #814, #842): the last words written, newest on
+ * the right, each followed by what else it could have been. It sits over the
+ * strip in a row of its own, so the live suggestions keep their full width,
+ * and the alternatives are on screen from the start: one tap on one replaces
+ * that word where it stands. Scrolls sideways when the words outgrow it,
+ * starting at the newest.
  */
 @Composable
-private fun RecentWordBar(words: List<String>, hold: SuggestionHoldCallbacks) {
+internal fun RecentWordRow(
+    words: List<RecentBarWord>,
+    hold: SuggestionHoldCallbacks,
+    modifier: Modifier = Modifier.fillMaxWidth().height(RecentRowHeight),
+) {
     val kb = LocalKbTheme.current
+    val scroll = rememberScrollState()
+    LaunchedEffect(words) { scroll.scrollTo(scroll.maxValue) }
     Row(
-        modifier = Modifier.padding(start = 4.dp),
+        modifier = modifier
+            .horizontalScroll(scroll)
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        words.forEachIndexed { index, word ->
-            val back = words.lastIndex - index
-            var offers by remember(word, back) { mutableStateOf<List<String>?>(null) }
-            Box {
-                Box(
-                    modifier = Modifier
-                        .widthIn(max = 88.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(kb.chip)
-                        .clickable(onClickLabel = stringResource(R.string.ime_recent_word_open_desc)) {
-                            offers = hold.recentOffers(back, word)
-                        }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        word,
-                        color = kb.chipText,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+        words.forEachIndexed { index, recent ->
+            // Keyed on the place, not the spelling: two copies of a word are
+            // two entries, and a pick must reach the one it was drawn for.
+            key(recent.start) {
+                if (index > 0) {
+                    VerticalDivider(
+                        modifier = Modifier.height(20.dp).padding(horizontal = 4.dp),
+                        thickness = SuggestionDividerWidth,
+                        color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
-                val shown = offers
-                if (shown != null) {
-                    DropdownMenu(
-                        expanded = true,
-                        onDismissRequest = { offers = null },
-                        properties = MenuPopupProperties,
+                Text(
+                    recent.word,
+                    color = kb.keyText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+                for (offer in recent.offers) {
+                    val replace = stringResource(R.string.ime_recent_word_replace_desc, recent.word, offer)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .widthIn(min = 48.dp)
+                            .padding(vertical = 6.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(kb.chip)
+                            .clickable(role = Role.Button, onClickLabel = replace) {
+                                hold.onRecentPick(recent.start, recent.word, offer)
+                            }
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        if (shown.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.ime_recent_word_nothing)) },
-                                onClick = { offers = null },
-                                enabled = false,
-                            )
-                        }
-                        for (offer in shown) {
-                            DropdownMenuItem(
-                                text = { Text(offer) },
-                                onClick = {
-                                    offers = null
-                                    hold.onRecentPick(back, word, offer)
-                                },
-                            )
-                        }
+                        Text(
+                            offer,
+                            color = kb.chipText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                        )
                     }
                 }
             }
         }
-        VerticalDivider(
-            modifier = Modifier.height(20.dp),
-            thickness = SuggestionDividerWidth,
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
     }
 }

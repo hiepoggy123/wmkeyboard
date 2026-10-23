@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
+import com.wasimaster.wmkeyboard.core.prediction.SlipFixes
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.settings.FlickDistanceRange
 import com.wasimaster.wmkeyboard.core.settings.FlickReachRange
@@ -105,7 +106,6 @@ import com.wasimaster.wmkeyboard.core.settings.OctopusDuringGlide
 import com.wasimaster.wmkeyboard.core.settings.OctopusFlickSensitivity
 import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
 import com.wasimaster.wmkeyboard.core.settings.OctopusSettings
-import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -544,6 +544,23 @@ internal fun TypingCorrectionsSettings(
                 default = SettingsDefaults.suggestionStrip.mistypeTolerance.toFloat(),
             ) { scope.launch { repository.setMistypeTolerance((it.toInt() + 5) / 10 * 10) } }
         }
+        // Several slips per word: also outside the autocorrect gate, since
+        // the same reading ranks the strip.
+        item {
+            ChoiceSetting(
+                R.string.typing_fix_several_slips_title,
+                subtitle = stringResource(R.string.typing_fix_several_slips_subtitle),
+                info = stringResource(R.string.typing_fix_several_slips_info),
+                options = listOf(
+                    SlipFixes.OFF to stringResource(R.string.typing_fix_several_slips_off),
+                    SlipFixes.CAREFUL to stringResource(R.string.typing_fix_several_slips_careful),
+                    SlipFixes.EAGER to stringResource(R.string.typing_fix_several_slips_eager),
+                ),
+                selected = settings.watch { it.suggestionStrip.slipFixes },
+                default = SettingsDefaults.suggestionStrip.slipFixes,
+                detail = { level -> ChoiceDetail(stringResource(slipFixesDescRes(level))) },
+            ) { scope.launch { repository.setSlipFixes(it) } }
+        }
         item { ForgetTapModelRow(repository) }
         item {
             ToggleSetting(
@@ -844,6 +861,16 @@ internal fun TypingSuggestionsSettings(
                 info = stringResource(R.string.typing_suggestion_scroll_info),
                 default = SettingsDefaults.suggestionStrip.scrollable,
             ) { scope.launch { repository.setSuggestionScrollable(it) } }
+        }
+        // The arrow only exists on a strip that scrolls (#890).
+        if (scrollable) item {
+            ToggleSetting(
+                R.string.typing_suggestion_more_arrow_title,
+                stringResource(R.string.typing_suggestion_more_arrow_subtitle),
+                settings.watch { it.suggestionStrip.moreArrow },
+                info = stringResource(R.string.typing_suggestion_more_arrow_info),
+                default = SettingsDefaults.suggestionStrip.moreArrow,
+            ) { scope.launch { repository.setSuggestionMoreArrow(it) } }
         }
         item {
             val once = stringResource(R.string.typing_learn_threshold_once)
@@ -1867,8 +1894,8 @@ internal fun TypingGesturesSettings(
                 default = SettingsDefaults.gestureTyping,
             ) { scope.launch { repository.setGestureTyping(it) } }
         }
-        // What a letter swipe does — glide a word, handwrite it (full builds
-        // only: it needs the ML Kit handwriting model), or slide to one key and
+        // What a letter swipe does — glide a word, handwrite it (not on
+        // F-Droid: it needs the ML Kit handwriting model), or slide to one key and
         // type it on the lift (#658). Only relevant once letter swipes are
         // switched on above.
         item(visible = glideOn) {
@@ -1876,13 +1903,11 @@ internal fun TypingGesturesSettings(
                 title = R.string.typing_letter_swipe_action_title,
                 subtitle = stringResource(R.string.typing_letter_swipe_action_subtitle),
                 info = stringResource(R.string.typing_letter_swipe_action_info),
-                options = listOfNotNull(
+                options = listOf(
                     LetterSwipeAction.TYPE_WORDS to
                         stringResource(R.string.typing_letter_swipe_type_words_label),
-                    (
-                        LetterSwipeAction.HANDWRITE to
-                            stringResource(R.string.typing_letter_swipe_handwrite_label)
-                        ).takeIf { BuildConfig.ENABLE_ML_KIT_HANDWRITING },
+                    LetterSwipeAction.HANDWRITE to
+                        stringResource(R.string.typing_letter_swipe_handwrite_label),
                     LetterSwipeAction.SELECT_KEY to
                         stringResource(R.string.typing_letter_swipe_select_key_label),
                 ),
@@ -1959,8 +1984,12 @@ internal fun TypingGesturesSettings(
                 }
                 // The tapped-word pause, the one-letter floor, the space taken
                 // back and the band over the pause (#747): all-up only too.
+                // The first three follow the swiped-word pause until they are
+                // set (#841), so Reset shows only on one that was, and clears
+                // it rather than writing the number it shipped at.
                 item(visible = twoThumb && twoThumbWordEnd == TwoThumbWordEnd.ALL_UP) {
                     val msFormat = stringResource(R.string.typing_value_milliseconds)
+                    val set = settings.watch { it.gesture.twoThumbTapPauseSet }
                     SliderSetting(
                         R.string.typing_two_thumb_tap_pause_title,
                         subtitle = stringResource(R.string.typing_two_thumb_tap_pause_subtitle),
@@ -1968,11 +1997,17 @@ internal fun TypingGesturesSettings(
                         range = TWO_THUMB_PAUSE_RANGE.first.toFloat()..TWO_THUMB_PAUSE_RANGE.last.toFloat(),
                         display = { msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.typing_two_thumb_tap_pause_info),
-                        default = SettingsDefaults.gesture.twoThumbTapPauseMs.toFloat(),
+                        default = settings.watch { it.gesture.twoThumbPauseMs }.toFloat(),
+                        onReset = if (set) {
+                            { scope.launch { repository.resetGestureTwoThumbTapPauseMs() } }
+                        } else {
+                            null
+                        },
                     ) { scope.launch { repository.setGestureTwoThumbTapPauseMs(it.roundToInt()) } }
                 }
                 item(visible = twoThumb && twoThumbWordEnd == TwoThumbWordEnd.ALL_UP) {
                     val msFormat = stringResource(R.string.typing_value_milliseconds)
+                    val set = settings.watch { it.gesture.twoThumbOneLetterPauseSet }
                     SliderSetting(
                         R.string.typing_two_thumb_one_letter_pause_title,
                         subtitle = stringResource(R.string.typing_two_thumb_one_letter_pause_subtitle),
@@ -1980,7 +2015,12 @@ internal fun TypingGesturesSettings(
                         range = TWO_THUMB_PAUSE_RANGE.first.toFloat()..TWO_THUMB_PAUSE_RANGE.last.toFloat(),
                         display = { msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.typing_two_thumb_one_letter_pause_info),
-                        default = SettingsDefaults.gesture.twoThumbOneLetterPauseMs.toFloat(),
+                        default = settings.watch { minOf(it.gesture.twoThumbPauseMs, it.gesture.twoThumbTapPauseMs) }.toFloat(),
+                        onReset = if (set) {
+                            { scope.launch { repository.resetGestureTwoThumbOneLetterPauseMs() } }
+                        } else {
+                            null
+                        },
                     ) { scope.launch { repository.setGestureTwoThumbOneLetterPauseMs(it.roundToInt()) } }
                 }
                 item(visible = twoThumb && twoThumbWordEnd == TwoThumbWordEnd.ALL_UP) {
@@ -1993,7 +2033,14 @@ internal fun TypingGesturesSettings(
                         range = TWO_THUMB_RETRACT_RANGE.first.toFloat()..TWO_THUMB_RETRACT_RANGE.last.toFloat(),
                         display = { if (it.roundToInt() == 0) off else msFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.typing_two_thumb_retract_info),
-                        default = SettingsDefaults.gesture.twoThumbRetractWindowMs.toFloat(),
+                        default = settings.watch {
+                            (it.gesture.twoThumbPauseMs * 2).coerceIn(TWO_THUMB_RETRACT_RANGE)
+                        }.toFloat(),
+                        onReset = if (settings.watch { it.gesture.twoThumbRetractWindowSet }) {
+                            { scope.launch { repository.resetGestureTwoThumbRetractWindowMs() } }
+                        } else {
+                            null
+                        },
                     ) { scope.launch { repository.setGestureTwoThumbRetractWindowMs(it.roundToInt()) } }
                 }
                 item(visible = twoThumb && twoThumbWordEnd == TwoThumbWordEnd.ALL_UP) {
@@ -2141,6 +2188,9 @@ internal fun TypingGesturesSettings(
                 // kept together and out of line: this screen's body is already
                 // past its length budget and these belong to one another.
                 glideVocabularyRows(settings, repository, scope)
+                // Which decoder reads the swipe at all: built-in, or FUTO
+                // Swipe for English on QWERTY.
+                glideEngineRows(settings, repository, scope)
                 item {
                     ToggleSetting(
                         R.string.typing_space_after_glide_title,
@@ -2216,9 +2266,7 @@ internal fun TypingGesturesSettings(
             }
             // Handwrite-with-swipes only: window after a drawn stroke in which a
             // tap is grabbed as an ink dot rather than typing.
-            if (BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
-                swipeAction == LetterSwipeAction.HANDWRITE
-            ) {
+            if (swipeAction == LetterSwipeAction.HANDWRITE) {
                 item {
                     val offLabel = stringResource(CommonR.string.common_off)
                     val msFormat = stringResource(R.string.typing_value_milliseconds)
@@ -3390,6 +3438,12 @@ private fun detectionStrengthDescRes(strength: LanguageDetectionStrength): Int =
  * How long an undone correction stays undone, for the sheet. Each line says
  * what the level costs the user, not how the store spells it.
  */
+private fun slipFixesDescRes(level: SlipFixes): Int = when (level) {
+    SlipFixes.OFF -> R.string.typing_fix_several_slips_off_desc
+    SlipFixes.CAREFUL -> R.string.typing_fix_several_slips_careful_desc
+    SlipFixes.EAGER -> R.string.typing_fix_several_slips_eager_desc
+}
+
 private fun undoMemoryDescRes(level: UndoMemory): Int = when (level) {
     UndoMemory.OFF -> R.string.typing_undo_memory_off_desc
     UndoMemory.LIGHT -> R.string.typing_undo_memory_light_desc

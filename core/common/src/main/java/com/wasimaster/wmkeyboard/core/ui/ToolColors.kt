@@ -72,12 +72,13 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.QR_GEN -> Color(0xFF26A69A)
     ToolbarTool.PASSWORD_GEN -> Color(0xFFEF5350)
     ToolbarTool.TEXT_REPEAT -> Color(0xFF7E57C2)
+    ToolbarTool.READ_BACK -> Color(0xFF26A69A)
     ToolbarTool.TYPING_TEST -> Color(0xFFFF7043)
     // Trophy gold: the screen it opens is levels and achievements.
     ToolbarTool.STATISTICS -> Color(0xFFFFA000)
     ToolbarTool.FIND_REPLACE -> Color(0xFF5C6BC0)
     // Sticky-note yellow.
-    ToolbarTool.NOTES -> Color(0xFFFBC02D)
+    ToolbarTool.NOTES, ToolbarTool.QUICK_NOTE -> Color(0xFFFBC02D)
     ToolbarTool.MEDIA_CONTROL -> Color(0xFFAB47BC)
     // KDE's own blue.
     ToolbarTool.KDE_CONNECT -> Color(0xFF1D99F3)
@@ -133,7 +134,7 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE -> Color(0xFF90A4AE)
 
-    ToolbarTool.HIDE_KEYBOARD -> Color(0xFF607D8B)
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD -> Color(0xFF607D8B)
     ToolbarTool.LANGUAGE -> Color(0xFF26A69A)
 }
 

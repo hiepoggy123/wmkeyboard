@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-release-apk:
-    name: Build lite arm64 release APK
+    name: Build arm64 release APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -58,13 +58,13 @@ jobs:
             echo "SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
           fi
 
-      - name: Build lite release APK (arm64 only)
+      - name: Build release APK (arm64 only)
         env:
           RELEASE_STORE_FILE: ${{ env.SIGNING_AVAILABLE == 'true' && 'release.keystore' || '' }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleLiteIntlRelease --stacktrace
+        run: ./gradlew assembleIntlRelease -Pwmkb.abi=arm64-v8a --stacktrace
 
       - name: Collect artifacts
         run: |
@@ -85,6 +85,6 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-lite-intl
+          name: release-apk-arm64
           path: dist/*.apk
           retention-days: 14

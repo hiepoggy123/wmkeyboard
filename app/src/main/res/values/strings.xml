@@ -14,7 +14,7 @@
          that file's statements target an android_app, so following it leaves
          this app vouching for itself and Chrome reports the app as missing.
          The site file stays where it is; it answers the other direction. -->
-    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.pages.dev\"}}]</string>
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.pages.dev\"}}, {\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.app\"}}]</string>
     <string name="ime_name">WM Keyboard</string>
     <!-- Android's name for the keyboard as a spell checker (#511), under the
          system's spell checker setting. -->
@@ -30,8 +30,40 @@
     <string name="litert_module_title">Offline voice typing and sticker cutout</string>
     <string name="handwriting_module_title">Handwriting recognition</string>
     <string name="speech_module_title">Offline voice engines</string>
+    <string name="onnx_module_title">ONNX Runtime</string>
+    <!-- :feature:opus, the audio compressor for transcription server uploads. -->
+    <string name="opus_module_title">Voice upload compression</string>
+    <string name="executorch_module_title">Offline voice and glide models</string>
     <string name="grammar_module_title">Grammar checker</string>
+    <string name="spell_module_title">Hunspell spell checker</string>
     <string name="ocr_module_title">Offline text reader</string>
+    <!-- :feature:rime, librime behind the optional RIME engine for Chinese.
+         RIME is the engine's name and stays in Latin letters. -->
+    <string name="rime_module_title">RIME Chinese engine</string>
+    <!-- :feature:mozc, Google's Mozc behind the optional Mozc engine for
+         Japanese. Mozc is the engine's name and stays in Latin letters. -->
+    <string name="mozc_module_title">Mozc Japanese engine</string>
+    <string name="bergamot_module_title">Firefox Translations engine</string>
+    <string name="ct2_module_title">NLLB translation engine</string>
+    <string name="zinnia_module_title">Chinese and Japanese handwriting</string>
+    <!-- :feature:llama, llama.cpp behind GGUF models for on-device AI.
+         llama.cpp and GGUF stay in Latin letters. -->
+    <string name="llama_module_title">llama.cpp for GGUF models</string>
+    <!-- :feature:llamagpu, llama.cpp's build for Adreno GPUs (Compute = GPU
+         for GGUF models). llama.cpp, GGUF and Adreno stay in Latin letters. -->
+    <string name="llamagpu_module_title">llama.cpp for Adreno GPUs</string>
+    <!-- :feature:docscan, the built-in document scanner (OpenCV) used where
+         Google's scanner is missing. -->
+    <string name="docscan_module_title">Built-in document scanner</string>
+    <!-- :feature:zxing, the zxing-cpp barcode reader the QR scanner uses
+         where ML Kit's is missing or not picked. -->
+    <string name="zxing_module_title">QR and barcode reader</string>
+    <!-- :feature:imagegen, the sticker generator's runtime (MNN, and the NPU runner). -->
+    <string name="imagegen_module_title">Sticker generator</string>
+    <!-- The same for :feature:npu, the runtime behind Compute = NPU for
+         on-device AI. NPU stays in English. -->
+    <string name="npu_module_title">On-device AI on the NPU</string>
+    <string name="googlehome_module_title">Google Home</string>
     <!-- Shown in Settings › Notification access for the listener that the
          media-control tool and the one-time code chip share. It is the whole
          sentence the user reads before granting, so it names both features:
@@ -92,6 +124,8 @@
     <string name="offline_import_word_pairs_done">Word pairs for %1$s</string>
     <string name="offline_import_emoji_done">Emoji names in %1$s, %2$s emoji</string>
     <string name="offline_import_cjk_done">Conversion dictionary: %1$s</string>
+    <!-- A zip of RIME schemas the user made or found; %1$s lists the schema ids it brought. -->
+    <string name="offline_import_rime_done">RIME schemas: %1$s. They are compiled the next time the RIME screen is open.</string>
     <string name="offline_import_whisper_ready">Voice model %1$s is ready</string>
     <!-- Whistle is the name of a voice model and is not translated. -->
     <string name="offline_import_whistle_ready">The Whistle voice model is ready</string>
@@ -99,6 +133,13 @@
     <string name="offline_import_whisper_vocab">Vocabulary file, for %1$s voice models</string>
     <string name="offline_import_ocr_done">Text recognition data for %1$s</string>
     <string name="offline_import_cutout_done">Background remover model</string>
+    <string name="offline_import_native_done">Feature library %1$s</string>
+    <!-- A feature library's download link. %1$s: library file names, %2$s: size. -->
+    <string name="offline_import_native_label">%1$s · %2$s</string>
+    <!-- A library inside a vendor's archive. %1$s: library names, %2$s: the .aar file, imported whole, %3$s: the libraries' size. -->
+    <string name="offline_import_native_archive_label">%1$s, inside %2$s (import the whole file) · %3$s</string>
+    <string name="offline_import_gesture_library_done">Google\'s gesture library. Pick it under Typing › Gestures › Glide engine to use it</string>
+    <string name="offline_import_language_pack_done">Interface language %1$s</string>
     <string name="offline_import_khipro_glide_done">Khipro spellings, for gliding on the Khipro layout</string>
     <string name="offline_import_phonetic_index_done">Phonetic index for %1$s</string>
     <string name="offline_import_dictionary_done">Offline dictionary %1$s, for the Dictionary tool</string>
@@ -122,8 +163,10 @@
     <string name="offline_import_language_pack_title">Language pack</string>
     <string name="offline_import_language_pack_subtitle">Word list, word pairs and emoji names in one file, to fetch anywhere and import here</string>
     <string name="offline_import_language_pack_label">%1$s language pack</string>
+    <string name="offline_import_language_packs_link">Interface languages: this version\'s release page, one lang-… .apk per language</string>
+    <string name="offline_import_natives_link">Feature libraries: Settings › Privacy › Feature libraries names the exact files</string>
     <string name="offline_import_storage_title">Import downloaded files</string>
-    <string name="offline_import_storage_subtitle">Language packs, voice and AI models, text recognition data and GIF packs, fetched on another device</string>
+    <string name="offline_import_storage_subtitle">Language packs, interface languages, feature libraries, voice and AI models, text recognition data and GIF packs, fetched on another device</string>
     <string name="offline_gifs_group">Offline GIF packs</string>
     <string name="offline_gifs_info">GIF packs kept on the phone and shown under Offline in the GIF panel. They need no internet and no API key. They are CleverKeys\' offline GIF packs: the Discord community packs carry animated GIFs, while the thumbnail packs hold only still previews and are not imported.</string>
     <plurals name="offline_gifs_pack_detail">

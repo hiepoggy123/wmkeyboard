@@ -56,6 +56,13 @@ enum class ProviderTool(val id: String, val modes: List<ChainMode>, @StringRes v
      * to "server" sends its clips to.
      */
     VOICE("voice", listOf(ChainMode.FALLBACK), R.string.core_tools_provider_tool_voice),
+
+    /**
+     * The grammar tool's checkers: Harper on the phone, and LanguageTool
+     * servers. A check goes to the first row that is on and knows the
+     * keyboard's language, and on to the next when that one cannot answer.
+     */
+    GRAMMAR("grammar", listOf(ChainMode.FALLBACK), R.string.core_tools_provider_tool_grammar),
     ;
 
     /**
@@ -147,8 +154,13 @@ data class CredentialSpec(
      * [ProviderCredential.extra] under [PATH]; blank works it out.
      */
     val path: Boolean = false,
+    /**
+     * An account name that goes with the key: LanguageTool Premium signs a
+     * request with both. Stored in [ProviderCredential.extra] under [USERNAME].
+     */
+    val username: Boolean = false,
 ) {
-    val none: Boolean get() = key == Need.NONE && url == Need.NONE && !model && engines.isEmpty() && !path
+    val none: Boolean get() = key == Need.NONE && url == Need.NONE && !model && engines.isEmpty() && !path && !username
 
     /** The engine [stored] names, else the default; null for a kind with no engines. */
     fun engine(stored: String): FrontEndEngine? =
@@ -157,6 +169,9 @@ data class CredentialSpec(
     companion object {
         /** The [ProviderCredential.extra] key a [path] is kept under. */
         const val PATH = "path"
+
+        /** The [ProviderCredential.extra] key a [username] is kept under. */
+        const val USERNAME = "username"
     }
 }
 
@@ -258,6 +273,29 @@ object ProviderTypes {
     val ML_KIT = ProviderType(
         "mlkit", setOf(ProviderTool.TRANSLATE),
         R.string.core_tools_provider_mlkit, R.string.core_tools_provider_mlkit_desc,
+        onDevice = true,
+    )
+    /**
+     * Mozilla's Bergamot engine with the Firefox Translations models: on the
+     * phone like ML Kit, but free software that needs no Google services,
+     * so it is also the on-device engine of F-Droid and de-Googled phones.
+     */
+    val BERGAMOT = ProviderType(
+        "bergamot", setOf(ProviderTool.TRANSLATE),
+        R.string.core_tools_provider_bergamot, R.string.core_tools_provider_bergamot_desc,
+        onDevice = true, freeSoftware = true,
+    )
+
+    /**
+     * Meta's NLLB-200 on CTranslate2: on the phone too, one 630 MB model for
+     * 200 languages in any direction, for the pairs Bergamot has no model
+     * for. Slower and far larger than Bergamot, so it comes after it. The
+     * engine is free software; the weights are CC BY-NC 4.0, so not
+     * [freeSoftware].
+     */
+    val NLLB = ProviderType(
+        "nllb", setOf(ProviderTool.TRANSLATE),
+        R.string.core_tools_provider_nllb, R.string.core_tools_provider_nllb_desc,
         onDevice = true,
     )
     val TRANSLATE_SERVER = ProviderType(
@@ -592,11 +630,42 @@ object ProviderTypes {
         "moonshine", VOICE, R.string.core_tools_provider_moonshine, R.string.core_tools_provider_moonshine_desc,
         onDevice = true, freeSoftware = true,
     )
+    val SHERPA = ProviderType(
+        "sherpa", VOICE, R.string.core_tools_provider_sherpa, R.string.core_tools_provider_sherpa_desc,
+        onDevice = true, freeSoftware = true,
+    )
+    val OMNILINGUAL = ProviderType(
+        "omnilingual", VOICE, R.string.core_tools_provider_omnilingual, R.string.core_tools_provider_omnilingual_desc,
+        onDevice = true, freeSoftware = true,
+    )
 
     /** Anything that speaks OpenAI's `/audio/transcriptions`: speaches, whisper.cpp's server, Groq. */
     val TRANSCRIPTION_SERVER = ProviderType(
         "transcription_server", VOICE, R.string.core_tools_provider_transcription_server, R.string.core_tools_provider_transcription_server_desc,
         CredentialSpec(key = Need.OPTIONAL, url = Need.REQUIRED, model = true, path = true), multiInstance = true, selfHosted = true,
+    )
+
+    // ---- Grammar.
+
+    private val GRAMMAR = setOf(ProviderTool.GRAMMAR)
+
+    /** The bundled engine: English only, and nothing leaves the phone. */
+    val HARPER = ProviderType(
+        "harper", GRAMMAR, R.string.core_tools_provider_harper, R.string.core_tools_provider_harper_desc,
+        onDevice = true, freeSoftware = true,
+    )
+
+    /**
+     * A LanguageTool server: the public API when the address is blank, a
+     * self-hosted one (LanguageTool is LGPL and ships a server) when it is
+     * not. A username and key together are a Premium account. Free software,
+     * but not [selfHosted]: most people use the public one, and it reads
+     * the text.
+     */
+    val LANGUAGETOOL = ProviderType(
+        "languagetool", GRAMMAR, R.string.core_tools_provider_languagetool, R.string.core_tools_provider_languagetool_desc,
+        CredentialSpec(key = Need.OPTIONAL, url = Need.OPTIONAL, username = true),
+        multiInstance = true, freeSoftware = true,
     )
 
     /** Voice type id → the engine id dictation stores and runs. */
@@ -608,6 +677,8 @@ object ProviderTypes {
             ASR4ALL.id to "asr4all",
             PARAKEET.id to "parakeet",
             MOONSHINE.id to "moonshine",
+            SHERPA.id to "sherpa",
+            OMNILINGUAL.id to "omnilingual",
             TRANSCRIPTION_SERVER.id to ENGINE_SERVER,
         )
     }
@@ -621,7 +692,7 @@ object ProviderTypes {
 
     val all: List<ProviderType> = listOf(
         KLIPY, GIPHY, COMMONS, GIFCITIES, OFFLINE_GIFS, STICKER_PACKS,
-        ML_KIT, TRANSLATE_SERVER, DEEPL, LIBRETRANSLATE, MOZHI, SIMPLYTRANSLATE, LINGVA, TRANSLITE, GOOGLE_TRANSLATE,
+        ML_KIT, BERGAMOT, NLLB, TRANSLATE_SERVER, DEEPL, LIBRETRANSLATE, MOZHI, SIMPLYTRANSLATE, LINGVA, TRANSLITE, GOOGLE_TRANSLATE,
         VOCAB_PACKS, WIKTIONARY, WIKTIONARY_REST, DICTIONARY_API, OFFLINE_WIKTIONARY, OFFLINE_WORDNET, IMPORTED_DICTIONARIES,
         DATAMUSE, SIMILAR_WORDS,
         SEARXNG, TAVILY, BRAVE,
@@ -630,7 +701,8 @@ object ProviderTypes {
         HOME_ASSISTANT, GOOGLE_HOME, SMARTTHINGS, HUE, OPENHAB, TUYA, SWITCHBOT,
         VISION_OCR, RENS,
         ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK, BRAVE_ANSWERS, OLLAMA, LM_STUDIO, OPENAI_COMPATIBLE, ON_DEVICE_AI,
-        SYSTEM_RECOGNIZER, WHISTLE, WHISPER, ASR4ALL, PARAKEET, MOONSHINE, TRANSCRIPTION_SERVER,
+        SYSTEM_RECOGNIZER, WHISTLE, WHISPER, ASR4ALL, PARAKEET, MOONSHINE, SHERPA, OMNILINGUAL, TRANSCRIPTION_SERVER,
+        HARPER, LANGUAGETOOL,
     )
 
     private val byId: Map<String, ProviderType> = all.associateBy { it.id }
@@ -753,11 +825,29 @@ data class ProviderChain(
      * Only kinds that need nothing set up, and never one the user removed.
      */
     fun withNewTypes(tool: ProviderTool): ProviderChain {
-        if (tool !in APPENDING || known.isEmpty()) return this
+        if (known.isEmpty()) return this
+        if (tool == ProviderTool.TRANSLATE) return withNewDeviceEngines()
+        if (tool !in APPENDING) return this
         val added = ProviderTypes.serving(tool)
             .filter { it.id !in known && it.credential.none && !it.multiInstance }
             .filter { type -> entries.none { it.typeId == type.id } }
         return if (added.isEmpty()) this else copy(entries = entries + added.map { ProviderEntry(it.id) })
+    }
+
+    /**
+     * A translate list saved before an on-device engine existed gains it
+     * right after the engines it already has (first, with none), switched
+     * on: the engine switch keeps it away from an Online translation, and
+     * at the end of the list Automatic would never reach it. Text sent to
+     * the phone goes nowhere, so this cannot break a "my server only" list.
+     */
+    private fun withNewDeviceEngines(): ProviderChain {
+        val added = ProviderTypes.serving(ProviderTool.TRANSLATE)
+            .filter { it.onDevice && it.id !in known }
+            .filter { type -> entries.none { it.typeId == type.id } }
+        if (added.isEmpty()) return this
+        val at = entries.indexOfLast { ProviderTypes.of(it.typeId)?.onDevice == true } + 1
+        return copy(entries = entries.take(at) + added.map { ProviderEntry(it.id) } + entries.drop(at))
     }
 
     // Not private: the serialization plugin hangs `serializer()` on the

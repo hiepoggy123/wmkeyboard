@@ -64,17 +64,32 @@ object MediaPrep {
 
     const val SWEEP_AGE_MS = 24L * 60 * 60 * 1000
 
+    /**
+     * Deletes every copy the keyboard made for sending once it is a day old:
+     * GIFs, stickers and pictures under `cache/media`, camera shots and page
+     * scans. Each was written for one app to read once; keeping it longer
+     * only keeps a copy of what the user sent on the phone.
+     */
+    fun sweepSent(context: Context, maxAgeMs: Long = SWEEP_AGE_MS) {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        listOf(File(context.cacheDir, "media"), File(context.filesDir, "camera"), File(context.filesDir, "docscan"))
+            .forEach { dir -> dir.walkBottomUp().filter { it.isFile && it.lastModified() < cutoff }.forEach { it.delete() } }
+    }
+
     // ---- Pictures ------------------------------------------------------
 
     /**
      * The picture as it will be sent. [edit], when given, draws the user's
      * edits onto the decoded picture and returns the result (the editor's
      * renderer); an edited picture is always re-encoded, at the quality's size.
+     * [from] is where the picture's pixels are read: the item itself, or the
+     * editor's upscaled copy of it.
      */
     fun prepareImage(
         context: Context,
         item: GalleryItem,
         options: Options,
+        from: Uri = item.uri,
         edit: ((Bitmap) -> Bitmap)? = null,
     ): Prepared? = runCatching {
         // A GIF goes as the GIF it is: re-encoding would keep one frame.
@@ -87,7 +102,7 @@ object MediaPrep {
             return@runCatching copy
         }
         val maxEdge = if (options.quality.maxEdge > 0) options.quality.maxEdge else MAX_DECODE_EDGE
-        val decoded = decode(context, item.uri, maxEdge) ?: return@runCatching null
+        val decoded = decode(context, from, maxEdge) ?: return@runCatching null
         val drawn = edit?.invoke(decoded) ?: decoded
         val scaled = scaleDown(drawn, maxEdge)
         val alpha = scaled.hasAlpha() && item.mime == "image/png"
@@ -108,10 +123,16 @@ object MediaPrep {
      * An edited picture to keep in the gallery rather than send: in the
      * photo's own format where Android can write it (JPEG otherwise), at the
      * editor's largest size, with the photo's own tags carried over so it
-     * keeps its date and camera. [draw] is the editor's renderer.
+     * keeps its date and camera. [draw] is the editor's renderer; [from] as
+     * for [prepareImage].
      */
-    fun renderToKeep(context: Context, item: GalleryItem, draw: (Bitmap) -> Bitmap): Prepared? = runCatching {
-        val decoded = decode(context, item.uri, MAX_DECODE_EDGE) ?: return@runCatching null
+    fun renderToKeep(
+        context: Context,
+        item: GalleryItem,
+        from: Uri = item.uri,
+        draw: (Bitmap) -> Bitmap,
+    ): Prepared? = runCatching {
+        val decoded = decode(context, from, MAX_DECODE_EDGE) ?: return@runCatching null
         val drawn = draw(decoded)
         val mime = if (canRewriteExif(item.mime)) item.mime else "image/jpeg"
         val file = File(outputDir(context), "KEEP_${randomToken()}.${extensionFor(mime)}")

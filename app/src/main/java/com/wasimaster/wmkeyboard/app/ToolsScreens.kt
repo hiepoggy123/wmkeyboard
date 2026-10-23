@@ -93,6 +93,9 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CLIPBOARD -> ImeR.string.ime_tool_clipboard
     ToolbarTool.CLIPBOARD_SEARCH -> ImeR.string.ime_tool_clipboard_search
     ToolbarTool.RECENT_COPIES -> ImeR.string.ime_tool_recent_copies
+    ToolbarTool.LEAVE_FIELD -> ImeR.string.ime_tool_leave_field
+    ToolbarTool.QUICK_NOTE -> ImeR.string.ime_tool_quick_note
+    ToolbarTool.READ_BACK -> ImeR.string.ime_tool_read_back
     ToolbarTool.SNIPPETS -> ImeR.string.ime_tool_snippets
     ToolbarTool.TEXT_EDIT -> ImeR.string.ime_tool_text_edit
     ToolbarTool.TRACKPAD -> ImeR.string.ime_tool_trackpad
@@ -186,6 +189,9 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CLIPBOARD -> R.string.fonts_tool_clipboard_desc
     ToolbarTool.CLIPBOARD_SEARCH -> R.string.fonts_tool_clipboard_search_desc
     ToolbarTool.RECENT_COPIES -> R.string.fonts_tool_recent_copies_desc
+    ToolbarTool.LEAVE_FIELD -> R.string.fonts_tool_leave_field_desc
+    ToolbarTool.QUICK_NOTE -> R.string.fonts_tool_quick_note_desc
+    ToolbarTool.READ_BACK -> R.string.fonts_tool_read_back_desc
     ToolbarTool.SNIPPETS -> R.string.fonts_tool_snippets_desc
     ToolbarTool.TEXT_EDIT -> R.string.fonts_tool_text_edit_desc
     ToolbarTool.TRACKPAD -> R.string.fonts_tool_trackpad_desc
@@ -487,7 +493,7 @@ internal fun ToolsSettings(
  * A tool group's fold key, taken from the name of its title resource.
  *
  * Not the numeric id, which a build can renumber, and not the group's index,
- * which the lite flavor can shift by dropping a whole group. The key is
+ * which the F-Droid build can shift by dropping a whole group. The key is
  * joined to the screen route and saved in `AppUiSettings.advancedOpen`, so a
  * key that moves would reopen the wrong group.
  */
@@ -587,7 +593,7 @@ private val ConnectPanels = setOf(
  *
  * The last group is the safety net: a tool added to the enum but forgotten
  * here still gets a settings entry, because this menu is the only path to a
- * tool's own options. Tools this build cannot provide (the lite flavor) are
+ * tool's own options. Tools this build cannot provide (F-Droid's has fewer) are
  * filtered out, and a group left empty by that is dropped.
  *
  * This is the grouping every tool picker uses. The Tools screen alone can
@@ -628,7 +634,7 @@ private fun buildToolGroups(splitPanels: Boolean): List<Pair<Int, List<ToolbarTo
     add(
         R.string.tools_group_create_title to listOf(
             ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
-            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.TYPING_TEST,
+            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.READ_BACK, ToolbarTool.TYPING_TEST,
         ),
     )
     add(

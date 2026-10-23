@@ -179,6 +179,7 @@ import com.wasimaster.wmkeyboard.core.perf.JankMonitor
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -237,8 +238,18 @@ class MainActivity : FragmentActivity() {
          */
         const val EXTRA_OPEN_SETTING = MainActivityContract.EXTRA_OPEN_SETTING
 
+        /**
+         * Intent extra (boolean) that opens the installed version's release
+         * notes over whatever screen is showing. The "Updated to" notification
+         * sends it; see [com.wasimaster.wmkeyboard.app.updates.PackageReplacedReceiver].
+         */
+        const val EXTRA_SHOW_RELEASE_NOTES = "com.wasimaster.wmkeyboard.extra.SHOW_RELEASE_NOTES"
+
         /** Saved-state key of an unanswered [PairLinkDialog][com.wasimaster.wmkeyboard.app.kdeconnect.PairLinkDialog]. */
         private const val STATE_PENDING_PAIR = "pending_pair"
+
+        /** Saved-state key of the release notes being open. */
+        private const val STATE_RELEASE_NOTES = "release_notes"
     }
 
     private lateinit var repository: SettingsRepository
@@ -280,6 +291,9 @@ class MainActivity : FragmentActivity() {
      * pairs: any page or app can open one, naming any address (#702).
      */
     private val pendingPair = MutableStateFlow<String?>(null)
+
+    /** Whether the installed version's release notes are open; see [EXTRA_SHOW_RELEASE_NOTES]. */
+    private val showReleaseNotes = MutableStateFlow(false)
 
     /**
      * The app language (#322). On Android 12 and older nothing else applies
@@ -332,6 +346,13 @@ class MainActivity : FragmentActivity() {
         // stays closed.
         missingLink.value = if (savedInstanceState != null) MissingLink.restore(savedInstanceState) else nav?.missing
         if (savedInstanceState != null) pendingPair.value = savedInstanceState.getString(STATE_PENDING_PAIR)
+        // Same rule as the link dialog: a rotation brings it back only if it
+        // was still open.
+        showReleaseNotes.value = if (savedInstanceState != null) {
+            savedInstanceState.getBoolean(STATE_RELEASE_NOTES)
+        } else {
+            intent.getBooleanExtra(EXTRA_SHOW_RELEASE_NOTES, false)
+        }
         setContent {
             val stored = repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
@@ -400,7 +421,14 @@ class MainActivity : FragmentActivity() {
                     val pairState by pendingPair.collectAsStateWithLifecycle()
                     val pairLink = pairState
                     val pairCode = pairLink?.let { com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode.parse(it) }
-                    if (pairLink != null && pairCode != null) {
+                    val releaseNotes by showReleaseNotes.collectAsStateWithLifecycle()
+                    if (releaseNotes) {
+                        // Asked for by a tap on "Updated to", so it goes first;
+                        // anything else waits for it to close.
+                        com.wasimaster.wmkeyboard.app.updates.InstalledReleaseNotesDialog {
+                            showReleaseNotes.value = false
+                        }
+                    } else if (pairLink != null && pairCode != null) {
                         com.wasimaster.wmkeyboard.app.kdeconnect.PairLinkDialog(
                             pairCode,
                             onPair = {
@@ -424,6 +452,7 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_RELEASE_NOTES, false)) showReleaseNotes.value = true
         navFor(intent)?.let { nav ->
             pendingNav.value = nav
             nav.missing?.let { missingLink.value = it }
@@ -434,6 +463,7 @@ class MainActivity : FragmentActivity() {
         super.onSaveInstanceState(outState)
         missingLink.value?.save(outState)
         pendingPair.value?.let { outState.putString(STATE_PENDING_PAIR, it) }
+        outState.putBoolean(STATE_RELEASE_NOTES, showReleaseNotes.value)
     }
 
     /** Turns KDE Connect on and pairs with the computer [link] names; see KdeConnectHub.pairByCode. */
@@ -774,9 +804,11 @@ private fun SettingsNavHost(
     val openChat: () -> Unit = remember(navController) {
         { navController.navigate("ai_chat") { launchSingleTop = true } }
     }
+    val navigate: (String) -> Unit = remember(navController) { { route -> navController.navigate(route) } }
     val screens: @Composable (SharedTransitionScope?) -> Unit = { shared ->
         val reduceMotion = settings.watch { it.reduceMotion }
         CompositionLocalProvider(
+            LocalSettingsNavigate provides navigate,
             LocalSharedTransition provides if (twoPane) null else shared,
             LocalSettingsCrumbTrail provides crumbs,
             LocalAdvancedFolds provides folds,
@@ -977,6 +1009,11 @@ private fun SettingsNavGraph(
         exitTransition = { slideOutHorizontally(spec) { -it / parallax } },
         popEnterTransition = { slideInHorizontally(spec) { -it / parallax } },
         popExitTransition = { slideOutHorizontally(spec) { it } },
+        // A back gesture plays its own pair, which navigation-compose
+        // defaults to a shrink and a fade: the same slides here, so going
+        // back by gesture reads as the way in played in reverse.
+        predictivePopEnterTransition = { slideInHorizontally(spec) { -it / parallax } },
+        predictivePopExitTransition = { slideOutHorizontally(spec) { it } },
     ) {
         composable("onboarding") {
             OnboardingScreen(
@@ -1888,6 +1925,21 @@ private fun SettingsNavGraph(
                 StickerPackScreen(packId, openPicker = true) { route -> navController.navigate(route) }
             }
         }
+        composable(
+            route = "$STICKER_GENERATOR_ROUTE?pack={pack}",
+            arguments = listOf(navArgument("pack") { type = NavType.StringType; nullable = true; defaultValue = null }),
+        ) { backStackEntry ->
+            // Opened from a pack (its id comes along) or from the keyboard's
+            // sticker panel, which passes the pack it is showing.
+            val packId = backStackEntry.arguments?.getString("pack")?.takeIf { it.isNotEmpty() }
+            SettingsScreen(
+                stringResource(R.string.stickergen_title),
+                { navController.popBackStack() },
+                route = STICKER_GENERATOR_ROUTE,
+            ) {
+                StickerGeneratorScreen(settings, packId) { route -> navController.navigate(route) }
+            }
+        }
         composable(STICKER_EDITOR_ROUTE) {
             // Captured once for this back-stack entry, so clearing the handoff
             // on the way out cannot make the exit animation pop a second time.
@@ -2186,6 +2238,33 @@ private fun SettingsNavGraph(
                 }
             }
         }
+        // One provider of a tool's list: its switch, its setup and whatever
+        // else it has (models, packs, its own options), off the tool's page.
+        composable(PROVIDER_PAGE_ROUTE) { backStackEntry ->
+            val tool = backStackEntry.arguments?.getString("tool")?.let(ProviderTool::of)
+            val key = backStackEntry.arguments?.getString("key")
+            if (tool != null && !key.isNullOrEmpty()) {
+                val head = providerPageHead(settings, tool, key)
+                SettingsScreen(
+                    head.title,
+                    { navController.popBackStack() },
+                    route = providerRoute(tool, key),
+                    icon = { ProviderTile(head.type) },
+                    accent = providerHostAccent(tool, settings),
+                    iconTile = false,
+                    subtitle = head.subtitle,
+                    subtitleMaxLines = 3,
+                ) {
+                    ProviderPage(
+                        repository,
+                        settings,
+                        tool,
+                        key,
+                        onBack = { navController.popBackStack() },
+                    ) { route -> navController.navigate(route) }
+                }
+            }
+        }
         composable("accessibility") {
             SettingsScreen(
                 stringResource(R.string.home_accessibility_title),
@@ -2390,12 +2469,31 @@ private fun SettingsNavGraph(
                 AiHistoryScreen(repository, settings)
             }
         }
+        composable("ai_memory") {
+            SettingsScreen(
+                stringResource(R.string.toolai_memory_screen_title),
+                { navController.popBackStack() },
+                route = "ai_memory",
+            ) {
+                AiMemoryScreen(repository, settings)
+            }
+        }
         // The two chat destinations draw their own scaffold rather than going
         // through SettingsScreen, so they are the only places the fingerprint
         // gate has to be written out by hand. Both answer to the same target:
         // locking the list has to lock a deep link straight into one
         // conversation, or it locks nothing.
         composable("settings_assistant") {
+            // Turned off (#830): a link or a back stack that still names the
+            // route opens nothing, and the assistant sends nothing.
+            if (!settings.watch { com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantGate.offered(it) }) {
+                LaunchedEffect(Unit) {
+                    // However it was turned off (#877), a run still out ends here.
+                    com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantSession.stop()
+                    navController.popBackStack()
+                }
+                return@composable
+            }
             LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
                 com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantScreen(
                     settings = settings,
@@ -3766,6 +3864,7 @@ internal fun NavRow(
     route: String? = null,
     icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
+    swipeActions: List<SwipeAction> = emptyList(),
     onClick: () -> Unit,
 ) {
     // A value only sits beside the title while it fits there; a longer one
@@ -3785,6 +3884,7 @@ internal fun NavRow(
             supporting = supportingWith(subtitle, below?.let { { RowValueText(it) } }),
             icon = icon,
             flightTo = route,
+            swipeActions = swipeActions,
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RowExtras { SettingLinkButton(title) }

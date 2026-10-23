@@ -27,12 +27,14 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -44,7 +46,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Input
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.OpenInNew
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AddLink
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
@@ -56,7 +60,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,8 +70,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -104,6 +109,7 @@ import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SearchResultTap
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -118,12 +124,14 @@ import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.ime.ImageSearchUi
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.MediaUi
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.SearchTab
 import com.wasimaster.wmkeyboard.ime.WebSearchUi
 import okhttp3.OkHttpClient
 
@@ -196,7 +204,11 @@ internal fun SearchQueryText(
     modifier: Modifier = Modifier,
 ) {
     val handle = LocalCaptureCaret.current
-    val caret = if (active) handle.at.coerceIn(0, query.length) else -1
+    // The focus switch sent this field's keys to the app's field (#665): no
+    // caret, faded, and a tap anywhere on it is a tap to type here again,
+    // taken before the pill's own press can close the search.
+    val toApp = active && handle.toApp
+    val caret = if (active && !toApp) handle.at.coerceIn(0, query.length) else -1
     // Empty field: no text to press on, so the whole box takes the long press
     // that offers Paste at the caret (#434). Otherwise the one-line text
     // below does, where the press can also land on a word.
@@ -204,18 +216,64 @@ internal fun SearchQueryText(
     val overlay = LocalSelectionOverlay.current
     val owner = remember { SelectionAnchor() }
     var caretBar by remember(query, active) { mutableStateOf(false) }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        SearchQueryLine(
+            query = query,
+            placeholder = placeholder,
+            active = active,
+            toApp = toApp,
+            caret = caret,
+            textColor = textColor,
+            placeholderColor = placeholderColor,
+            fontSize = fontSize,
+            handle = handle,
+            emptyActive = emptyActive,
+            owner = owner,
+            overlay = overlay,
+            caretBar = caretBar,
+            setCaretBar = { caretBar = it },
+        )
+        // Only on the field that has the keys, or had them until the switch
+        // sent them to the app: one switch on screen, beside its field.
+        if (active) FieldFocusSwitch(handle)
+    }
+}
+
+/** [SearchQueryText] less the focus switch: the line itself, as wide as the field leaves it. */
+@Composable
+private fun RowScope.SearchQueryLine(
+    query: String,
+    placeholder: String,
+    active: Boolean,
+    toApp: Boolean,
+    caret: Int,
+    textColor: Color,
+    placeholderColor: Color,
+    fontSize: TextUnit,
+    handle: CaptureCaretHandle,
+    emptyActive: Boolean,
+    owner: SelectionAnchor,
+    overlay: SelectionOverlayState?,
+    caretBar: Boolean,
+    setCaretBar: (Boolean) -> Unit,
+) {
+    val line = Modifier.weight(1f)
     Row(
-        modifier = if (emptyActive) {
-            modifier
+        modifier = when {
+            toApp -> line
+                .alpha(FieldToAppAlpha)
+                .pointerInput(handle.onFocusSwitch) {
+                    detectTapGestures { handle.onFocusSwitch?.invoke() }
+                }
+            emptyActive -> line
                 .onGloballyPositioned {
                     owner.coordinates = it
                     overlay?.moved(owner)
                 }
                 .pointerInput(query, active) {
-                    detectTapGestures(onLongPress = { caretBar = true }, onTap = { caretBar = false })
+                    detectTapGestures(onLongPress = { setCaretBar(true) }, onTap = { setCaretBar(false) })
                 }
-        } else {
-            modifier
+            else -> line
         },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -227,7 +285,7 @@ internal fun SearchQueryText(
             coordinates = { owner.coordinates },
             layout = { null },
             caretBar = caretBar,
-            onCaretBarDismiss = { caretBar = false },
+            onCaretBarDismiss = { setCaretBar(false) },
         )
         // Empty field: the caret sits in front of the placeholder, where the
         // first character will land. Nothing to scroll and nowhere to tap.
@@ -237,7 +295,7 @@ internal fun SearchQueryText(
         }
         if (query.isEmpty()) {
             Text(
-                text = placeholder,
+                text = if (toApp) stringResource(R.string.ime_capture_focus_app_hint) else placeholder,
                 color = placeholderColor,
                 fontSize = fontSize,
                 maxLines = 1,
@@ -975,6 +1033,11 @@ internal fun GifPanel(
             onOpenRoute(stickerPackAddRoute(target))
         }
     }
+    // The sticker generator, into the same pack the add chip would pick; with
+    // several and none chosen, the generator asks.
+    val onCreate: () -> Unit = {
+        onOpenRoute(stickerGeneratorRoute(stickerAddTarget(state.stickerPacks, state.stickerPackId)))
+    }
     // The search box and the chip rows fold away while the results scroll
     // down, when the setting asks (see [MediaChrome]).
     val chrome = LocalMediaChrome.current
@@ -1042,6 +1105,7 @@ internal fun GifPanel(
                         onSelect = onSourceSelect,
                         focused = state.focusedIndex(FocusRegion.CHIPS),
                         onAdd = if (canAdd) onAdd else null,
+                        onCreate = if (canAdd) onCreate else null,
                     )
                 }
                 // The pack filter, from two packs up; with no source chips to sit
@@ -1052,6 +1116,7 @@ internal fun GifPanel(
                         selected = state.stickerPackId,
                         onSelect = onPackFilter,
                         onAdd = if (chips.isEmpty()) onAdd else null,
+                        onCreate = if (chips.isEmpty()) onCreate else null,
                     )
                 }
                 if (categoryRow) {
@@ -1265,6 +1330,13 @@ internal fun stickerPackAddRoute(packId: String): String =
     "sticker_pack/${android.net.Uri.encode(packId)}/add"
 
 /**
+ * Settings route of the sticker generator, saving into [packId] when there is
+ * one. The app's nav graph declares it as `sticker_generator?pack={pack}`.
+ */
+internal fun stickerGeneratorRoute(packId: String?): String =
+    if (packId == null) "sticker_generator" else "sticker_generator?pack=${android.net.Uri.encode(packId)}"
+
+/**
  * Which pack the add chip adds to, or null when the user has to say.
  *
  * The pack the grid is filtered to, if one is; otherwise the only pack there
@@ -1286,6 +1358,8 @@ private fun GifSourceChips(
     focused: Int? = null,
     /** Adds a sticker to a pack of your own: a [StickerAddChip] at the row's end. Null, none. */
     onAdd: (() -> Unit)? = null,
+    /** Opens the sticker generator: a second chip beside [onAdd]'s. */
+    onCreate: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -1317,12 +1391,17 @@ private fun GifSourceChips(
             )
         }
         if (onAdd != null) StickerAddChip(onAdd, verticalPadding = 4.dp)
+        if (onCreate != null) StickerAddChip(onCreate, verticalPadding = 4.dp, create = true)
     }
 }
 
-/** The chip that adds a sticker to one of your packs: a plus, as wide as it needs. */
+/**
+ * The chip that adds a sticker to one of your packs: a plus, as wide as it
+ * needs. With [create], the sparkle beside it that opens the sticker
+ * generator instead.
+ */
 @Composable
-private fun StickerAddChip(onAdd: () -> Unit, verticalPadding: Dp) {
+private fun StickerAddChip(onAdd: () -> Unit, verticalPadding: Dp, create: Boolean = false) {
     val kb = LocalKbTheme.current
     val shape = kb.chipShape()
     Box(
@@ -1336,8 +1415,8 @@ private fun StickerAddChip(onAdd: () -> Unit, verticalPadding: Dp) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Outlined.Add,
-            contentDescription = stringResource(R.string.ime_sticker_add_desc),
+            if (create) Icons.Outlined.AutoAwesome else Icons.Outlined.Add,
+            contentDescription = stringResource(if (create) R.string.ime_sticker_create_desc else R.string.ime_sticker_add_desc),
             modifier = Modifier.size(16.dp),
             tint = kb.chipText,
         )
@@ -1410,6 +1489,7 @@ private fun StickerPackChips(
     selected: String?,
     onSelect: (String?) -> Unit,
     onAdd: (() -> Unit)?,
+    onCreate: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -1422,6 +1502,7 @@ private fun StickerPackChips(
     ) {
         val shape = kb.chipShape()
         if (onAdd != null) StickerAddChip(onAdd, verticalPadding = 2.dp)
+        if (onCreate != null) StickerAddChip(onCreate, verticalPadding = 2.dp, create = true)
         if (packs.size < 2) return@Row
         val allLabel = stringResource(R.string.ime_sticker_pack_all_label)
         val entries = listOf<Pair<String?, String>>(null to allLabel) + packs.map { it.id to it.name }
@@ -1865,8 +1946,10 @@ internal fun BoxScope.MediaDownloadOverlay(progress: Float?) {
 // ---- web search panel ----
 
 /**
- * Web search results (full-bleed body; the search bar lives in the
- * [FullBleedTool] header): tap a result to insert its link.
+ * The search panel (full-bleed body; the search bar lives in the
+ * [FullBleedTool] header). Web results and images are its two tabs (#879):
+ * image search used to be a panel of its own, and its tool now opens the
+ * Images tab here.
  */
 @Composable
 internal fun WebSearchPanel(
@@ -1874,16 +1957,165 @@ internal fun WebSearchPanel(
     onRetry: () -> Unit,
     onResult: (WebResult) -> Unit,
     onOpen: (WebResult) -> Unit,
+    onImageResult: (ImageResult) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
+    val actions = LocalSearchActions.current
+    // The result whose menu is open (#879), drawn over the whole panel.
+    var menu by remember { mutableStateOf<SearchMenu?>(null) }
+    // A new search, or the other tab, leaves no menu behind for a result gone.
+    LaunchedEffect(state.searchTab, state.webSearch is WebSearchUi.Ready, state.imageSearch is ImageSearchUi.Ready) {
+        menu = null
+    }
+    val onMenu: (SearchMenu) -> Unit = { menu = it }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SearchTabChips(state.searchTab, actions.onTab, Modifier.weight(1f))
+                // Pick mode (#727): which search provider answers, over the results.
+                ProviderChooser(ProviderTool.SEARCH, state.settings, Modifier.padding(horizontal = 8.dp))
+            }
+            when (state.searchTab) {
+                SearchTab.ALL -> WebResults(state, onRetry, onResult, onOpen, onImageResult, onMenu, onOpenToolSettings)
+                SearchTab.IMAGES -> ImageResults(state, onRetry, onImageResult, onMenu, onOpenToolSettings)
+            }
+        }
+        menu?.let { shown ->
+            SearchResultMenu(
+                menu = shown,
+                onInsertLink = { link -> onResult(WebResult(title = "", snippet = link, url = link, displayUrl = "")) },
+                onInsertImage = onImageResult,
+                onDismiss = { menu = null },
+            )
+        }
+    }
+}
+
+/** A search result whose menu is open (#879). */
+private sealed interface SearchMenu {
+    data class Web(val result: WebResult) : SearchMenu
+    data class Image(val result: ImageResult) : SearchMenu
+}
+
+/**
+ * The menu of one search result (#879), over the panel: open it in the
+ * browser, insert its link, copy the link, and for a picture also insert the
+ * picture itself and save it to the gallery. A tap outside closes it.
+ */
+@Composable
+private fun SearchResultMenu(
+    menu: SearchMenu,
+    onInsertLink: (String) -> Unit,
+    onInsertImage: (ImageResult) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val actions = LocalSearchActions.current
+    val (title, link, page) = when (menu) {
+        is SearchMenu.Web -> Triple(menu.result.title, menu.result.url, menu.result.url)
+        is SearchMenu.Image -> Triple(
+            menu.result.title,
+            menu.result.imageUrl,
+            // The page a picture is on reads better than the bare file, when known.
+            menu.result.contextUrl.ifEmpty { menu.result.imageUrl },
+        )
+    }
+    fun closeThen(action: () -> Unit) {
+        onDismiss()
+        action()
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .widthIn(max = 320.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(kb.popup)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 6.dp),
+        ) {
+            Text(
+                title.ifBlank { hostOf(page) },
+                color = kb.popupText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+            if (menu is SearchMenu.Image) {
+                MediaActionRow(stringResource(R.string.ime_search_menu_insert_image)) { closeThen { onInsertImage(menu.result) } }
+            }
+            MediaActionRow(stringResource(R.string.ime_web_search_open_desc)) { closeThen { actions.onOpen(page) } }
+            MediaActionRow(stringResource(R.string.ime_web_search_insert_desc)) { closeThen { onInsertLink(link) } }
+            MediaActionRow(stringResource(R.string.ime_search_menu_copy_link)) { closeThen { actions.onCopy(link) } }
+            if (menu is SearchMenu.Image) {
+                MediaActionRow(stringResource(R.string.ime_search_menu_save_image)) { closeThen { actions.onSaveImage(menu.result) } }
+            }
+        }
+    }
+}
+
+/** The host of an address, for a result with no title of its own. */
+private fun hostOf(url: String): String = url.substringAfter("://").substringBefore('/')
+
+/** All and Images, over the search panel's results (#879). */
+@Composable
+private fun SearchTabChips(tab: SearchTab, onSelect: (SearchTab) -> Unit, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
+    Row(
+        modifier = modifier.padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for (entry in SearchTab.entries) {
+            val active = entry == tab
+            Text(
+                stringResource(
+                    when (entry) {
+                        SearchTab.ALL -> R.string.ime_search_tab_all
+                        SearchTab.IMAGES -> R.string.ime_search_tab_images
+                    },
+                ),
+                color = if (active) kb.chipActiveText else kb.chipText,
+                fontSize = 12.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                modifier = Modifier
+                    .clip(shape)
+                    .frostGlass(kb, shape, FrostSurface.CHIPS)
+                    .background(if (active) kb.chipActive else kb.chip)
+                    .chipBorder(kb, shape)
+                    .clickable { onSelect(entry) }
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+            )
+        }
+    }
+}
+
+/** The All tab: the engine's answer, then the web results. */
+@Composable
+private fun WebResults(
+    state: KeyboardUiState,
+    onRetry: () -> Unit,
+    onResult: (WebResult) -> Unit,
+    onOpen: (WebResult) -> Unit,
+    onImageResult: (ImageResult) -> Unit,
+    onMenu: (SearchMenu) -> Unit,
+    onOpenToolSettings: (ToolbarTool) -> Unit,
+) {
+    val openLink = LocalSearchActions.current.onOpen
     val kb = LocalKbTheme.current
     Column(modifier = Modifier.fillMaxSize()) {
-        // Pick mode (#727): which search provider answers, over the results.
-        ProviderChooser(
-            ProviderTool.SEARCH,
-            state.settings,
-            Modifier.align(Alignment.End).padding(horizontal = 8.dp, vertical = 2.dp),
-        )
         when (val ui = state.webSearch) {
             WebSearchUi.NeedKey -> PanelNotice(
                 stringResource(R.string.ime_web_search_need_key_body),
@@ -1904,15 +2136,20 @@ internal fun WebSearchPanel(
                 } else {
                     val focused = state.focusedIndex()
                     val listState = rememberLazyListState()
-                    // Issue #470: the row can open the page instead, with the
-                    // side button inserting the link, for a user who searches to
-                    // read rather than to share.
-                    val openFirst = state.settings.webSearch.openInBrowser
-                    val rowAction = if (openFirst) onOpen else onResult
+                    // What a tap does is the user's (#470, #879): the menu, or
+                    // straight to inserting or opening, with the side button
+                    // doing the other of the two. A long press is the menu.
+                    val tap = state.settings.webSearch.resultTap
+                    val openFirst = tap == SearchResultTap.OPEN
+                    val rowAction: (WebResult) -> Unit = when (tap) {
+                        SearchResultTap.MENU -> { result -> onMenu(SearchMenu.Web(result)) }
+                        SearchResultTap.INSERT -> onResult
+                        SearchResultTap.OPEN -> onOpen
+                    }
                     val sideAction = if (openFirst) onResult else onOpen
-                    // The answer box is the list's first item when there is one,
-                    // so focus indices start after it.
-                    val lead = if (ui.answer != null) 1 else 0
+                    // The answer box and its pictures lead the list when there
+                    // are any, so focus indices start after them.
+                    val lead = (if (ui.answer != null) 1 else 0) + (if (ui.images.isNotEmpty()) 1 else 0)
                     PanelFocusTarget(
                         panel = PanelMode.WEB_SEARCH,
                         count = ui.results.size,
@@ -1925,16 +2162,28 @@ internal fun WebSearchPanel(
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                         ui.answer?.let { answer ->
                             item(key = "answer") {
-                                WebSearchAnswer(answer) {
-                                    onResult(WebResult(title = "", snippet = answer, url = "", displayUrl = ""))
-                                }
+                                WebSearchAnswer(answer)
+                            }
+                        }
+                        if (ui.images.isNotEmpty()) {
+                            item(key = "answerImages") {
+                                AnswerImages(
+                                    ui.images,
+                                    state.mediaDownloadingId,
+                                    state.mediaDownloadProgress,
+                                    imageTap(state.settings.webSearch.resultTap, onImageResult, onMenu, openLink),
+                                    onLongPress = { onMenu(SearchMenu.Image(it)) },
+                                )
                             }
                         }
                         itemsIndexed(ui.results) { index, result ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { rowAction(result) }
+                                    .combinedClickable(
+                                        onClick = { rowAction(result) },
+                                        onLongClick = { onMenu(SearchMenu.Web(result)) },
+                                    )
                                     .focusRing(index == focused, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1965,7 +2214,7 @@ internal fun WebSearchPanel(
                                         )
                                     }
                                 }
-                                IconHint(
+                                if (tap != SearchResultTap.MENU) IconHint(
                                     stringResource(
                                         if (openFirst) R.string.ime_web_search_insert_desc
                                         else R.string.ime_web_search_open_desc,
@@ -1985,6 +2234,7 @@ internal fun WebSearchPanel(
                                 }
                             }
                         }
+                        item(key = "more") { MoreResultsButton(ui.loadingMore, ui.noMore) }
                     }
                 }
             }
@@ -1993,14 +2243,61 @@ internal fun WebSearchPanel(
 }
 
 /**
- * The backend's own answer to the query, above the results (#470): Tavily's
- * written answer, a SearXNG instance's instant answer. Folded to a few lines,
- * a tap opens the rest, and Insert puts the whole of it in the field.
+ * More results, after the last result of either tab (#879): the same search
+ * for its next page. A spinner while it loads; once a page brings nothing
+ * new it says so instead of offering another.
  */
 @Composable
-private fun WebSearchAnswer(answer: String, onInsert: () -> Unit) {
+private fun MoreResultsButton(loading: Boolean, noMore: Boolean) {
     val kb = LocalKbTheme.current
+    val onMore = LocalSearchActions.current.onMore
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            loading -> CircularProgressIndicator(Modifier.size(22.dp), color = kb.accent, strokeWidth = 2.5.dp)
+            noMore -> Text(stringResource(R.string.ime_search_no_more), color = kb.secondaryText, fontSize = 12.sp)
+            else -> {
+                val shape = kb.chipShape()
+                Text(
+                    stringResource(R.string.ime_search_more),
+                    color = kb.chipText,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .clip(shape)
+                        .frostGlass(kb, shape, FrostSurface.CHIPS)
+                        .background(kb.chip)
+                        .chipBorder(kb, shape)
+                        .clickable(onClick = onMore)
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The backend's own answer to the query, above the results (#470): Tavily's
+ * written answer, a SearXNG instance's instant answer. Folded to a few lines,
+ * a tap opens the rest. Two icons beside its label (#879): Copy puts the whole
+ * of it on the clipboard, Insert in the field, as plain text.
+ *
+ * Drawn as the AI chat draws an answer (#879): LaTeX formulas typeset,
+ * otherwise Markdown, with code blocks in the chat's boxes and their own
+ * Copy and Insert. A plain answer, which most are, reads as it always did.
+ */
+@Composable
+private fun WebSearchAnswer(answer: String) {
+    val kb = LocalKbTheme.current
+    val actions = LocalSearchActions.current
     var expanded by remember(answer) { mutableStateOf(false) }
+    val colors = ChatMarkdownColors(
+        text = kb.chipText,
+        dim = kb.chipText.copy(alpha = kb.chipText.alpha * 0.6f),
+        codeBackground = kb.chipText.copy(alpha = 0.10f),
+        link = kb.accent,
+    )
     val shape = kb.cardShape()
     Column(
         modifier = Modifier
@@ -2027,28 +2324,101 @@ private fun WebSearchAnswer(answer: String, onInsert: () -> Unit) {
                     .weight(1f)
                     .padding(start = 6.dp),
             )
-            TextButton(onClick = onInsert) {
-                Text(stringResource(R.string.ime_insert_action), color = kb.accent, fontSize = 13.sp)
+            AnswerAction(Icons.Outlined.ContentCopy, stringResource(CommonR.string.common_copy)) { actions.onCopy(answer) }
+            AnswerAction(Icons.AutoMirrored.Outlined.Input, stringResource(R.string.ime_insert_action)) {
+                actions.onInsertText(AiMarkdown.strip(answer).ifBlank { answer })
             }
         }
-        Text(
+        ChatMarkdown(
             answer,
-            color = kb.chipText,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            maxLines = if (expanded) Int.MAX_VALUE else WebAnswerFoldedLines,
-            overflow = TextOverflow.Ellipsis,
+            colors,
+            // Folded, as many lines as the plain answer showed; the tap that
+            // opens the rest is the box's own.
+            modifier = if (expanded) Modifier else Modifier.heightIn(max = WebAnswerFoldedHeight).clipToBounds(),
+            codeActions = { block ->
+                CodeAction(stringResource(CommonR.string.common_copy), colors) { actions.onCopy(block.code) }
+                CodeAction(stringResource(R.string.ime_insert_action), colors) { actions.onInsertText(block.code) }
+            },
         )
     }
 }
 
-/** How many lines of the answer show before a tap opens the rest. */
-private const val WebAnswerFoldedLines = 4
+/** One of the answer box's icon buttons, its name on a long press. */
+@Composable
+private fun AnswerAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    IconHint(label) {
+        IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp), tint = LocalKbTheme.current.accent)
+        }
+    }
+}
+
+/**
+ * A few pictures for the query under the engine's answer (#879): the ones
+ * Tavily sends with it, at no extra cost. A tap does what it does on the
+ * Images tab; a long press is the menu.
+ */
+@Composable
+private fun AnswerImages(
+    images: List<ImageResult>,
+    downloadingId: String?,
+    progress: Float?,
+    onTap: (ImageResult) -> Unit,
+    onLongPress: (ImageResult) -> Unit,
+) {
+    val loader = rememberMediaImageLoader()
+    val kb = LocalKbTheme.current
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        itemsIndexed(images, key = { _, image -> image.imageUrl }) { _, image ->
+            Box(
+                modifier = Modifier
+                    .size(width = 96.dp, height = 72.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .frostGlass(kb, RoundedCornerShape(8.dp), FrostSurface.CHIPS)
+                    .background(kb.chip)
+                    .pointerInput(image.imageUrl, downloadingId == null) {
+                        detectTapGestures(
+                            onTap = { if (downloadingId == null) onTap(image) },
+                            onLongPress = { onLongPress(image) },
+                        )
+                    },
+            ) {
+                AsyncImage(
+                    model = image.thumbUrl,
+                    contentDescription = image.title,
+                    imageLoader = loader,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                if (downloadingId == image.imageUrl) MediaDownloadOverlay(progress)
+            }
+        }
+    }
+}
+
+/** What a tap on a picture result does, from Tap a result (#879). */
+private fun imageTap(
+    tap: SearchResultTap,
+    onInsert: (ImageResult) -> Unit,
+    onMenu: (SearchMenu) -> Unit,
+    onOpen: (String) -> Unit,
+): (ImageResult) -> Unit = when (tap) {
+    SearchResultTap.MENU -> { result -> onMenu(SearchMenu.Image(result)) }
+    SearchResultTap.INSERT -> onInsert
+    SearchResultTap.OPEN -> { result -> onOpen(result.contextUrl.ifEmpty { result.imageUrl }) }
+}
+
+/** How much of the answer shows before a tap opens the rest: four lines of it. */
+private val WebAnswerFoldedHeight = 76.dp
 
 // ---- image search panel ----
 
 /**
- * Camera button beside the image search box (#349): opens the camera tool
+ * Camera button beside the search box (#349, #879): opens the camera tool
  * with Search in place of Send, to search by a photo instead of by words.
  */
 @Composable
@@ -2062,28 +2432,26 @@ internal fun SearchByPhotoButton(onClick: () -> Unit) {
 }
 
 /**
- * Image search: grid of thumbnails; tap inserts the image itself (via
- * commitContent, like clipboard images), long-press inserts the image URL.
+ * The Images tab: grid of thumbnails. A tap opens the picture's menu, or
+ * does what the user picked instead: inserts the image itself (via
+ * commitContent, like clipboard images) or opens its page. A long press is
+ * always the menu (#879).
  */
 @Composable
-internal fun ImageSearchPanel(
+private fun ImageResults(
     state: KeyboardUiState,
     onRetry: () -> Unit,
     onResult: (ImageResult) -> Unit,
-    onResultLink: (ImageResult) -> Unit,
+    onMenu: (SearchMenu) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
+    val onOpen = LocalSearchActions.current.onOpen
     Column(modifier = Modifier.fillMaxSize()) {
-        ProviderChooser(
-            ProviderTool.SEARCH,
-            state.settings,
-            Modifier.align(Alignment.End).padding(horizontal = 8.dp, vertical = 2.dp),
-        )
         when (val ui = state.imageSearch) {
             ImageSearchUi.NeedKey -> PanelNotice(
                 stringResource(R.string.ime_image_search_need_key_body),
                 actionLabel = stringResource(R.string.ime_open_settings_action),
-                onAction = { onOpenToolSettings(ToolbarTool.IMAGE_SEARCH) },
+                onAction = { onOpenToolSettings(ToolbarTool.WEB_SEARCH) },
             )
             ImageSearchUi.Idle -> PanelNotice(stringResource(R.string.ime_image_search_idle))
             ImageSearchUi.Loading -> PanelSpinner()
@@ -2099,11 +2467,13 @@ internal fun ImageSearchPanel(
                 } else {
                     ImageGrid(
                         results = ui.results,
+                        loadingMore = ui.loadingMore,
+                        noMore = ui.noMore,
                         downloadingId = state.mediaDownloadingId,
                         progress = state.mediaDownloadProgress,
                         columnCount = state.settings.emoji.mediaGridColumns,
-                        onResult = onResult,
-                        onResultLink = onResultLink,
+                        onResult = imageTap(state.settings.webSearch.resultTap, onResult, onMenu, onOpen),
+                        onResultLink = { result -> onMenu(SearchMenu.Image(result)) },
                         focused = state.focusedIndex(),
                     )
                 }
@@ -2115,6 +2485,8 @@ internal fun ImageSearchPanel(
 @Composable
 private fun ImageGrid(
     results: List<ImageResult>,
+    loadingMore: Boolean,
+    noMore: Boolean,
     downloadingId: String?,
     progress: Float?,
     /** Columns, from the user's setting. Two gives a bigger look before sending. */
@@ -2131,7 +2503,7 @@ private fun ImageGrid(
     val gridState = rememberLazyGridState()
     // Indexed against the deduped list, which is what the grid actually draws.
     PanelFocusTarget(
-        panel = PanelMode.IMAGE_SEARCH,
+        panel = PanelMode.WEB_SEARCH,
         count = uniqueResults.size,
         columns = columnCount,
         onActivate = { index ->
@@ -2172,5 +2544,6 @@ private fun ImageGrid(
                 if (downloadingId == result.imageUrl) MediaDownloadOverlay(progress)
             }
         }
+        item(key = "more", span = { GridItemSpan(maxLineSpan) }) { MoreResultsButton(loadingMore, noMore) }
     }
 }

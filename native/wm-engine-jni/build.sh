@@ -34,11 +34,13 @@ fi
 
 CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}
 SYSROOT=$(rustc --print sysroot)
-export RUSTFLAGS="--remap-path-prefix=$CARGO_HOME=/cargo --remap-path-prefix=$SYSROOT=/rustc --remap-path-prefix=$REPO=/wmkeyboard"
+# Relocations packed in Android's APS2 format (bionic reads it from API 23;
+# minSdk is 24): the tables' pointers made .rela.dyn 120 KB of 24-byte entries.
+export RUSTFLAGS="--remap-path-prefix=$CARGO_HOME=/cargo --remap-path-prefix=$SYSROOT=/rustc --remap-path-prefix=$REPO=/wmkeyboard -C link-arg=-Wl,--pack-dyn-relocs=android"
 export CARGO_TARGET_DIR=${WM_ENGINE_TARGET_DIR:-$HERE/target}
 
 cd "$HERE"
-# WMKB_ABIS narrows the build to some of the three (native/build-lite-libs.sh).
+# WMKB_ABIS narrows the build to some of the three (native/build-fdroid-libs.sh).
 ABIS=(${WMKB_ABIS:-arm64-v8a armeabi-v7a x86_64})
 ANDROID_NDK_HOME=$NDK cargo ndk $(printf -- '-t %s ' "${ABIS[@]}") --platform 24 \
     -o "$OUT" build --release --locked

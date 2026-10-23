@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-The Gallery tool puts your photo library in a sheet over the keys, the way a chat app's attach button does. Pick a few photos or videos, caption them, edit one if you like, and send. The app you are typing in never sees your library: it gets a copy of what you picked and nothing else, with the location taken out by default. <Flavor edition="both" />.
+The Gallery tool puts your photo library in a sheet over the keys, the way a chat app's attach button does. Pick a few photos or videos, caption them, edit one if you like, and send. The app you are typing in never sees your library: it gets a copy of what you picked and nothing else, with the location taken out by default. <Flavor edition="all" />.
 
 <PhoneFrame caption="The gallery at the keyboard's height: the album chip and filters on top, the grid, and the send bar after two picks.">
   {/* shot: tools/gallery-grid */}
@@ -33,13 +33,21 @@ The Play Store build cannot hold the photo library permission, so there the tool
 
 The chip at the start of the header names the album you are in. Tap it for the list of albums, each with its newest photo and a count:
 
-- **Recents**: everything, newest first.
+- **Recents**: everything, newest first: by the date a photo was taken, or, for a picture with no camera date (one saved from a browser, a sticker, an edited copy), the date it was saved.
 - **Sent from the keyboard**: what you sent through this tool before, the most recent send first.
 - **Favorites**: what your gallery app has starred, on Android 11 and later.
 - **Camera**, **Screenshots**, **Videos** and **GIFs**, when they have anything in them.
 - Then every folder on the phone, the biggest first.
 
 Next to it, **All**, **Photos**, **Videos** and **GIFs** narrow whatever album is open. **Open the last album** brings you back to the album you left; with it off, the panel always opens on Recents.
+
+## Searching your photos
+
+With [Search by meaning](/smart/search-by-meaning/) on **Text and pictures** and its model downloaded, the header has a search button. Tap it and type what a photo shows, in any language: "beach at sunset", "receipt", "my dog in the snow". The keys come up under a short strip of the grid, and the photos that fit best fill it, best match first, a moment after you stop typing. Enter or **Done** gives the keys back and keeps the results. The query then stays in the header in place of the album chip; tap it to change the words, or its cross to go back to the album.
+
+The results are photos only, from every album. Picking, the viewer and sending work on them as on any album. Choosing an album or a filter ends the search.
+
+The search finds a photo once the keyboard has read it. That happens on the phone, in the background, while the gallery panel is open: a few dozen photos at a time, newest first, up to your 3,000 newest. Nothing is uploaded. The first time, a large library takes many openings to work through, and a photo not read yet is simply not found. Without the model, or with search by meaning on Text only, there is no search button and the panel is the grid it always was. The Play Store build has no grid and so no search.
 
 ## The grid
 
@@ -106,6 +114,7 @@ Tap a picked photo in the send bar, or **Edit** in the viewer, to edit it. Editi
 - **Stickers.** Thirty-two popular emoji, then your own [sticker packs](/emoji/stickers/). They move, resize, rotate and delete the way text does.
 - **Filters.** Fourteen looks, each previewed on your photo: Original, Vivid, Warm, Cool, Mono, Noir, Fade, Sepia, Chrome, Dramatic, Matte, Retro, Lush and Dusk. Tap one, then set how strongly it applies.
 - **Adjust.** Brightness, contrast, saturation, warmth, tint, exposure, highlights, shadows, fade, vignette, grain and sharpen, each on its own slider. A dot marks the ones you changed. Double-tap a slider to put it back.
+- **Upscale.** Redraws a small photo two or four times larger, on the phone, sharper than stretching it would be. Pick **Photo**, or **Drawing or text** for a screenshot, a drawing or a meme (a PNG starts on that one), then **×2** or **×4**, each shown with the size it makes. The result goes up to 4096 pixels on its long side, so ×2 is offered up to 2048 pixels and ×4 up to 1024; a larger photo has nothing to offer. A bar shows the progress and **Cancel** stops it. Once it's done the upscale is a step like any other: Undo takes it back, and **Original size** removes it. Your crop, drawings and text stay where they were. The first time, the upscaler downloads: a 2.2 MB network from the project's data repository, and on the GitHub and Play builds the engine the [sticker generator](/emoji/sticker-generator/) runs on, if that isn't on the phone yet. The photo still goes out at the size the send bar's chip allows, so choose **Original** to send all of an upscale; a save to the gallery keeps all of it.
 
 **Pinch** with two fingers in any tool to zoom in on the photo, and drag with two fingers to move around it, for drawing or blurring something small. Zooming only changes the view; the photo keeps its edits as they are. A chip at the top shows how far in you are, and a tap on it fits the whole photo again. A pinch that starts on a text or a sticker resizes that instead.
 
@@ -130,7 +139,7 @@ What the app you type in receives is a copy in the keyboard's own storage, offer
 - **Remember what you sent** (on) keeps a list of the library ids you sent, for the Sent album and the send mark. It holds no pictures and no names, it stays on the phone, an incognito text box adds nothing to it, and **Clear the sent list** empties it.
 - The copies are deleted from the keyboard's storage a day after they were made.
 
-The library is read only while the panel is open. Nothing is uploaded: the tool works the same with no internet at all.
+The library is read only while the panel is open. Nothing is uploaded: the tool works the same with no internet at all. With [photo search](#searching-your-photos) on, the numbers the keyboard makes from your photos stay on the phone, out of backups, and are deleted when you turn search by meaning off or take the photos permission away.
 
 ## Settings
 

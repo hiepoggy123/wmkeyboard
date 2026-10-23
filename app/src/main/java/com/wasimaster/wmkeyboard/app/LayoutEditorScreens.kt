@@ -28,6 +28,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
@@ -134,6 +136,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ExpandLess
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ExpandMore
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreVert
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -912,7 +915,7 @@ internal fun KeyLayoutsScreen(
             }
         }
         for (layout in customs) {
-            item {
+            item(key = layout.id) {
                 ScrollAnchor(layout.id == returnTo) {
                     LayoutRow(
                         layout = layout,
@@ -945,7 +948,7 @@ internal fun KeyLayoutsScreen(
         info = stringResource(R.string.layout_editor_secondary_group_caption),
     ) {
         for (layout in secondaries) {
-            item {
+            item(key = layout.id) {
                 ScrollAnchor(layout.id == returnTo) {
                     LayoutRow(
                         layout = layout,
@@ -1005,7 +1008,7 @@ internal fun KeyLayoutsScreen(
     if (builtIns.isNotEmpty()) {
         SettingsGroup(stringResource(R.string.layout_editor_built_in_title)) {
             for (layout in builtIns) {
-                item {
+                item(key = layout.id) {
                     ScrollAnchor(layout.id == returnTo) {
                         LayoutRow(
                             layout = layout,
@@ -1434,9 +1437,26 @@ private fun LayoutRow(
     onToggle: ((Boolean) -> Boolean)? = null,
 ) {
     val resources = LocalContext.current.resources
+    val exportDesc = stringResource(R.string.layout_editor_export_desc, layout.name)
+    val duplicateDesc = stringResource(R.string.layout_editor_duplicate_desc, layout.name)
+    val deleteDesc = if (deleteIsReset) {
+        stringResource(R.string.layout_editor_reset_desc, layout.name)
+    } else {
+        stringResource(R.string.layout_editor_delete_desc, layout.name)
+    }
     WmRow(
         title = layout.name,
         subtitle = layoutSummary(resources, layout, enabled),
+        swipeActions = buildList {
+            add(SwipeAction(Icons.Outlined.Share, exportDesc, onClick = onExport))
+            add(SwipeAction(Icons.Outlined.ContentCopy, duplicateDesc, onClick = onDuplicate))
+            if (onDelete != null) {
+                add(
+                    if (deleteIsReset) SwipeAction(Icons.Outlined.Refresh, deleteDesc, onClick = onDelete)
+                    else deleteSwipeAction(deleteDesc, onDelete),
+                )
+            }
+        },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onToggle != null && !layout.secondary) {
@@ -1461,30 +1481,40 @@ private fun LayoutRow(
                         )
                     }
                 }
-                IconButton(onClick = onExport) {
-                    Icon(
-                        Icons.Outlined.Share,
-                        contentDescription =
-                            stringResource(R.string.layout_editor_export_desc, layout.name),
-                    )
-                }
-                IconButton(onClick = onDuplicate) {
-                    Icon(
-                        Icons.Outlined.ContentCopy,
-                        contentDescription =
-                            stringResource(R.string.layout_editor_duplicate_desc, layout.name),
-                    )
-                }
-                if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
+                // Export, duplicate and delete share one menu: as three more
+                // buttons beside the switch they left the name a column a few
+                // letters wide on a phone. The row's swipe has them too.
+                var menu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menu = true }) {
                         Icon(
-                            if (deleteIsReset) Icons.Outlined.Refresh else Icons.Outlined.Delete,
-                            contentDescription = if (deleteIsReset) {
-                                stringResource(R.string.layout_editor_reset_desc, layout.name)
-                            } else {
-                                stringResource(R.string.layout_editor_delete_desc, layout.name)
-                            },
+                            Icons.Outlined.MoreVert,
+                            contentDescription = stringResource(R.string.layout_editor_more_desc, layout.name),
                         )
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(exportDesc) },
+                            leadingIcon = { Icon(Icons.Outlined.Share, contentDescription = null) },
+                            onClick = { menu = false; onExport() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(duplicateDesc) },
+                            leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                            onClick = { menu = false; onDuplicate() },
+                        )
+                        if (onDelete != null) {
+                            DropdownMenuItem(
+                                text = { Text(deleteDesc) },
+                                leadingIcon = {
+                                    Icon(
+                                        if (deleteIsReset) Icons.Outlined.Refresh else Icons.Outlined.Delete,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = { menu = false; onDelete() },
+                            )
+                        }
                     }
                 }
             }
@@ -1779,7 +1809,7 @@ private class OpenLayout(private val settings: LiveSettings, val id: String) {
         settings.watch { pick(findLayout(it.customLayouts, id) ?: GoneLayout) }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun KeyLayoutEditorScreen(
     repository: SettingsRepository,
@@ -2379,7 +2409,15 @@ internal fun KeyLayoutEditorScreen(
     // The layer tabs ride in the pinned strip with the grid, above it (issue
     // #769). On the page under a grid whose height changes with the layer,
     // the next tab moved out from under the finger every time one was picked.
-    RegisterPinned {
+    //
+    // Not while the keyboard is up. Tabs, chips and grid take most of a phone's
+    // height on their own, and with the keyboard under them the page below was
+    // left no room at all: a key's Label field, once focused, sat behind the
+    // keyboard, and the window panned up onto an empty grey strip where the
+    // field and the key's settings should have been (#614). The grid comes
+    // back the moment the keyboard goes.
+    val imeUp = WindowInsets.isImeVisible
+    if (!imeUp) RegisterPinned {
         Column {
             if (!secondary) {
                 LayerChips(
@@ -4226,7 +4264,14 @@ internal fun EditorGrid(
                                 continue
                             }
                             val sidePad = sidePadFor(row, gridWeight)
-                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            // No spacing between the cells: each takes half the
+                            // 3dp gap on either side as an inset instead, as the
+                            // keyboard and EditorBand do (#846). Spaced, a row's
+                            // gaps came out of the width the weights share, so a
+                            // key 12 wide drew narrower than 12 keys 1 wide with
+                            // their 11 gaps, and rows of different counts did
+                            // not line up.
+                            Row {
                                 if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
                                 row.forEachIndexed { c, cellKey ->
                                     // Keyed on the key, not its seat, so a key a
@@ -4243,6 +4288,7 @@ internal fun EditorGrid(
                                             face = KeyFace(enterSlot, spaceText, hintsOn),
                                             modifier = Modifier
                                                 .weight(cellKey.width)
+                                                .padding(horizontal = 1.5.dp)
                                                 .then(cellModifier(KeyRef(r, c)))
                                                 .seatGlide(glideActive),
                                         ) { onSelect(KeyRef(r, c)) }
@@ -5714,11 +5760,15 @@ internal fun KeyEditSheet(
     }
 
     // Issue #339: what a short flick towards each edge or corner types. Open
-    // on a key that has flicks, folded on one that has none.
+    // on a key that has flicks, folded on one that has none. Decided once per
+    // key (#850): a group that unfolds the moment its first arm is set draws
+    // its rows from another call site, and the remount would throw away the
+    // picker that arm was about to open.
     if (!isField && (key.action == KeyAction.Text || key.takesFlickActions())) {
+        val hadFlicks = remember(ref) { key.hasFlicks() }
         SettingsGroup(
             stringResource(R.string.layout_editor_key_section_flicks),
-            foldKey = if (key.hasFlicks()) null else "key_flicks",
+            foldKey = if (hadFlicks) null else "key_flicks",
         ) {
             item { FlickFields(key, ref, secondaryLayouts, keyboardModes, onChange) }
         }
@@ -5794,18 +5844,12 @@ internal fun KeyEditSheet(
                 // A new action takes the old one's label and icon with it
                 // (issue #769): a Del key turned into Ctrl kept saying Del.
                 // Left blank, the key draws what the keyboard draws for the
-                // action it now has. Typing text keeps its label.
+                // action it now has. Typing text keeps its label. The old
+                // key's text arms go too (#838): since #789 an action key
+                // types them, so a letter's arms left on the Shift it became
+                // would start typing under it.
                 val changed = !(catalog.firstOrNull { o -> o.matches(action) }?.matches(key.action) ?: false)
-                onChange {
-                    val relabel = changed && action != KeyAction.Text
-                    it.copy(
-                        action = action,
-                        role = it.role.takeIf { _ -> action == KeyAction.Text },
-                        label = if (relabel) "" else it.label,
-                        shiftLabel = if (relabel) null else it.shiftLabel,
-                        icon = if (relabel) null else it.icon,
-                    )
-                }
+                onChange { it.withEditedAction(action, changed) }
                 pickingAction = false
                 // Straight on to which tool, rather than leaving the key on
                 // whichever one the catalog entry had to name as its default.
@@ -5847,8 +5891,11 @@ internal fun KeyEditSheet(
             onDismiss = { pickingMode = false },
             onPick = { picked ->
                 pickingMode = false
+                // No name stored (#821): the board looks it up by id, so a
+                // rename reaches the key. A name an earlier pick left goes too;
+                // a label typed by hand stays.
                 onChange {
-                    it.copy(action = KeyAction.Mode(picked.id), label = it.label.ifBlank { picked.name })
+                    it.copy(action = KeyAction.Mode(picked.id), label = it.label.unlessModeName(keyboardModes))
                 }
             },
         )
@@ -6266,6 +6313,10 @@ private fun FlickFields(
     CaptionText(
         stringResource(if (typesText) R.string.layout_editor_flick_caption else R.string.layout_editor_flick_caption_action),
     )
+    // What an arm here takes over (#838): the fixed rules from the gestures
+    // page, said where the arm is being given rather than discovered later.
+    val takesOver = flickTakesOverNote(key)
+    if (takesOver != 0) CaptionText(stringResource(takesOver))
     // Issue #410: a key that is all swipes, with nothing in the middle. The
     // switch empties the centre; turning it off gives the centre the first
     // text arm back, so the key types something on a tap again.
@@ -6292,9 +6343,15 @@ private fun FlickFields(
             flickShift = it.flickShift - direction,
         )
     }
-    fun updateArm(direction: FlickDirection, change: (KeyAlternate) -> KeyAlternate) = onChange { k ->
-        val arm = k.flickActions[direction] ?: return@onChange k
-        k.copy(flickActions = k.flickActions + (direction to change(arm)))
+    // The arm a second question finishes (#850): the one already there when
+    // it is the same kind of action, so its label survives, else a new one.
+    fun finishArm(direction: FlickDirection, action: KeyAction, label: (String) -> String = { it }) = onChange { k ->
+        val old = k.flickActions[direction]?.takeIf { it.action::class == action::class } ?: KeyAlternate(action)
+        k.copy(
+            flickActions = (k.flickActions + (direction to old.copy(action = action, label = label(old.label)))).inFlickOrder(),
+            flick = k.flick - direction,
+            flickShift = k.flickShift - direction,
+        )
     }
     // Issue #410: the eight arms as a 3×3 pad with the key itself in the
     // middle, the way the keyboard draws them. Tap a cell to edit that arm in
@@ -6394,14 +6451,16 @@ private fun FlickFields(
             options = AlternateActionCatalog,
             onPick = { action ->
                 picking = null
-                setArm(direction, KeyAlternate(action))
-                // Half an answer until it names its operation, tool or layout.
+                // Half an answer until it names its operation, tool, layout or
+                // mode, so nothing is saved until it does (#850): the catalog's
+                // placeholder (Left, for a text-editing action) is not a choice,
+                // and backing out of the second question leaves the arm as it was.
                 when (action) {
                     is KeyAction.Edit -> pickingEditAt = direction
                     is KeyAction.Tool -> pickingToolAt = direction
                     is KeyAction.Layout -> pickingLayoutAt = direction
                     is KeyAction.Mode -> pickingModeAt = direction
-                    else -> Unit
+                    else -> setArm(direction, KeyAlternate(action))
                 }
             },
             onDismiss = { picking = null },
@@ -6414,7 +6473,7 @@ private fun FlickFields(
             onDismiss = { pickingEditAt = null },
             onPick = { op ->
                 pickingEditAt = null
-                updateArm(direction) { it.copy(action = KeyAction.Edit(op)) }
+                finishArm(direction, KeyAction.Edit(op))
             },
         )
     }
@@ -6427,7 +6486,7 @@ private fun FlickFields(
             onDismiss = { pickingToolAt = null },
             onPick = { picked ->
                 pickingToolAt = null
-                picked?.let { tool -> updateArm(direction) { it.copy(action = KeyAction.Tool(tool)) } }
+                picked?.let { tool -> finishArm(direction, KeyAction.Tool(tool)) }
             },
         )
     }
@@ -6439,9 +6498,7 @@ private fun FlickFields(
             onDismiss = { pickingLayoutAt = null },
             onPick = { picked ->
                 pickingLayoutAt = null
-                updateArm(direction) {
-                    it.copy(action = KeyAction.Layout(picked.id), label = it.label.ifBlank { picked.name })
-                }
+                finishArm(direction, KeyAction.Layout(picked.id)) { it.ifBlank { picked.name } }
             },
         )
     }
@@ -6453,9 +6510,7 @@ private fun FlickFields(
             onDismiss = { pickingModeAt = null },
             onPick = { picked ->
                 pickingModeAt = null
-                updateArm(direction) {
-                    it.copy(action = KeyAction.Mode(picked.id), label = it.label.ifBlank { picked.name })
-                }
+                finishArm(direction, KeyAction.Mode(picked.id)) { it.unlessModeName(keyboardModes) }
             },
         )
     }
@@ -6930,7 +6985,7 @@ private fun ActionAlternatesRows(
                 onChange(
                     alternates.mapIndexed { i, a ->
                         if (i == index) {
-                            a.copy(action = KeyAction.Mode(picked.id), label = a.label.ifBlank { picked.name })
+                            a.copy(action = KeyAction.Mode(picked.id), label = a.label.unlessModeName(keyboardModes))
                         } else {
                             a
                         }
@@ -6998,6 +7053,10 @@ private const val AddingAlternate = -1
 /** Every action a popup entry may carry; see [ActionAlternatesRows]. */
 private val AlternateActionCatalog: List<KeyActionOption> =
     KeyActionCatalog.filterNot { it.matches(KeyAction.Text) || it.matches(KeyAction.None) }
+
+/** [this] label, or none when it is only some mode's name, which the board looks up for itself (#821). */
+private fun String.unlessModeName(modes: List<KeyboardMode>): String =
+    takeUnless { label -> modes.any { it.name == label } }.orEmpty()
 
 /**
  * What a chip calls an alternate: the tool's name, the action's name from the
@@ -7975,4 +8034,36 @@ internal fun KeyLayoutJsonScreen(
         },
         onBack = onDone,
     )
+}
+
+/**
+ * [this] key given [action] in the editor; [changed] is whether that is a
+ * different action from the one it had. A new action takes the old one's
+ * label and icon with it (issue #769), and its text arms (#838): since #789 an
+ * action key types them, so a letter's arms left on the Shift it became would
+ * start typing under it. Typing text keeps all of them.
+ */
+internal fun Key.withEditedAction(action: KeyAction, changed: Boolean): Key {
+    val relabel = changed && action != KeyAction.Text
+    return copy(
+        action = action,
+        role = role.takeIf { action == KeyAction.Text },
+        label = if (relabel) "" else label,
+        shiftLabel = if (relabel) null else shiftLabel,
+        icon = if (relabel) null else icon,
+        flick = if (relabel) emptyMap() else flick,
+        flickShift = if (relabel) emptyMap() else flickShift,
+    )
+}
+
+/**
+ * The note under a key's flick pad saying what an arm there takes over (#838),
+ * or 0 for a key where an arm takes nothing: the fixed rules from the gestures
+ * page, said where the arm is being given rather than discovered later.
+ */
+@StringRes
+internal fun flickTakesOverNote(key: Key): Int = when {
+    key.action == KeyAction.Shift || key.action is KeyAction.Mod -> R.string.layout_editor_flick_takes_modifier_drag
+    key.action == KeyAction.Symbols || key.action == KeyAction.Letters -> R.string.layout_editor_flick_takes_layer_peek
+    else -> 0
 }

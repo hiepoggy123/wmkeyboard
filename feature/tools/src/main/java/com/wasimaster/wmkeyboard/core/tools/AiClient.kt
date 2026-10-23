@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.tools.feature.R
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
@@ -49,6 +50,14 @@ object AiClient {
          * passes an id of its conversation instead.
          */
         val sessionId: String = UUID.randomUUID().toString(),
+        /**
+         * The chat's Reasoning switch (#882): true asks the model to reason
+         * and to show it, false asks it not to, null sends nothing and leaves
+         * the model to its own default, which is every request but the
+         * chat's. Only where [controlsReasoning] says a provider has a field
+         * for it; everywhere else it is ignored.
+         */
+        val reasoning: Boolean? = null,
     )
 
     /** The placeholder a header value can use for [Config.sessionId]. */
@@ -202,12 +211,12 @@ object AiClient {
      * "Blank = …" hints — they must not drift apart.
      */
     object DefaultModels {
-        const val ANTHROPIC = "claude-sonnet-5"
-        const val OPENAI = "gpt-5.6-luna"
-        const val GEMINI = "gemini-3.5-flash"
+        const val ANTHROPIC = "claude-sonnet-5-5"
+        const val OPENAI = "gpt-6-luna"
+        const val GEMINI = "gemini-3.8-flash"
         const val OLLAMA = "qwen3"
-        const val XAI = "grok-4.5"
-        const val DEEPSEEK = "deepseek-v4-flash"
+        const val XAI = "grok-4.7"
+        const val DEEPSEEK = "deepseek-flash"
 
         /** Brave's Answers API has one model, and this is its name. */
         const val BRAVE = "brave"
@@ -302,8 +311,8 @@ object AiClient {
      */
     private val REASONING_MODEL_HINTS = listOf(
         "thinking", "reason", "-r1", "qwq", "magistral",
-        "gpt-5", "o1-", "o3", "o4-", "qwen3", "qwen-3",
-        "grok-4", "deepseek-v4",
+        "gpt-5", "gpt-6", "o1-", "o3", "o4-", "qwen3", "qwen-3",
+        "grok-4", "deepseek-v4", "deepseek-flash",
     )
 
     /** Reasoning models get this much more room than the user's setting. */
@@ -344,6 +353,49 @@ object AiClient {
      * guess from the model id — see [REASONING_MODEL_HINTS] — so callers must
      * treat a `false` as "probably not" rather than proof.
      */
+    /**
+     * Whether the chat's Reasoning switch does anything for [provider] with
+     * [model] (#882): Claude's `thinking`, Gemini's `thinkingConfig`,
+     * Ollama's `think`, and OpenAI's `reasoning_effort` on a model that
+     * reasons. Another OpenAI-shaped service has no field all of them agree
+     * on, so the switch is not offered there.
+     */
+    fun controlsReasoning(provider: AiProvider, model: String): Boolean {
+        val name = model.lowercase()
+        return when (provider) {
+            // Claude 3 models before 3.7 have no thinking to switch.
+            AiProvider.ANTHROPIC -> !name.startsWith("claude-3") || "3-7" in name
+            // Gemini 1.5 and 2.0 do not think, and may refuse the field.
+            AiProvider.GEMINI -> "1.5" !in name && "2.0" !in name
+            AiProvider.OLLAMA -> true
+            AiProvider.OPENAI -> REASONING_MODEL_HINTS.any { it in name }
+            else -> false
+        }
+    }
+
+    /** [controlsReasoning] for the model [settings] would send to. */
+    fun controlsReasoning(settings: AiSettings): Boolean =
+        config(settings).let { controlsReasoning(it.provider, it.model) }
+
+    /**
+     * Gemini's `thinkingConfig` for the Reasoning switch. On asks for the
+     * thoughts back. Off turns thinking off where a model can: a budget of 0
+     * on a 2.5 model that is not Pro, the lowest level on a Gemini 3 or
+     * later, which is as near to off as Google allows there.
+     */
+    private fun geminiThinking(model: String, reasoning: Boolean): JsonObject = buildJsonObject {
+        if (reasoning) {
+            put("includeThoughts", true)
+            return@buildJsonObject
+        }
+        val name = model.lowercase()
+        when {
+            "2.5" in name && "pro" !in name -> put("thinkingBudget", 0)
+            "2.5" in name || "2.0" in name || "1.5" in name -> Unit
+            else -> put("thinkingLevel", if ("pro" in name) "low" else "minimal")
+        }
+    }
+
     fun expectsReasoning(settings: AiSettings): Boolean {
         val model = config(settings).model.lowercase()
         return REASONING_MODEL_HINTS.any { it in model }
@@ -1040,6 +1092,62 @@ object AiClient {
         }
     }
 
+    /**
+     * How a Claude model takes the Reasoning switch. Each generation rejects
+     * some shape the others need: models before 4.6 know only a token budget,
+     * Sonnet 5.5 400s on `disabled` and turns thinking off with
+     * `between_tools`, and Opus 5.5, Fable and Mythos cannot turn it off at
+     * all, so off there is the lowest effort instead.
+     */
+    private enum class ClaudeThinking { BUDGET, ADAPTIVE, BETWEEN_TOOLS, ALWAYS_ON }
+
+    private val CLAUDE_VERSION = Regex("""claude-(opus|sonnet|haiku)-(\d+)(?:-(\d)(?!\d))?""")
+
+    /** The smallest thinking budget Anthropic accepts on a pre-4.6 model. */
+    private const val CLAUDE_MIN_THINKING_BUDGET = 1024
+
+    private fun JsonObjectBuilder.putClaudeThinking(model: String, on: Boolean, maxTokens: Int) {
+        val name = model.lowercase()
+        val match = CLAUDE_VERSION.find(name)
+        // 4.5 is 45, 5 is 50: the minor digit is absent on whole versions and
+        // a date suffix (claude-sonnet-4-20250514) is not a minor at all.
+        val version = match?.let { it.groupValues[2].toInt() * 10 + (it.groupValues[3].toIntOrNull() ?: 0) }
+        val tier = match?.groupValues?.get(1)
+        val kind = when {
+            "fable" in name || "mythos" in name -> ClaudeThinking.ALWAYS_ON
+            name.startsWith("claude-3") -> ClaudeThinking.BUDGET
+            version == null -> ClaudeThinking.ADAPTIVE
+            version < 46 -> ClaudeThinking.BUDGET
+            tier == "opus" && version >= 55 -> ClaudeThinking.ALWAYS_ON
+            tier == "sonnet" && version >= 55 -> ClaudeThinking.BETWEEN_TOOLS
+            else -> ClaudeThinking.ADAPTIVE
+        }
+        if (on) {
+            if (kind == ClaudeThinking.BUDGET) {
+                // The budget comes out of max_tokens and must stay below it.
+                val budget = (maxTokens / 2).coerceAtLeast(CLAUDE_MIN_THINKING_BUDGET)
+                if (budget < maxTokens) {
+                    putJsonObject("thinking") { put("type", "enabled"); put("budget_tokens", budget) }
+                }
+                return
+            }
+            putJsonObject("thinking") {
+                put("type", "adaptive")
+                // From 4.7 on the thinking text streams back empty unless
+                // asked for, which leaves the switch showing nothing.
+                if (kind == ClaudeThinking.ALWAYS_ON || (version ?: 0) >= 47) put("display", "summarized")
+            }
+            return
+        }
+        when (kind) {
+            // Thinking is off unless asked for.
+            ClaudeThinking.BUDGET -> Unit
+            ClaudeThinking.ADAPTIVE -> putJsonObject("thinking") { put("type", "disabled") }
+            ClaudeThinking.BETWEEN_TOOLS -> putJsonObject("thinking") { put("type", "between_tools") }
+            ClaudeThinking.ALWAYS_ON -> putJsonObject("output_config") { put("effort", "low") }
+        }
+    }
+
     internal fun anthropicBody(
         config: Config,
         system: String,
@@ -1052,6 +1160,9 @@ object AiClient {
         put("max_tokens", maxTokens)
         put("system", system)
         put("stream", true)
+        // The chat's Reasoning switch (#882), in the shape the model accepts.
+        config.reasoning?.takeIf { controlsReasoning(config.provider, config.model) }
+            ?.let { on -> putClaudeThinking(config.model, on, maxTokens) }
         if (tools.isNotEmpty()) {
             put("tools", buildJsonArray {
                 for (tool in tools) {
@@ -1242,6 +1353,11 @@ object AiClient {
         // for. Sending a huge number instead would be rejected by some.
         if (maxTokens != null) put("max_tokens", maxTokens)
         put("stream", true)
+        // The chat's Reasoning switch off (#882): the least effort every
+        // OpenAI reasoning model accepts. On leaves the model's default.
+        if (config.reasoning == false && controlsReasoning(config.provider, config.model)) {
+            put("reasoning_effort", "low")
+        }
         if (tools.isNotEmpty()) put("tools", openAiTools(tools))
         put("messages", buildJsonArray {
             add(buildJsonObject { put("role", "system"); put("content", system) })
@@ -1396,6 +1512,9 @@ object AiClient {
         turns: List<ChatTurn>,
         maxTokens: Int?,
         tools: List<AiToolSpec> = emptyList(),
+        /** The chat's Reasoning switch and the model it applies to; see [geminiThinking]. */
+        reasoning: Boolean? = null,
+        model: String = "",
     ): String = buildJsonObject {
         putJsonObject("system_instruction") {
             put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
@@ -1428,8 +1547,11 @@ object AiClient {
         // Left out entirely for "provider maximum", so Gemini writes up to
         // the model's own output limit. This is the setting that used to cut
         // a long answer off in the middle with nothing to say so.
-        if (maxTokens != null) {
-            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+        if (maxTokens != null || reasoning != null) {
+            putJsonObject("generationConfig") {
+                if (maxTokens != null) put("maxOutputTokens", maxTokens)
+                if (reasoning != null) put("thinkingConfig", geminiThinking(model, reasoning))
+            }
         }
     }.toString()
 
@@ -1508,7 +1630,10 @@ object AiClient {
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = geminiBody(system, turns, maxTokens, tools)
+        val body = geminiBody(
+            system, turns, maxTokens, tools,
+            config.reasoning?.takeIf { controlsReasoning(config.provider, config.model) }, config.model,
+        )
         return runStream(
             source = config.netSource,
             url = ServiceEndpoints.base(ServiceEndpoint.GEMINI) + "/v1beta/models/" +
@@ -1581,6 +1706,10 @@ object AiClient {
     ): String = buildJsonObject {
         put("model", config.model)
         put("stream", true)
+        // The chat's Reasoning switch off (#882). On sends nothing: a model
+        // that thinks does so by default, and asking one that cannot is an
+        // error.
+        if (config.reasoning == false) put("think", false)
         if (tools.isNotEmpty()) put("tools", openAiTools(tools))
         // Ollama spells the ceiling num_predict, and it sits under options
         // rather than at the top level. Left out for "provider maximum",

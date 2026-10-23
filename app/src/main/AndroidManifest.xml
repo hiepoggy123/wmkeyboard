@@ -24,10 +24,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Read by the model downloaders to ask "is this connection metered?"
          before pulling hundreds of megabytes. Declared here rather than
-         inherited from a dependency: the full flavour picks it up transitively
-         from ML Kit, but the lite flavour ships without those libraries, so
-         without this line ConnectivityManager.isActiveNetworkMetered throws a
-         SecurityException on lite builds. -->
+         inherited from a dependency: most builds pick it up transitively
+         from ML Kit, but F-Droid's ships without those libraries, so without
+         this line ConnectivityManager.isActiveNetworkMetered throws a
+         SecurityException there. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- KDE Connect (issue #285) finds computers by broadcast and mDNS, and
          most phones silently drop both for an app that does not hold a
@@ -310,8 +310,8 @@
              This line asks Play to fetch the OCR and barcode models at
              install time instead, so the scanner tools work on first open.
              Harmless everywhere else: the bundled artifacts in sideload
-             builds carry their models and nothing reads this entry, and lite
-             builds ship no ML Kit at all.
+             builds carry their models and nothing reads this entry, and
+             F-Droid's ships no ML Kit at all.
         -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
@@ -349,6 +349,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:launchMode="singleTop">
             <!--
@@ -380,8 +381,11 @@
                  and the screen it names opens with nothing to press. The page
                  still exists for everyone else, and still works.
 
+                 Claimed on both of the site's hosts, wmkeyboard.pages.dev and
+                 wmkeyboard.app, which serve the same pages.
+
                  autoVerify means Android fetches
-                 https://wmkeyboard.pages.dev/.well-known/assetlinks.json at
+                 /.well-known/assetlinks.json from each host at
                  install time and checks that it names this package and the
                  key this very build was signed with. Every key that ships has
                  to be in that file: release, debug and F-Droid's today, plus
@@ -396,7 +400,7 @@
                  so /open/?link=… and /open/#wmkeyboard://… both arrive.
                  WebOpenLink turns what arrives back into a wmkeyboard://
                  address and hands it to the same two parsers as any other
-                 link. The host is DOCS_URL in AboutScreens.kt; change both.
+                 link. The hosts are WebOpenLink.HOSTS; change both.
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -404,6 +408,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="wmkeyboard.pages.dev" android:path="/open" />
                 <data android:scheme="https" android:host="wmkeyboard.pages.dev" android:path="/open/" />
+                <data android:scheme="https" android:host="wmkeyboard.app" android:path="/open" />
+                <data android:scheme="https" android:host="wmkeyboard.app" android:path="/open/" />
             </intent-filter>
 
             <!--
@@ -524,6 +530,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ImportFileActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/import_file_label"
@@ -790,6 +797,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ImportLinkActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/import_link_label"
@@ -860,6 +868,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.FileEditorActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/file_editor_label"
@@ -889,6 +898,7 @@
              both live in. No noHistory: the picker's result has to come back. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.kdeconnect.KdeFilePickerActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity=""
@@ -1023,17 +1033,27 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.AskAiActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/ask_ai_label"
             android:taskAffinity="com.wasimaster.wmkeyboard.askai"
-            android:theme="@style/Theme.WMKeyboard.Sheet">
+            android:theme="@style/Theme.WMKeyboard.Sheet" />
+        <!--
+             "Ask AI" in the text selection menu, which the AI tool's settings
+             can switch off (#897), and which goes with the AI tool itself.
+        -->
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.AskAiSelectionMenu"
+            android:exported="true"
+            android:label="@string/ask_ai_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.AskAiActivity">
             <intent-filter android:label="@string/ask_ai_label">
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!--
              The Look up card (#765): a word from another app, defined over it.
@@ -1043,6 +1063,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.LookupActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/lookup_label"
@@ -1094,6 +1115,18 @@
              comes back to this activity. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.GalleryPickActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The keyboard chat's "+" menu (#882): the photo picker, the document
+             picker and the camera, the same shape. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.AiChatPickActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
@@ -1103,6 +1136,7 @@
         <!-- The Send files tool's document picker (#729), the same shape. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.SendPickActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
@@ -1140,6 +1174,7 @@
              and back returns to the field rather than to the settings app. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ClipImageViewerActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
@@ -1166,11 +1201,28 @@
              because this activity is the *caller*, not the callee. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.DocScanActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The built-in document scanner (OpenCV): full screen, used where
+             Google's scanner is missing or switched off. Hands its pages to
+             the keyboard the same way, so the same launch shape: its own
+             task affinity, out of recents. configChanges because the scan in
+             progress (photo, corners, kept pages) lives in Compose state and
+             a turn of the phone must not drop it. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.PageScanActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
 
         <!--
              The crash report screen, shown instead of Android's "app has
@@ -1185,6 +1237,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.CrashReportActivity"
+            android:enableOnBackInvokedCallback="true"
             android:process=":crash"
             android:exported="false"
             android:excludeFromRecents="true"
@@ -1364,6 +1417,7 @@
              recents so an answered alarm leaves nothing behind. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.clock.ClockRingActivity"
+            android:enableOnBackInvokedCallback="true"
             android:directBootAware="true"
             android:excludeFromRecents="true"
             android:exported="false"
@@ -1446,6 +1500,23 @@
             android:name="com.wasimaster.wmkeyboard.app.AutoBackupJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Search by meaning: EmbeddingGemma 2 in a process of its own, so the
+             few hundred megabytes a loaded model takes never count against
+             the keyboard's process. Bound by Embeddings in :core:intelligence;
+             WMApplication does nothing else in this process. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.semantic.EmbeddingService"
+            android:process=":semantic"
+            android:exported="false" />
+
+        <!-- The sticker generator: a diffusion model in a process of its own,
+             one to two gigabytes while loaded, let go after a few idle
+             minutes. Bound by ImageGen in :core:intelligence. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.imagegen.ImageGenService"
+            android:process=":imagegen"
+            android:exported="false" />
 
         <!-- Runs a sync pass between devices. Scheduled by SyncScheduler in
              :core:settings, which names this class as a string for the same

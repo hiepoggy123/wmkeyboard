@@ -94,6 +94,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -145,6 +146,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.clipboard.clipEditable
 import com.wasimaster.wmkeyboard.core.clipboard.clipPreviewText
 import com.wasimaster.wmkeyboard.core.clipboard.clipQueryMatcher
+import com.wasimaster.wmkeyboard.core.transliteration.Zawgyi
 import com.wasimaster.wmkeyboard.core.clipboard.expiresAt
 import com.wasimaster.wmkeyboard.core.clipboard.orderKey
 import com.wasimaster.wmkeyboard.core.layout.PanelFieldKind
@@ -230,6 +232,8 @@ data class ClipboardPanelActions(
     val onCombineDeleteToggle: () -> Unit = {},
     /** The selection bar's Tidy: the copy rules run over these clips (#612). */
     val onTidy: (List<Long>) -> Unit = {},
+    /** The selection bar's Zawgyi: these clips' Burmese between Zawgyi and Unicode. */
+    val onZawgyi: (List<Long>) -> Unit = {},
     /** The hold popup's Tags: the editor opens on this clip's tags (#612). */
     val onTags: (ClipItem) -> Unit = {},
     /** A tag already in the history, pressed under the tags editor (#612). */
@@ -596,7 +600,14 @@ internal fun rememberClipboardPanelSession(state: KeyboardUiState): ClipboardPan
     } else {
         filtered
     }
-    val matched = if (query.isEmpty()) ordered else ordered.filter(matcher)
+    // Then the clips only search by meaning found, best first; only from
+    // [ordered], so the tab, tag and kind filters still hold.
+    val meaningIds = state.meaning.clips.forQuery(query)
+    val matched = when {
+        query.isEmpty() -> ordered
+        meaningIds.isEmpty() -> ordered.filter(matcher)
+        else -> com.wasimaster.wmkeyboard.ime.semantic.MeaningHits.append(ordered.filter(matcher), ordered, meaningIds) { it.id.toString() }
+    }
     val shownItems = if (oldest.value) {
         remember(matched, searching) { if (searching) matched.reversed() else oldestFirst(matched) }
     } else {
@@ -1075,6 +1086,10 @@ private fun ClipboardListField(
                             callbacks.actions.onTidy(selection)
                         }
                     } else null,
+                    onZawgyi = {
+                        session.selection.value = null
+                        callbacks.actions.onZawgyi(selection)
+                    },
                 )
                 session.tabbed -> Box(
                     modifier = Modifier.swipeTabs(session.tab.value.ordinal, ClipTab.entries.size) {
@@ -1223,11 +1238,17 @@ private fun ClipSelectionBar(
     onDelete: () -> Unit,
     /** Runs the copy rules over the picked clips (#612); none without rules. */
     onTidy: (() -> Unit)? = null,
+    /** Converts the picked clips between Zawgyi and Unicode; shown while one holds Burmese. */
+    onZawgyi: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     val textual = remember(picked, items) {
         val byId = items.associateBy { it.id }
         picked.count { byId[it]?.kind?.isTextual == true }
+    }
+    val burmese = remember(picked, items) {
+        val byId = items.associateBy { it.id }
+        picked.any { id -> byId[id]?.takeIf { it.kind.isTextual && !it.sensitive }?.let { Zawgyi.hasMyanmar(it.text) } == true }
     }
     Row(
         modifier = Modifier
@@ -1260,6 +1281,11 @@ private fun ClipSelectionBar(
         if (onTidy != null) {
             TextButton(onClick = onTidy, enabled = textual >= 1) {
                 Text(stringResource(R.string.ime_clip_tidy))
+            }
+        }
+        if (onZawgyi != null && burmese) {
+            TextButton(onClick = onZawgyi) {
+                Text(stringResource(R.string.ime_clip_zawgyi))
             }
         }
         TextButton(onClick = onCombine, enabled = textual >= 2) {
@@ -3146,9 +3172,18 @@ internal fun ClipEditText(
     // the text (#612): a press on the empty part under a short clip, or in an
     // empty one, landed on nothing, so a long press there to paste did
     // nothing at all. There, the caret goes to the end and Paste is offered.
+    // The focus switch sent the keys to the app's field (#665): faded, no
+    // caret, and a tap on it (the service's caret tap) takes them back.
+    val toApp = handle.toApp
+    val switchShown = handle.onFocusSwitch != null
     BoxWithConstraints(modifier = modifier) {
         val fieldHeight = minHeight
-        Box(modifier = Modifier.verticalScroll(scroll)) {
+        Box(
+            modifier = Modifier
+                .then(if (switchShown) Modifier.padding(end = FieldSwitchRoom) else Modifier)
+                .then(if (toApp) Modifier.alpha(FieldToAppAlpha) else Modifier)
+                .verticalScroll(scroll),
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3201,7 +3236,7 @@ internal fun ClipEditText(
                 PublishFieldSelection(
                     owner = owner,
                     text = text,
-                    active = true,
+                    active = !toApp,
                     handle = handle,
                     coordinates = { owner.coordinates },
                     layout = { layout?.takeIf { it.layoutInput.text.text == text } },
@@ -3210,7 +3245,7 @@ internal fun ClipEditText(
                 )
                 if (text.isEmpty()) {
                     Text(
-                        text = placeholder,
+                        text = if (toApp) stringResource(R.string.ime_capture_focus_app_hint) else placeholder,
                         color = placeholderColor,
                         fontSize = fontSize,
                         maxLines = 1,
@@ -3220,7 +3255,7 @@ internal fun ClipEditText(
                 }
                 val result = layout?.takeIf { it.layoutInput.text.text == text }
                 // No caret while a span is selected: the highlight marks where typing lands.
-                if (result != null && !selecting) {
+                if (result != null && !selecting && !toApp) {
                     val rect = result.getCursorRect(caret.coerceIn(0, result.layoutInput.text.length))
                     Box(
                         Modifier.offset { IntOffset(rect.left.roundToInt(), rect.top.roundToInt()) },
@@ -3247,8 +3282,13 @@ internal fun ClipEditText(
                 }
             }
         }
+        // The focus switch (#665), in the corner the text leaves it.
+        FieldFocusSwitch(handle, Modifier.align(Alignment.TopEnd))
     }
 }
+
+/** The room [ClipEditText] keeps clear down its end for the focus switch. */
+private val FieldSwitchRoom = 32.dp
 
 /** The editor's blinking bar; held solid under reduce motion, like the search caret. */
 @Composable
@@ -3810,7 +3850,15 @@ private fun ClipCombineBox(
                 .clip(shape)
                 .frostGlass(kb, shape, FrostSurface.CHIPS)
                 .background(kb.chip)
-                .then(if (focused) Modifier.border(1.5.dp, kb.accent, shape) else Modifier.chipBorder(kb, shape))
+                // The accent ring marks the box the keys type into; none while
+                // the focus switch has sent them to the app's field (#665).
+                .then(
+                    if (focused && !LocalCaptureCaret.current.toApp) {
+                        Modifier.border(1.5.dp, kb.accent, shape)
+                    } else {
+                        Modifier.chipBorder(kb, shape)
+                    },
+                )
                 .then(if (focused) Modifier else Modifier.clickable(onClick = onFocus))
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             contentAlignment = Alignment.CenterStart,

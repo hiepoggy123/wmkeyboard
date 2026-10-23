@@ -12,6 +12,7 @@ import com.wasimaster.wmkeyboard.core.media.gallery.edit.BrushKind
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.CropAspect
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.EditHistory
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.PhotoEdit
+import com.wasimaster.wmkeyboard.core.media.gallery.edit.PhotoUpscale
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.TextAlign
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.TextStyle
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,6 +65,15 @@ data class GalleryUi(
     val fieldTakesVideos: Boolean = false,
     /** Opened by the Send files tool to pick for a link (#729): Send hands the picks to it instead of the field. */
     val forLink: Boolean = false,
+    /**
+     * Whether the header offers a search: search by meaning is on with its
+     * pictures model on the phone. Without it the panel is the plain grid.
+     */
+    val searchAvailable: Boolean = false,
+    /** A search typed into the header; null while the grid is the album's. */
+    val search: GallerySearch? = null,
+    /** The upscaler's copies of edited photos, by [upscaleKey]: what the editor and the send read instead of the photo. */
+    val upscaled: Map<String, java.io.File> = emptyMap(),
 ) {
     val selectedIds: Set<Long> get() = selection.mapTo(HashSet()) { it.id }
 
@@ -72,10 +82,21 @@ data class GalleryUi(
 
     fun editOf(id: Long): PhotoEdit = edits[id]?.current ?: PhotoEdit.NONE
 
+    /** The upscaled copy [edit] draws on for item [id], or null for the photo itself (or a copy that has gone). */
+    fun upscaledFile(id: Long, edit: PhotoEdit): java.io.File? =
+        edit.upscale?.let { upscaled[upscaleKey(id, it)] }?.takeIf { it.isFile }
+
     /** The list the viewer pages through. */
     val viewerItems: List<GalleryItem>
         get() = if (viewer?.fromSelection == true) selection else items
 }
+
+/**
+ * The photos search: [query] as typed, [pending] while the answer for it is
+ * still being worked out, and [showing] once [GalleryUi.items] holds what it
+ * found, best match first, instead of the album's rows.
+ */
+data class GallerySearch(val query: String, val pending: Boolean = false, val showing: Boolean = false)
 
 /** The viewer: which list it pages and where it is. */
 data class ViewerUi(
@@ -87,8 +108,14 @@ data class ViewerUi(
     val infoOpen: Boolean = false,
 )
 
+/** Where [GalleryUi.upscaled] keeps item [id]'s copy enlarged as [upscale] says. */
+fun upscaleKey(id: Long, upscale: PhotoUpscale): String = "$id:${upscale.factor}:${upscale.art}"
+
 /** What the editor's tool rail can switch to. */
-enum class EditorTool { CROP, DRAW, TEXT, STICKER, FILTER, ADJUST }
+enum class EditorTool { CROP, DRAW, TEXT, STICKER, FILTER, ADJUST, UPSCALE }
+
+/** An upscale under way: [fraction] done, or below 0 while that is unknown; [downloading] the network first. */
+data class UpscaleProgress(val fraction: Float = -1f, val downloading: Boolean = false)
 
 /** The editor's own state; the edit itself is in [GalleryUi.edits]. */
 data class EditorUi(
@@ -112,6 +139,12 @@ data class EditorUi(
     val saveMenuOpen: Boolean = false,
     /** A save to the gallery under way, the consent dialog included. */
     val saving: Boolean = false,
+    /** The upscaler at work on this photo; null when it is not. */
+    val upscaling: UpscaleProgress? = null,
+    /** The last upscale failed: said under the Upscale tool until the next try. */
+    val upscaleFailed: Boolean = false,
+    /** The network the Upscale tool would use: the one for drawings, or for photos. */
+    val upscaleArt: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_COLOR = 0xFFFFFFFF.toInt()
@@ -154,7 +187,7 @@ data class GalleryNotice(val kind: Kind, val count: Int = 0) {
 }
 
 /** What the panel's text box is for. */
-enum class GalleryTextField { CAPTION, LAYER }
+enum class GalleryTextField { CAPTION, LAYER, SEARCH }
 
 /**
  * The panel's text box while the keys type into it. [ref] is the text layer's
@@ -204,6 +237,12 @@ sealed interface GalleryAction {
     data object ToggleExpanded : GalleryAction
     data class SetExpanded(val on: Boolean) : GalleryAction
     data class Peek(val item: GalleryItem?) : GalleryAction
+
+    /** The header's search box takes the keys. */
+    data object SearchFocus : GalleryAction
+
+    /** Back to the album's own grid. */
+    data object ClearSearch : GalleryAction
 
     // Selection
     data class Toggle(val item: GalleryItem) : GalleryAction
@@ -264,6 +303,13 @@ sealed interface GalleryAction {
 
     /** The edited photo into the gallery: a new picture beside it, or ([replace]) over it. */
     data class SaveEdit(val replace: Boolean) : GalleryAction
+
+    /** Which network the Upscale tool uses: for drawings and text ([art]), or for photos. */
+    data class UpscaleArt(val art: Boolean) : GalleryAction
+
+    /** Enlarges the photo by [factor] with the upscaler, an undoable step once it is done. */
+    data class Upscale(val factor: Int) : GalleryAction
+    data object CancelUpscale : GalleryAction
 }
 
 /**

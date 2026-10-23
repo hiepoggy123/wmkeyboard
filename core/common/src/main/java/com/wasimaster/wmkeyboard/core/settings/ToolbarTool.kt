@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.settings
 
 import com.wasimaster.wmkeyboard.config.BuildConfig
-import com.wasimaster.wmkeyboard.core.util.PlayServices
 
 // Extracted from SettingsRepository.kt so the low-level modules (icons, tools,
 // media) can reference these types without depending on the settings module —
@@ -146,6 +145,22 @@ enum class ToolbarTool {
     // instance as a link with an expiry, a download limit and a password, or
     // straight to a device nearby over Wi-Fi. Receives both kinds too.
     SEND_FILES,
+    // Out of the field, not just the keyboard down (#626). Android gives a
+    // keyboard no way to take another app's focus, but Esc does it in the
+    // apps that answer it (a browser's address bar among them): one Esc,
+    // a second if the field is still there, then the keyboard goes.
+    // Action-only, like [CLIPBOARD_SEARCH]: meant for the floating button's
+    // tap while the keyboard is up, a flick or a key.
+    LEAVE_FIELD,
+    // Reads the typed text aloud: the selection, or the field around the
+    // caret, in the keyboard's language. A downloaded MMS voice reads it
+    // offline when there is one, the phone's own voice otherwise. A second
+    // tap stops it.
+    READ_BACK,
+    // A new note, the keys already typing into its body, in the Notes panel
+    // with a row of the latest notes under it to switch to one and add to it
+    // (#864). Action-only, like [CLIPBOARD_SEARCH].
+    QUICK_NOTE,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -204,7 +219,7 @@ val HoldRepeatCursorTools: Set<ToolbarTool> = setOf(
 fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
-    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.PERSISTENT,
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD, ToolbarTool.PERSISTENT,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
     ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
     // The fancy layout ships in the assets and its styles are code, so it
@@ -255,26 +270,25 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.RESIZE,
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.LANGUAGE,
-    ToolbarTool.RECENT_COPIES,
+    ToolbarTool.RECENT_COPIES, ToolbarTool.READ_BACK,
     -> false
     // The cursor moves nudge the caret and nothing else, and the clipboard trio
     // acts on the selection in place.
     else -> tool !in CursorTools && tool !in ClipboardTools
 }
 
+// Handwriting is in every build: where ML Kit's recogniser is not
+// (F-Droid's), zinnia still reads Chinese and Japanese, and the panel says
+// so for any other language. So is the QR scanner, which reads with
+// zxing-cpp where ML Kit's barcode reader is not, and text scan, which reads
+// with PaddleOCR on MNN where neither ML Kit nor LiteRT is.
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
-    !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
-    !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
-        ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
-    ) -> false
     !BuildConfig.ENABLE_GRAMMAR && tool == ToolbarTool.GRAMMAR -> false
-    // The only tool that is not this app's own code: the scanner is an
-    // activity inside Play services, so on a device without it the tool can
-    // do nothing but apologise. OCR and QR stay — their models are in the
-    // APK and run with no Play services at all.
-    !PlayServices.available && tool == ToolbarTool.DOC_SCAN -> false
+    // The document scanner is offered everywhere: Google's (an activity
+    // inside Play services) where it can run, the built-in OpenCV one
+    // everywhere else, F-Droid's build and phones without Play services.
     else -> true
 }
 
@@ -295,7 +309,8 @@ val OptInOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.LEARN_FROM_TEXT)
  * bindings run through paths that skip the enabled-tools test, so they fire
  * regardless.
  */
-val ActionOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES)
+val ActionOnlyTools: Set<ToolbarTool> =
+    setOf(ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD, ToolbarTool.QUICK_NOTE)
 
 /**
  * The "Everything" preset, and the enabled-tools default before setup swaps
@@ -353,7 +368,7 @@ val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
 /**
  * What a starter set gains when part of it cannot run on this device.
  *
- * Handwriting and text scanning are the pair that goes missing — the lite
+ * Handwriting and text scanning are the pair that goes missing — the F-Droid
  * build ships neither, and the document scanner beside them needs Google
  * services — and a "recommended" set that quietly arrives two tools short is
  * a worse set rather than a smaller one. Both stand-ins run anywhere: an
@@ -372,7 +387,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.LANGUAGE,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
-    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
+    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.READ_BACK, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push
     // every other tool a full row down in the toolbox.
@@ -383,7 +398,8 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE,
     ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
-    ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES,
+    ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD,
+    ToolbarTool.QUICK_NOTE,
 )
 
 /**

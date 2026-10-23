@@ -29,7 +29,7 @@ import org.junit.Test
  * JUnit 4 honours even for a test picked by name (issue #640):
  *
  * ```
- * WM_DUET_EVAL=1 ./gradlew :app:testFullIntlDebugUnitTest --tests "*DuetBeamEvalTest"
+ * WM_DUET_EVAL=1 ./gradlew :app:testIntlDebugUnitTest --tests "*DuetBeamEvalTest"
  * ```
  */
 class DuetBeamEvalTest {
@@ -85,11 +85,13 @@ class DuetBeamEvalTest {
                 ),
             )
         }
+        // Cases from the pinned list when one is set (#837); see EvalSampling.
+        val sampled = EvalSampling.entries(entries)
         for (noise in SwipeCorpus.Noise.entries) {
-            report(noise.name, DuetCorpus(SEED).generate(entries, noise, CASES_PER_LEVEL))
+            report(noise.name, DuetCorpus(SEED).generate(sampled, noise, CASES_PER_LEVEL))
         }
         val typical = SwipeCorpus.Noise.TYPICAL
         val looping = typical.profile.copy(loopOnDoubles = 1f)
-        report("LOOPED", DuetCorpus(SEED).generate(entries, typical, CASES_PER_LEVEL, looping))
+        report("LOOPED", DuetCorpus(SEED).generate(sampled, typical, CASES_PER_LEVEL, looping))
     }
 }

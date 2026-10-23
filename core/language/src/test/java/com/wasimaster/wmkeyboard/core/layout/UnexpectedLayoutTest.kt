@@ -114,11 +114,13 @@ class UnexpectedLayoutTest {
     }
 
     @Test
-    fun `a loc slot is skipped without a note and a lost swipe is named`() {
+    fun `a loc slot is skipped without a note and the backspace swipe is kept`() {
         val converted = converted(qwerty)
         assertNull(converted.key("q").flick[FlickDirection.DOWN_RIGHT])
-        // The delete key's own swipe is taken here, so ne="delete" is the one loss.
-        assertEquals(0, converted.notes.size)
+        // #769: backspace takes flick arms, so ne="delete" is forward delete on its flick, not a loss.
+        assertTrue(converted.notes.isEmpty())
+        val backspace = converted.keys().first { it.action == KeyAction.Delete }
+        assertEquals(KeyAction.ForwardDelete, backspace.flickActions[FlickDirection.UP_RIGHT]?.action)
     }
 
     @Test

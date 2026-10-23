@@ -92,6 +92,8 @@ data class AiToolResult(
             error = error,
             awaitingApproval = false,
             details = "",
+            arguments = call.arguments.trim().take(AiToolActivity.KEPT_CHARS),
+            output = content.trim().take(AiToolActivity.KEPT_CHARS),
         )
 }
 
@@ -165,6 +167,21 @@ data class AiToolActivity(
     val awaitingApproval: Boolean = false,
     /** The call's arguments in full, for the approval card. Empty once it has run. */
     val details: String = "",
+    /**
+     * What a [AiTools.REMEMBER] call kept, for the chat's "Saved to memory"
+     * line and its Undo. Null for every other call, and for a save that
+     * changed nothing. Defaulted, so a stored message from before memory
+     * still decodes.
+     */
+    val memory: AiMemoryNote? = null,
+    /**
+     * The arguments the model wrote, as it wrote them, and what the call
+     * handed back to it, each cut to [KEPT_CHARS] (#882): what the chat's
+     * chain of steps shows when a call is tapped open. Empty while it runs,
+     * and in a message stored before they were kept.
+     */
+    val arguments: String = "",
+    val output: String = "",
 ) {
     val failed: Boolean get() = error.isNotEmpty()
 
@@ -172,6 +189,9 @@ data class AiToolActivity(
     val isMcp: Boolean get() = server.isNotEmpty()
 
     companion object {
+        /** How much of [arguments] and [output] is kept with a message. */
+        const val KEPT_CHARS = 4000
+
         /** A call the model just asked for, before it has run. */
         fun started(call: AiToolCall): AiToolActivity = AiToolActivity(
             tool = call.name,
@@ -235,6 +255,25 @@ data class AiToolActivity(
 }
 
 /**
+ * One memory a `remember` call added or changed, as the chat keeps it under
+ * the answer: enough to show the fact and to take the save back.
+ *
+ * [before] and [beforeCategory] are the memory as it was when the call
+ * changed one already kept; both empty, and [added] true, when the call made
+ * a new one, which Undo then deletes. [undone] is set once the user pressed
+ * Undo, so the line stops offering it.
+ */
+@Serializable
+data class AiMemoryNote(
+    val id: Long,
+    val text: String,
+    val added: Boolean = true,
+    val before: String = "",
+    val beforeCategory: String = "",
+    val undone: Boolean = false,
+)
+
+/**
  * Where one of the keyboard's own tools sits on the settings screen, which is
  * also a rough measure of what it touches: [INFO] reads the outside world,
  * [DATA] reads the user's own, [PICTURE] works on a picture the user sent, and
@@ -289,6 +328,8 @@ object AiTools {
     const val CALCULATE = "calculate"
     const val CALENDAR_EVENTS = "calendar_events"
     const val SEARCH_NOTES = "search_notes"
+    const val SEARCH_CLIPBOARD = "search_clipboard"
+    const val SEARCH_SNIPPETS = "search_snippets"
     const val CURRENT_LOCATION = "current_location"
     const val ADD_CALENDAR_EVENT = "add_calendar_event"
     const val ADD_NOTE = "add_note"
@@ -301,6 +342,14 @@ object AiTools {
     const val HOME_ASSISTANT_STATES = "home_assistant_states"
     const val READ_IMAGE_TEXT = "read_image_text"
     const val REVERSE_IMAGE_SEARCH = "reverse_image_search"
+    const val REMEMBER = "remember"
+    const val FORGET = "forget"
+
+    /**
+     * Renames the chat the model is in (#882). Offered only by a chat, and
+     * always asks the user first, showing the name.
+     */
+    const val RENAME_CHAT = "rename_chat"
 
     /**
      * The tools whose description ends with today's date, since a model has
@@ -339,6 +388,45 @@ object AiTools {
             "Use it on a link the user gave you, or on a result from $WEB_SEARCH.",
         parameters = schema(
             "url" to "The full address of the page, including https://.",
+        ),
+    )
+
+    /**
+     * Keep one fact about the user in the AI's memory. Not one of [builtIns]:
+     * it has no Run / Ask / Off of its own, since the memory switches on
+     * Settings › AI › Memory decide whether a chat has it at all, and a save
+     * is shown in the chat with an Undo rather than asked about first.
+     */
+    val remember = AiToolSpec(
+        name = REMEMBER,
+        description = "Save one short fact about the user to your memory, which lasts between conversations. " +
+            "Only for what will still be true and useful later. Never a password, code, card number or key.",
+        parameters = schema(
+            param(
+                "fact",
+                "The fact, about the user in the third person, such as 'Lives in Dhaka' or 'Prefers short answers'.",
+            ),
+            param("id", "The number of a saved memory this fact replaces, when that fact has changed.", type = "integer", required = false),
+            param("category", "One word for the kind of fact, such as work, family, food or preference.", required = false),
+        ),
+    )
+
+    /** Rename this chat; see [RENAME_CHAT]. */
+    val renameChat = AiToolSpec(
+        name = RENAME_CHAT,
+        description = "Rename this chat, when the user asks you to. The user sees the name and accepts or declines it.",
+        parameters = schema(
+            param("title", "The new name: two to six words, in the language the user writes in."),
+        ),
+    )
+
+    /** Delete memories the user wants gone; see [remember]. */
+    val forget = AiToolSpec(
+        name = FORGET,
+        description = "Delete memories the user asks you to forget. Give the memory's number, or words from it.",
+        parameters = schema(
+            param("id", "The number of the memory to delete.", type = "integer", required = false),
+            param("match", "Words from the memory to delete, when you do not have its number.", required = false),
         ),
     )
 
@@ -422,8 +510,24 @@ object AiTools {
         ),
         data(
             SEARCH_NOTES,
-            "Search the user's notes for words in their title, tags or text, and read the ones that match.",
+            "Search the user's notes for words in their title, tags or text, and read the ones that match. " +
+                "When search by meaning is on, notes that mean the same thing in other words follow.",
             param("query", "Words to look for. Leave it out for the most recent notes.", required = false),
+        ),
+        data(
+            SEARCH_SNIPPETS,
+            "Search the user's text snippets, the saved texts they insert by typing a short trigger, " +
+                "for words in their name, trigger, tags or text. Each match gives its name, its trigger and its text. " +
+                "When search by meaning is on, snippets that mean the same thing in other words follow.",
+            param("query", "Words to look for. Leave it out for the newest snippets.", required = false),
+        ),
+        // Search by meaning over the clipboard history: offered only once
+        // its model is on the phone and the feature is on (see AiToolRunner).
+        data(
+            SEARCH_CLIPBOARD,
+            "Search the user's clipboard history, the text they copied, by what it means, not only by its words. " +
+                "Returns the closest clips. Passwords and one-time codes are never among them.",
+            param("query", "What to look for, in any language, such as 'the dentist's address' or 'the flight number'."),
         ),
         data(
             CURRENT_LOCATION,
@@ -527,6 +631,7 @@ object AiTools {
             param(
                 "data",
                 "The service's settings as a JSON object, such as {\"brightness_pct\": 40} or {\"temperature\": 21}. " +
+                    "For a fan the states list with speeds, set_percentage takes {\"speed\": 1} for its first speed. " +
                     "Leave it out for a plain on or off.",
                 required = false,
             ),
@@ -542,7 +647,9 @@ object AiTools {
         policies[tool.name] ?: tool.defaultPolicy
 
     /** Every name the keyboard's own tools answer to, which no MCP tool may take. */
-    val reservedNames: Set<String> by lazy { setOf(WEB_SEARCH, WEB_FETCH) + builtIns.map { it.name } }
+    val reservedNames: Set<String> by lazy {
+        setOf(WEB_SEARCH, WEB_FETCH, REMEMBER, FORGET, RENAME_CHAT) + builtIns.map { it.name }
+    }
 
     /** The enabled tools, in the order a model sees them. */
     fun enabled(search: Boolean, fetch: Boolean): List<AiToolSpec> = buildList {
@@ -565,7 +672,7 @@ object AiTools {
         CONVERT_UNITS -> conversion(call, "value")
         CALCULATE -> call.argument("expression")
         CALENDAR_EVENTS -> call.argument("from")?.let { from -> call.argument("to")?.let { "$from – $it" } ?: from }
-        SEARCH_NOTES -> call.argument("query")
+        SEARCH_NOTES, SEARCH_SNIPPETS, SEARCH_CLIPBOARD -> call.argument("query")
         ADD_NOTE -> call.argument("title")
         ADD_CALENDAR_EVENT -> call.argument("title")
         SET_ALARM -> call.argument("time")
@@ -577,6 +684,9 @@ object AiTools {
         HOME_ASSISTANT -> (call.argument("request") ?: listOfNotNull(call.argument("action"), call.argument("entity_id")).joinToString(" ").ifEmpty { null })
             ?.let { if (it.length > TARGET_CHARS) it.take(TARGET_CHARS - 1) + "…" else it }
         HOME_ASSISTANT_STATES -> call.argument("query")
+        REMEMBER -> call.argument("fact")?.let { if (it.length > TARGET_CHARS) it.take(TARGET_CHARS - 1) + "…" else it }
+        FORGET -> call.argument("match") ?: call.argument("id")
+        RENAME_CHAT -> call.argument("title")
         else -> null
     }.orEmpty()
 

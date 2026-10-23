@@ -706,6 +706,9 @@ val FieldKind.numericLayer: LayoutLayer?
         FieldKind.TEXT, FieldKind.EMAIL, FieldKind.URI -> null
     }
 
+/** A word on the recent-word bar (#787, #842): where it starts in the field, its spelling, and what else it could be. */
+data class RecentBarWord(val start: Int, val word: String, val offers: List<String>)
+
 enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT, TRACKPAD,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
@@ -1036,8 +1039,12 @@ data class LauncherDetailUi(
     val loading: Boolean = true,
 )
 
-/** Readiness of the handwriting panel's recognition model. */
-enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
+/**
+ * Readiness of the handwriting panel's recognition model. UNSUPPORTED: no
+ * recogniser in this build reads any enabled language (F-Droid's build reads
+ * only Chinese and Japanese), so there is nothing to download either.
+ */
+enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR, UNSUPPORTED }
 
 /**
  * Handwriting panel state, owned by the service (it runs recognition).
@@ -1237,6 +1244,17 @@ fun VoiceBarSettings.armed(): Boolean = enabled && mode == VoiceBarSettings.MODE
  * password field. Those fall back to the compact bar, which has a line of text
  * and an action.
  */
+/**
+ * The compact dictation bar holds the strip row. It steps aside while the mic
+ * is idle and a word is being typed (#887): after a phrase lands, the keys are
+ * how its mistakes get fixed, and the candidates for that word (or a Chinese
+ * reading's characters) have nowhere else to show. The bar comes back as the
+ * word is committed. Listening, transcribing or with something to report, it
+ * keeps the row, since it is the session's status and its way out.
+ */
+fun KeyboardUiState.voiceStripShown(): Boolean =
+    voice.strip && !(voice.status == VoiceStatus.IDLE && composingPreview.isNotEmpty())
+
 fun KeyboardUiState.voiceChipOnly(): Boolean =
     settings.voiceBar.interactiveTyping() &&
         !secureField &&
@@ -1458,10 +1476,24 @@ sealed interface WebSearchUi {
         val query: String,
         /** The backend's own short answer, shown above the results (#470). */
         val answer: String? = null,
+        /** Pictures for the query under the answer on the All tab (#879). */
+        val images: List<com.wasimaster.wmkeyboard.core.tools.ImageResult> = emptyList(),
+        /** Further pages loaded by More results (#879), 0 for none. */
+        val page: Int = 0,
+        /** A further page is on its way. */
+        val loadingMore: Boolean = false,
+        /** The last further page brought nothing new: More results goes. */
+        val noMore: Boolean = false,
     ) : WebSearchUi
 }
 
-/** Image search panel state. */
+/**
+ * The search panel's tabs (#879). Image search used to be a panel of its own;
+ * its tool, key and shortcut now open the [IMAGES] tab of web search.
+ */
+enum class SearchTab { ALL, IMAGES }
+
+/** Image search state: the search panel's Images tab. */
 sealed interface ImageSearchUi {
     data object NeedKey : ImageSearchUi
     data object Idle : ImageSearchUi
@@ -1472,6 +1504,10 @@ sealed interface ImageSearchUi {
     data class Ready(
         val results: List<com.wasimaster.wmkeyboard.core.tools.ImageResult>,
         val query: String,
+        /** As on [WebSearchUi.Ready]: More results' pages (#879). */
+        val page: Int = 0,
+        val loadingMore: Boolean = false,
+        val noMore: Boolean = false,
     ) : ImageSearchUi
 }
 
@@ -1528,6 +1564,12 @@ data class TranslateUi(
      * press of the same button is the yes.
      */
     val meteredAsk: Boolean = false,
+    /**
+     * The download needs a licence agreed to first (NLLB-200's weights,
+     * CC BY-NC 4.0), and the panel is showing it. The next press of the same
+     * button is the yes.
+     */
+    val licenceAsk: Boolean = false,
     /** The on-device models' states, mirrored here while the panel is open. */
     val models: Map<String, com.wasimaster.wmkeyboard.core.translate.OfflineModelState> = emptyMap(),
     /**
@@ -1553,7 +1595,8 @@ fun TranslateUi.cleared(): TranslateUi =
 /**
  * Grammar strip state. Like translate, the strip follows the focused field:
  * the service re-extracts and re-lints (debounced) on every change while the
- * panel is open. All linting is offline via the bundled Harper engine.
+ * panel is open. The grammar tool's provider list says who checks: the
+ * bundled Harper engine, or a LanguageTool server the user switched on.
  */
 data class GrammarUi(
     /** Field text the current [lints] correspond to. */
@@ -1576,6 +1619,13 @@ data class GrammarUi(
      * drops a rewrite of text the user has since changed.
      */
     val rephrase: DeepLWriteUi? = null,
+    /** The LanguageTool server that found [lints], by name; null when Harper did. */
+    val via: String? = null,
+    /**
+     * Why there are no issues to show: a server that failed, or one that was
+     * not asked (a password field, data saver). Shown in the issues' place.
+     */
+    val notice: String? = null,
 )
 
 /** One DeepL Write request from the grammar panel, and what came of it. */
@@ -1762,10 +1812,23 @@ data class AiChatUi(
      * [com.wasimaster.wmkeyboard.ime.aichat.AiChatImages.import] gave them.
      */
     val images: List<String> = emptyList(),
-    /** The row offering where a picture can come from is up over the composer. */
-    val pictureSources: Boolean = false,
-    /** Why the last picture asked for did not arrive, as a string resource; null when it did. */
+    /**
+     * The "+" menu is up over the composer (#882): Image, File, Photo, the
+     * clipboard's picture and the newest screenshot, the field's text, Paste.
+     */
+    val attachMenu: Boolean = false,
+    /** Why the last picture or file asked for did not arrive, as a string resource; null when it did. */
     val pictureNotice: Int? = null,
+    /** Files to send with the next message (#882), already read or copied in. */
+    val files: List<com.wasimaster.wmkeyboard.core.aichat.AiChatFile> = emptyList(),
+    /** Chats picked in the list with a long press (#882), for deleting together. */
+    val picked: Set<Long> = emptySet(),
+    /**
+     * The chat whose name is being typed in the list (#882), or -1. While
+     * one is, the composer's keys write [renameDraft] instead of the draft.
+     */
+    val renaming: Long = -1L,
+    val renameDraft: String = "",
 )
 
 /**
@@ -1816,8 +1879,25 @@ sealed interface AiChatAction {
     data class OpenInApp(val list: Boolean = false) : AiChatAction
     /** The answer at [index] of the conversation, reported (Play builds). */
     data class Report(val index: Int) : AiChatAction
-    /** Shows or hides where a picture for the next message can come from (#698). */
-    data object TogglePictureSources : AiChatAction
+    /** Picks a chat in the list, or takes it back out of the selection (#882). */
+    data class TogglePick(val conversationId: Long) : AiChatAction
+    data object PickAll : AiChatAction
+    data object ClearPicks : AiChatAction
+    /** Deletes every picked chat; the list asks twice first. */
+    data object DeletePicked : AiChatAction
+    /** Starts typing a new name for a chat in the list (#882). */
+    data class StartRename(val conversationId: Long) : AiChatAction
+    /** Keeps the name typed; Back, or [CancelRename], drops it. */
+    data object CommitRename : AiChatAction
+    data object CancelRename : AiChatAction
+    /** Flips the chat's Reasoning switch (#882), the setting both chats share. */
+    data object ToggleReasoning : AiChatAction
+    /** Shows or hides the composer's "+" menu (#882). */
+    data object ToggleAttachMenu : AiChatAction
+    /** The "+" menu's Image (the photo picker), File (the document picker) or Photo (the camera), by [mode]. */
+    data class PickFromSystem(val mode: Int) : AiChatAction
+    /** Takes a file back off the next message. */
+    data class RemoveFile(val file: com.wasimaster.wmkeyboard.core.aichat.AiChatFile) : AiChatAction
     /** The clipboard's newest picture, or else the newest screenshot, for the next message. */
     data class AddPicture(val fromClipboard: Boolean) : AiChatAction
     /** Takes a picture back off the next message. */
@@ -1836,6 +1916,9 @@ sealed interface AiChatAction {
      * chat or from the AI panel's actions: both ride this one callback.
      */
     data class ToolApproval(val choice: com.wasimaster.wmkeyboard.core.tools.AiToolApproval) : AiChatAction
+
+    /** Takes back an AI memory save: the call at [useIndex] under the message at [messageIndex]. */
+    data class UndoMemory(val messageIndex: Int, val useIndex: Int) : AiChatAction
 }
 
 
@@ -2041,7 +2124,7 @@ sealed interface KdeAction {
     data object OpenSettings : KdeAction
     data object OpenDevices : KdeAction
 
-    /** Open the QR scanner for a computer's pairing code (full builds). */
+    /** Open the QR scanner for a computer's pairing code (not on F-Droid). */
     data object ScanPairCode : KdeAction
 }
 
@@ -2392,6 +2475,22 @@ sealed interface StripOfferAction {
      * and riding this type costs the screen's call chain no parameter.
      */
     data object ToggleAnsi : StripOfferAction
+
+    /** The Zawgyi button beside the words on a Burmese layout, the same kind of button as [ToggleAnsi]. */
+    data object ToggleZawgyi : StripOfferAction
+}
+
+/**
+ * What the strip's Zawgyi chip is offering: text the keyboard found in
+ * Zawgyi, the pre-Unicode Burmese encoding, where it would otherwise be read
+ * or left as Unicode (see [com.wasimaster.wmkeyboard.core.transliteration.Zawgyi]).
+ */
+sealed interface ZawgyiOffer {
+    /** [text] was just pasted and is Zawgyi: tap to put its Unicode in its place. */
+    data class Pasted(val text: String) : ZawgyiOffer
+
+    /** The Burmese field being typed in already holds Zawgyi: tap to write Zawgyi in it too. */
+    data object Field : ZawgyiOffer
 }
 
 /**
@@ -2435,6 +2534,13 @@ sealed interface WordMenuAction {
      * to check the caret has not moved on under the menu.
      */
     data class SearchAllWords(val word: String) : WordMenuAction
+
+    /**
+     * Retype (#791, #844) on the word the caret is behind: about that word,
+     * like [SearchAllWords], not the chip held to open the menu. [word] is it,
+     * as the menu named it.
+     */
+    data class Retype(val word: String) : WordMenuAction
 
     /** Look up synonyms for [word] and offer them in its place (#321). */
     data class Synonyms(val word: String) : WordMenuAction
@@ -2523,6 +2629,11 @@ data class WordMenuFacts(
      * word being typed rather than the chip.
      */
     val searchableStroke: String? = null,
+    /**
+     * The word Retype (#791) would take back out of the field, so the menu
+     * can offer it with no binding of its own (#844); null when there is none.
+     */
+    val retypable: String? = null,
     /**
      * Whether Synonyms may be offered for the held word (#321): a word in
      * letters, typed where the sources can answer (they are English).
@@ -3220,6 +3331,13 @@ data class KeyboardUiState(
      * bar only rests on those when "Suggestion strip always visible" is on.
      */
     val caretAtFieldStart: Boolean = false,
+    /**
+     * The list the strip was last given as sentence openers: words predicted
+     * with nothing typed after a sentence end or a line break (#889). Compared
+     * by identity with [suggestions], so any other path that writes the strip
+     * replaces the list and the two stop matching without a flag to clear.
+     */
+    val sentenceOpeners: List<String> = emptyList(),
     val composingPreview: String = "",
     /**
      * The roman buffer [composingPreview] was transliterated from, mirrored
@@ -3279,6 +3397,13 @@ data class KeyboardUiState(
     val octopusGlide: OctopusBoard = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
+    /**
+     * No space is armed for the next key (#863), by a hold or a double tap of
+     * its key or by its own action: that key gets no space the keyboard would
+     * add. Spent by it, and called off by Space, Enter, another tap or a new
+     * field. Lights the No space keys while it lasts.
+     */
+    val noSpaceArmed: Boolean = false,
     /**
      * The toolbar's Selection mode tool, switched on by a tap and off by the
      * next one.
@@ -3387,6 +3512,11 @@ data class KeyboardUiState(
     val clipboardItems: List<ClipItem> = emptyList(),
     /** Live query for the clipboard panel's search bar (feature-gated). */
     val clipboardQuery: String = "",
+    /**
+     * What search by meaning found for the clipboard, notes and snippets
+     * boxes, listed after their keyword matches (see [MeaningHits]).
+     */
+    val meaning: com.wasimaster.wmkeyboard.ime.semantic.MeaningHits = com.wasimaster.wmkeyboard.ime.semantic.MeaningHits(),
     /** Typing edits [clipboardQuery] instead of the field, like emoji search. */
     val clipboardSearchActive: Boolean = false,
     /**
@@ -3501,6 +3631,16 @@ data class KeyboardUiState(
      */
     val conversionPackOffer: String? = null,
     /**
+     * The strip's Zawgyi chip, or null: pasted text, or the field, found to
+     * be Zawgyi. Taken down by its ✕, by the next field, or by being answered.
+     */
+    val zawgyiOffer: ZawgyiOffer? = null,
+    /**
+     * Whether the Burmese layout on screen writes Zawgyi now, from its setting
+     * or from the strip's offer for this field; what lights the Zawgyi button.
+     */
+    val zawgyiOutput: Boolean = false,
+    /**
      * The word the caret is sitting in that a swipe wrote, while the strip is
      * offering to search that swipe's path against every word list (#135), or
      * null. Only ever set with `GestureSettings.searchAllChip` on: without it
@@ -3567,6 +3707,8 @@ data class KeyboardUiState(
      */
     val fieldContentMimeTypes: List<String> = emptyList(),
     val secureField: Boolean = false,
+    /** Read back is reading the field aloud; its tool stays lit until it ends or is tapped again. */
+    val readingBack: Boolean = false,
     /**
      * The device lock screen (keyguard) is showing. Refreshed on each field
      * start from [android.app.KeyguardManager]. Only the "hide toolbar &
@@ -3802,7 +3944,12 @@ data class KeyboardUiState(
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     /**
-     * The camera was opened from the image search panel's camera button
+     * Which of the search panel's tabs is up (#879): web results or images.
+     * The two searches keep their own results, so switching back costs nothing.
+     */
+    val searchTab: SearchTab = SearchTab.ALL,
+    /**
+     * The camera was opened from the search panel's camera button
      * (#349): its confirm step offers Search in place of Send, and its back
      * button returns to image search. Set by [WMKeyboardService.onPanelChange]
      * on every panel change, so it only ever means anything while the camera
@@ -3866,12 +4013,21 @@ data class KeyboardUiState(
     val captureSuggestions: List<String> = emptyList(),
     /**
      * The recent-word bar's words (#787), oldest first: the last words
-     * written before the caret, not counting the one being typed. Empty
-     * while the bar is off or has nothing to show.
+     * written in this field before the caret, not counting the one being
+     * typed, each with what else it could have been (#842). Empty while the
+     * bar is off or has nothing to show.
      */
-    val recentBar: List<String> = emptyList(),
+    val recentBar: List<RecentBarWord> = emptyList(),
     /** The focused keyboard-owned field's undo history, while it has one (#665). */
     val captureUndo: CaptureUndoMark? = null,
+    /**
+     * The tool field whose keys the focus switch handed to the app's field
+     * (#665), as its [panelFieldKey], or null while every tool field keeps
+     * the keys it took. Keyed to the field rather than a plain flag, so moving
+     * to another box of the tool, or opening another tool, gives that box the
+     * keys again without anything having to remember to clear this.
+     */
+    val captureToApp: String? = null,
 ) {
     /**
      * Whether incognito is in force right now, from either source: the
@@ -4091,7 +4247,7 @@ data class KeyboardUiState(
      * contract: no one of them alone can keep the keys from the app behind.
      */
     val aiChatComposing: Boolean
-        get() = aiChatShown && aiChat.composing && !aiChat.showSessions
+        get() = aiChatShown && aiChat.composing && (!aiChat.showSessions || aiChat.renaming >= 0)
 
     /**
      * Whether keystrokes belong to the reply panel's own message box (#234).
@@ -4214,7 +4370,7 @@ data class KeyboardUiState(
      * room for them.
      */
     val clipboardTakesKeys: Boolean
-        get() = when (captureTarget()) {
+        get() = when (panelFieldTarget()) {
             CaptureTarget.CLIPBOARD_SEARCH, CaptureTarget.CLIP_EDIT,
             CaptureTarget.CLIP_JOINER, CaptureTarget.CLIP_BASE, CaptureTarget.CLIP_APPEND,
             -> panel == PanelMode.CLIPBOARD
@@ -4241,12 +4397,26 @@ data class KeyboardUiState(
      * Which keyboard-owned field has the keys, or null when they belong to the
      * app behind the keyboard.
      *
-     * **The one ladder.** Every path that has to know — typed text, backspace,
-     * forward delete, space, enter, glide, the suggestion strip, the Keyman
-     * seam — asks this instead of re-deriving it, and the order here is the
-     * order `processTypedText` always used, so nothing changes hands.
+     * **The one gate.** Every path that has to know — typed text, backspace,
+     * forward delete, space, enter, the caret keys, undo and redo, paste,
+     * glide, the suggestion strip, the Keyman seam — asks this instead of
+     * re-deriving it. So the focus switch (#665) only has to answer here for
+     * every one of those to follow it at once: a tool field whose keys were
+     * handed to the app's field is no target at all, and the keys go where
+     * they go with no panel open.
      */
-    fun captureTarget(): CaptureTarget? = when {
+    fun captureTarget(): CaptureTarget? = if (captureHandedToApp) null else panelFieldTarget()
+
+    /**
+     * The open tool's focused field, whether or not it has the keys right now:
+     * what the panel draws as its field and lays itself out around. Differs
+     * from [captureTarget] only while the focus switch has sent the keys to
+     * the app's field (#665).
+     *
+     * **The ladder.** The order here is the order `processTypedText` always
+     * used, so nothing changes hands.
+     */
+    fun panelFieldTarget(): CaptureTarget? = when {
         typingTestActive -> CaptureTarget.TYPING_TEST
         aiCustomInputActive -> CaptureTarget.AI_CUSTOM
         aiChatComposing -> CaptureTarget.AI_CHAT
@@ -4322,7 +4492,12 @@ data class KeyboardUiState(
      * A plugin has one box per widget, so its id is part of the key; everything
      * else is one buffer per target.
      */
-    fun captureKey(): String? = when (val target = captureTarget()) {
+    fun captureKey(): String? = fieldKey(captureTarget())
+
+    /** [captureKey] for [panelFieldTarget]: the tool's focused field, keys or not. */
+    fun panelFieldKey(): String? = fieldKey(panelFieldTarget())
+
+    private fun fieldKey(target: CaptureTarget?): String? = when (target) {
         null -> null
         CaptureTarget.PLUGIN -> "PLUGIN:${pluginFocusedInput}"
         // Three of Combine's boxes share the target; each keeps its own caret.
@@ -4330,12 +4505,20 @@ data class KeyboardUiState(
         else -> target.name
     }
 
+    /**
+     * The focus switch (#665) has the open tool's field typing into the app's
+     * field instead. Null-checked first, so the ladder is only walked while
+     * the switch has been used.
+     */
+    val captureHandedToApp: Boolean
+        get() = captureToApp != null && captureToApp == panelFieldKey()
+
     /** What is in the focused keyboard-owned buffer right now. */
     fun captureBuffer(): String = when (captureTarget()) {
         null -> ""
         CaptureTarget.TYPING_TEST -> typingTest.current
         CaptureTarget.AI_CUSTOM -> (ai as? AiUi.CustomInput)?.instruction.orEmpty()
-        CaptureTarget.AI_CHAT -> aiChat.draft
+        CaptureTarget.AI_CHAT -> if (aiChat.renaming >= 0) aiChat.renameDraft else aiChat.draft
         CaptureTarget.AI_REPLY -> aiReply.typed
         CaptureTarget.KDE_HOST -> kde.hostDraft
         CaptureTarget.KDE_REMOTE, CaptureTarget.KDE_COMPOSE -> kde.line
@@ -4426,7 +4609,14 @@ data class KeyboardUiState(
         // in (#471): the point of typing a name is not having to remember
         // where it was put.
         val query = snippetQuery.trim()
-        if (query.isNotEmpty()) return snippets.filter { it.matchesQuery(query) }
+        if (query.isNotEmpty()) {
+            // Then what only search by meaning found, when it is on.
+            return com.wasimaster.wmkeyboard.ime.semantic.MeaningHits.append(
+                snippets.filter { it.matchesQuery(query) },
+                snippets,
+                meaning.snippets.forQuery(query),
+            ) { it.id.toString() }
+        }
         return when {
             snippetFolders.isEmpty() -> snippets
             openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import com.wasimaster.wmkeyboard.core.download.FileDownloader
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import kotlinx.coroutines.CancellationException
@@ -87,14 +88,14 @@ internal object GithubUpdateManager {
         // screen that started it, which is the whole reason to notify at all.
         scope.launch { _state.collect { UpdateNotifications.render(app, it) } }
         scope.launch {
-            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR_languages)
+            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR)
             ApkInstall.abandonStale(app, keepSessionId = prefs.sessionId)
             val known = GithubUpdateChecker.decodeCandidate(prefs.knownCandidate)
             // A move to every language is still on only while this is the
             // English-only build and the offer really is the other one. Once
             // the new build runs, the same record reads as finished.
             val switchingNow = prefs.languageSwitch &&
-                BuildConfig.FLAVOR_languages == ReleaseAssets.LANGUAGES_EN &&
+                BuildConfig.FLAVOR == ReleaseAssets.LANGUAGES_EN &&
                 known != null && isAllLanguages(known)
             val stale = known == null ||
                 known.versionCode < BuildConfig.RELEASE_VERSION_CODE ||
@@ -122,7 +123,7 @@ internal object GithubUpdateManager {
             // who walked away from it is not left without updates.
             if (userAsked || _state.value !is UpdateState.Failed) return
             candidate?.takeIf(::isAllLanguages)?.let { target ->
-                ApkStaging.partFile(app, target).delete()
+                FileDownloader.discard(ApkStaging.partFile(app, target))
                 ApkStaging.apkFile(app, target).delete()
             }
             candidate = null
@@ -154,14 +155,14 @@ internal object GithubUpdateManager {
     ) {
         val outcome = newChecker(context).check(
             installedVersionCode = BuildConfig.RELEASE_VERSION_CODE,
-            // The two flavour names on their own. BuildConfig.FLAVOR is the
-            // pair run together ("fullIntl"), which no asset name contains.
-            flavor = BuildConfig.FLAVOR_capabilities,
+            // The edition token every published name still carries, and the
+            // languages flavour on its own (see ReleaseAssets.STANDARD_FLAVOR).
+            flavor = ReleaseAssets.STANDARD_FLAVOR,
             supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
             includePrereleases = prefs.includePrereleases,
             storedEtag = prefs.etag,
             onEtag = { prefs.etag = it },
-            languages = BuildConfig.FLAVOR_languages,
+            languages = BuildConfig.FLAVOR,
         )
         prefs.lastCheckAt = System.currentTimeMillis()
         when (outcome) {
@@ -223,7 +224,7 @@ internal object GithubUpdateManager {
     private fun runSwitchCheck(context: Context, prefs: UpdatePrefs) {
         val outcome = newChecker(context).check(
             installedVersionCode = BuildConfig.RELEASE_VERSION_CODE,
-            flavor = BuildConfig.FLAVOR_capabilities,
+            flavor = ReleaseAssets.STANDARD_FLAVOR,
             supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
             includePrereleases = prefs.includePrereleases,
             storedEtag = prefs.etag,
@@ -260,7 +261,7 @@ internal object GithubUpdateManager {
         running = scope.launch {
             previous?.cancelAndJoin()
             candidate?.takeIf(::isAllLanguages)?.let { target ->
-                ApkStaging.partFile(app, target).delete()
+                FileDownloader.discard(ApkStaging.partFile(app, target))
                 ApkStaging.apkFile(app, target).delete()
             }
             candidate = null
@@ -286,10 +287,10 @@ internal object GithubUpdateManager {
             ApkDownload.requireSpace(
                 dir = ApkStaging.dir(context),
                 sizeBytes = target.sizeBytes,
-                alreadyHave = if (part.exists()) part.length() else 0L,
+                alreadyHave = FileDownloader.bytesDone(part),
             )
             _state.value = UpdateState.Downloading(
-                bytesDownloaded = if (part.exists()) part.length() else 0L,
+                bytesDownloaded = FileDownloader.bytesDone(part),
                 totalBytes = target.sizeBytes,
             )
             ApkDownload.transfer(target, part) { written, total ->
@@ -301,12 +302,12 @@ internal object GithubUpdateManager {
                 // one download in this app that replaces the app itself, so
                 // "we could not check it" has to mean "we do not install it".
                 DebugLog.w(TAG, "release published no checksum for ${target.assetName}")
-                part.delete()
+                FileDownloader.discard(part)
                 _state.value = UpdateState.Failed(false, UpdateFailure.CORRUPT)
                 return
             }
             if (!ApkDownload.verify(part, target, expected)) {
-                part.delete()
+                FileDownloader.discard(part)
                 _state.value = UpdateState.Failed(false, UpdateFailure.CORRUPT)
                 return
             }
@@ -323,7 +324,7 @@ internal object GithubUpdateManager {
             backToAvailable(context, target)
             throw cancelled
         } catch (failure: DownloadFailure) {
-            if (!failure.keepPartial) part.delete()
+            if (!failure.keepPartial) FileDownloader.discard(part)
             _state.value = UpdateState.Failed(false, failure.reason)
         } catch (error: Exception) {
             DebugLog.w(TAG, "update download failed: ${error.message.orEmpty()}")
@@ -352,20 +353,20 @@ internal object GithubUpdateManager {
             sha256 = null,
         )
         try {
-            part.delete()
+            FileDownloader.discard(part)
             ApkDownload.transfer(asset, part) { _, _ -> }
             val expected = fetchChecksum(asset)
             if (expected == null || !ApkDownload.verify(part, asset, expected)) {
-                part.delete()
+                FileDownloader.discard(part)
                 return
             }
             file.delete()
-            if (!part.renameTo(file)) part.delete()
+            if (!part.renameTo(file)) FileDownloader.discard(part)
         } catch (cancelled: CancellationException) {
-            part.delete()
+            FileDownloader.discard(part)
             throw cancelled
         } catch (error: Exception) {
-            part.delete()
+            FileDownloader.discard(part)
             DebugLog.d(TAG, "no dex metadata for ${target.assetName}: ${error.message.orEmpty()}")
         }
     }
@@ -492,7 +493,7 @@ internal object GithubUpdateManager {
             // the offer it came from is finished with.
             candidate = null
             prefs.clearCandidate()
-            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR_languages)
+            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR)
         }
         _state.value = outcome.state
     }

@@ -46,8 +46,10 @@ class PhotoEditTest {
         assertTrue(once.mirrored)
         assertEquals(-12f, once.straighten, eps)
         assertRect(CropRect(0.6f, 0f, 0.9f, 1f), once.crop)
-        assertRect(edit.crop, once.mirroredOnce().crop)
-        assertEquals(edit.copy(crop = CropRect.FULL), once.mirroredOnce().copy(crop = CropRect.FULL))
+        // The crop comes back within float rounding (1 - (1 - 0.1f) is not 0.1f).
+        val twice = once.mirroredOnce()
+        assertRect(edit.crop, twice.crop)
+        assertEquals(edit, twice.copy(crop = edit.crop))
     }
 
     @Test

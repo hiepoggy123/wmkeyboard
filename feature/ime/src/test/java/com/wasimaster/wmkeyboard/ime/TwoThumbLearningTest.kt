@@ -68,7 +68,9 @@ class TwoThumbLearningTest {
         service.onKey(space)
         drain(service)
         assertEquals("fixture: the stroke reads as the word", "qwerty ", editor.text.toString())
-        assertEquals(WordOrigin.DUET, buffer(service).originOf("qwerty"))
+        // originOf() answers only for a word the caret went back into; a word
+        // just committed is still an ordinary queued entry.
+        assertEquals(WordOrigin.DUET, buffer(service).drain().lastOrNull { it.word == "qwerty" }?.origin)
     }
 
     @Test
@@ -144,8 +146,8 @@ class TwoThumbLearningTest {
     fun `a swipe teaches the run of the word it drew`() {
         val keys = GlideKeyMap.of(grid, GLIDE_KEY_WIDTH)
         fun at(letter: Char): GesturePoint = grid.first { it.codePoint == letter.code }.let { GesturePoint(it.x, it.y, 0L) }
-        assertEquals("ert", duetSwipeSpan("qwerty", at('e'), at('t'), keys))
-        assertEquals("qwerty", duetSwipeSpan("Qwerty", at('q'), at('y'), keys))
-        assertNull("a single letter holds no swipe", duetSwipeSpan("q", at('q'), at('q'), keys))
+        assertEquals("ert", duetSwipeSpan("qwerty", at('e'), at('t'), keys, GLIDE_KEY_WIDTH))
+        assertEquals("qwerty", duetSwipeSpan("Qwerty", at('q'), at('y'), keys, GLIDE_KEY_WIDTH))
+        assertNull("a single letter holds no swipe", duetSwipeSpan("q", at('q'), at('q'), keys, GLIDE_KEY_WIDTH))
     }
 }

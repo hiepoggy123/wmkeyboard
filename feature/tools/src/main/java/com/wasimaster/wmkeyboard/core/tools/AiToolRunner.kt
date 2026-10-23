@@ -20,12 +20,15 @@ import com.wasimaster.wmkeyboard.core.location.ReverseGeocoder
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.notes.NoteStore
+import com.wasimaster.wmkeyboard.core.aimemory.AiMemoryOutcome
+import com.wasimaster.wmkeyboard.core.aimemory.AiMemoryText
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
+import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.core.vocab.VocabIndexCache
 import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
@@ -65,6 +68,13 @@ class AiToolRunner(
     private val settings: KeyboardSettings,
     private val approver: AiToolApprover? = null,
     private val host: AiToolHost? = null,
+    /**
+     * The AI memory this run may change, through `remember` and `forget`.
+     * Null leaves both tools out: a run that may not change memory (an AI
+     * action, an incognito chat, a cloud model the user has not allowed)
+     * is never offered them. See [AiMemoryAccess].
+     */
+    private val memory: AiMemoryAccess? = null,
 ) {
 
     /** One MCP tool offered in this run, under the name the model sees. */
@@ -104,7 +114,15 @@ class AiToolRunner(
     fun tools(): List<AiToolSpec> = AiTools.enabled(
         search = settings.ai.toolWebSearch && ToolApiKeys.searchBackend(settings) != null,
         fetch = settings.ai.toolWebFetch,
-    ) + builtIns.values.map { specOf(it) } + mcp.values.map { it.spec }
+    ) + builtIns.values.map { specOf(it) } + memoryTools() + renameTools() + mcp.values.map { it.spec }
+
+    /** `rename_chat`, in a chat that lends one to rename (#882). */
+    private fun renameTools(): List<AiToolSpec> =
+        if (host?.canRenameChat == true) listOf(AiTools.renameChat) else emptyList()
+
+    /** `remember` and `forget`, when this run may change the memory. */
+    private fun memoryTools(): List<AiToolSpec> =
+        if (memory == null) emptyList() else listOf(AiTools.remember, AiTools.forget)
 
     /**
      * [tool]'s spec as this run offers it: a dated tool's description ends
@@ -146,6 +164,7 @@ class AiToolRunner(
         AiTools.OPEN_APP -> host?.canOpenApps == true
         AiTools.SEND_TO_PC -> host?.canSendToPc == true && settings.kdeConnect.enabled
         AiTools.HOME_ASSISTANT, AiTools.HOME_ASSISTANT_STATES -> host?.canControlHome == true
+        AiTools.SEARCH_CLIPBOARD -> host?.canSearchByMeaning == true
         // Only with a picture in the chat, and the reader only for a model
         // that cannot look at the picture itself.
         AiTools.READ_IMAGE_TEXT -> host.let { it != null && it.imageCount > 0 && it.canReadImageText && !it.modelSeesImages }
@@ -193,6 +212,12 @@ class AiToolRunner(
                 } ?: runBuiltIn(call)
                 call.name == AiTools.WEB_SEARCH -> search(call)
                 call.name == AiTools.WEB_FETCH -> fetch(call)
+                // Never asked about first: the save shows in the chat with an
+                // Undo, which is the check, and asking before every fact would
+                // teach the user to press Allow without reading.
+                call.name == AiTools.REMEMBER && memory != null -> remember(call, memory)
+                call.name == AiTools.FORGET && memory != null -> forget(call, memory)
+                call.name == AiTools.RENAME_CHAT && host?.canRenameChat == true -> renameChat(call, host)
                 else -> refused(
                     call,
                     context.getString(R.string.ftools_ai_tool_unknown, call.name),
@@ -281,6 +306,34 @@ class AiToolRunner(
         return AiToolResult(call, content, display = display)
     }
 
+    /**
+     * A new name for the chat (#882). Always asked about, whatever any
+     * policy says, and with only Accept and Decline: the name is the user's
+     * to agree to each time, so there is no "always". Closing the keyboard
+     * while it asks is a Decline.
+     */
+    private fun renameChat(call: AiToolCall, host: AiToolHost): AiToolResult {
+        val title = call.argument("title")?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()
+            ?: return missing(call, "title")
+        val ask = activityFor(call).copy(awaitingApproval = true, details = title)
+        return when (approver?.approve(ask) ?: AiToolApproval.DENY) {
+            AiToolApproval.ONCE, AiToolApproval.ALWAYS -> host.renameChat(title).fold(
+                onSuccess = { name -> AiToolResult(call, "Renamed the chat to \"$name\".") },
+                onFailure = { refused(call, context.getString(R.string.ftools_ai_tool_failed, it.message.orEmpty()), it.message.orEmpty()) },
+            )
+            AiToolApproval.DENY -> refused(
+                call,
+                context.getString(R.string.ftools_mcp_declined),
+                context.getString(R.string.ftools_mcp_reason_declined),
+            )
+            AiToolApproval.CANCELLED -> refused(
+                call,
+                context.getString(R.string.ftools_mcp_stopped),
+                context.getString(R.string.ftools_mcp_reason_stopped),
+            )
+        }
+    }
+
     /** One of the keyboard's own tools, already allowed to run. */
     private fun runBuiltIn(call: AiToolCall): AiToolResult = when (call.name) {
         AiTools.WM_DOCS -> wmDocs(call)
@@ -294,6 +347,8 @@ class AiToolRunner(
         AiTools.CALCULATE -> calculate(call)
         AiTools.CALENDAR_EVENTS -> calendarEvents(call)
         AiTools.SEARCH_NOTES -> searchNotes(call)
+        AiTools.SEARCH_SNIPPETS -> searchSnippets(call)
+        AiTools.SEARCH_CLIPBOARD -> searchClipboard(call)
         AiTools.CURRENT_LOCATION -> currentLocation(call)
         AiTools.ADD_CALENDAR_EVENT -> addCalendarEvent(call)
         AiTools.ADD_NOTE -> addNote(call)
@@ -708,19 +763,56 @@ class AiToolRunner(
         return AiToolResult(call, "Added to the calendar \"${target.name.ifBlank { target.account }}\": $summary.")
     }
 
-    /** Notes matching the model's words, or the newest ones; a locked note's text stays hidden. */
+    /**
+     * Notes matching the model's words, or the newest ones; a locked note's
+     * text stays hidden. With search by meaning on, notes that mean what the
+     * query does follow, minus the ones the words already found.
+     */
     private fun searchNotes(call: AiToolCall): AiToolResult {
         if (!unlocked()) return refusedWith(call, R.string.ftools_ai_tool_locked, R.string.ftools_ai_tool_reason_locked)
+        val query = call.argument("query").orEmpty()
         val store = NoteStore(File(context.filesDir, NoteStore.FILE_PATH))
-        val found = store.search(call.argument("query").orEmpty()).take(MAX_NOTES)
-        if (found.isEmpty()) return AiToolResult(call, "No notes found.")
-        return AiToolResult(
-            call,
-            found.joinToString("\n\n") { note ->
-                val body = if (note.locked) "[locked: its text is hidden]" else note.body.take(NOTE_CHARS)
-                note.displayTitle() + "\n" + body.trim()
-            },
-        )
+        val found = store.search(query).take(MAX_NOTES)
+        val byWords = found.map { it.id.toString() }.toSet()
+        val byMeaning = host?.takeIf { query.isNotBlank() && it.canSearchByMeaning }
+            ?.notesByMeaning(query)?.getOrNull().orEmpty()
+            .filter { it.id !in byWords }
+        if (found.isEmpty() && byMeaning.isEmpty()) return AiToolResult(call, "No notes found.")
+        val words = found.joinToString("\n\n") { note ->
+            val body = if (note.locked) "[locked: its text is hidden]" else note.body.take(NOTE_CHARS)
+            note.displayTitle() + "\n" + body.trim()
+        }
+        val meaning = byMeaning.takeIf { it.isNotEmpty() }?.let { "Close in meaning:\n" + AiMeaningFormat.format(it) }
+        return AiToolResult(call, listOf(words, meaning.orEmpty()).filter { it.isNotBlank() }.joinToString("\n\n"))
+    }
+
+    /**
+     * Snippets matching the model's words, or the newest ones, each read as
+     * written: a template is never expanded. With search by meaning on,
+     * snippets that mean what the query does follow, minus the ones the
+     * words already found. The store is opened like the notes: read, never
+     * written.
+     */
+    private fun searchSnippets(call: AiToolCall): AiToolResult {
+        if (!unlocked()) return refusedWith(call, R.string.ftools_ai_tool_locked, R.string.ftools_ai_tool_reason_locked)
+        val query = call.argument("query").orEmpty()
+        val snippets = SnippetStore(File(context.filesDir, SnippetStore.FILE_PATH)).items()
+        val found = AiSnippetSearch.byWords(snippets, query)
+        val byMeaning = host?.takeIf { query.isNotBlank() && it.canSearchByMeaning }
+            ?.snippetsByMeaning(query)?.getOrNull().orEmpty()
+        return AiToolResult(call, AiSnippetSearch.answer(found, byMeaning, snippets))
+    }
+
+    /**
+     * Search by meaning over the clipboard history, through the keyboard
+     * module's index. What the model reads is shaped by [AiMeaningFormat];
+     * what may be found at all is the host's to decide.
+     */
+    private fun searchClipboard(call: AiToolCall): AiToolResult {
+        val query = call.argument("query") ?: return missing(call, "query")
+        if (!unlocked()) return refusedWith(call, R.string.ftools_ai_tool_locked, R.string.ftools_ai_tool_reason_locked)
+        val hits = requireNotNull(host).searchClipboard(query).getOrThrow()
+        return AiToolResult(call, AiMeaningFormat.format(hits))
     }
 
     /**
@@ -728,6 +820,117 @@ class AiToolRunner(
      * panel and the app each re-read the file when they open, which is the
      * store's contract for every writer.
      */
+    /**
+     * Keeps one fact in the AI memory, or tells the model why not. A fact
+     * already kept is not kept again, and one that says more replaces the
+     * old wording; see [AiMemoryStore.remember]. What changed rides on the
+     * result as an [AiMemoryNote], which the chat draws with an Undo.
+     */
+    private fun remember(call: AiToolCall, access: AiMemoryAccess): AiToolResult {
+        val fact = call.argument("fact") ?: return missing(call, "fact")
+        val replaceId = call.argument("id")?.let { raw ->
+            raw.toDoubleOrNull()?.toLong() ?: return refusedWith(
+                call, R.string.ftools_ai_tool_memory_no_such, R.string.ftools_ai_tool_reason_memory_no_such, raw,
+            )
+        }
+        val store = access.store
+        val outcome = store.remember(
+            text = fact,
+            now = System.currentTimeMillis(),
+            source = access.source,
+            category = call.argument("category").orEmpty(),
+            replaceId = replaceId,
+        )
+        val started = AiToolActivity.started(call)
+        return when (outcome) {
+            is AiMemoryOutcome.Added -> {
+                store.save()
+                AiToolResult(
+                    call,
+                    "Saved as memory ${outcome.memory.id}.",
+                    display = started.copy(memory = AiMemoryNote(outcome.memory.id, outcome.memory.text)),
+                )
+            }
+            is AiMemoryOutcome.Updated -> {
+                store.save()
+                AiToolResult(
+                    call,
+                    "Memory ${outcome.memory.id} now reads: ${outcome.memory.text}",
+                    display = started.copy(
+                        memory = AiMemoryNote(
+                            id = outcome.memory.id,
+                            text = outcome.memory.text,
+                            added = false,
+                            before = outcome.before.text,
+                            beforeCategory = outcome.before.category,
+                        ),
+                    ),
+                )
+            }
+            is AiMemoryOutcome.Duplicate ->
+                AiToolResult(call, "Already saved as memory ${outcome.memory.id}: ${outcome.memory.text}. Nothing changed.")
+            is AiMemoryOutcome.Refused -> memoryRefused(call, outcome.reason, replaceId?.toString().orEmpty())
+        }
+    }
+
+    /**
+     * Deletes the memory the model names by number, or the ones its words
+     * pick out, up to [FORGET_AT_ONCE]. More matches than that are listed
+     * back, so a vague "forget everything about work" cannot empty a list
+     * the user built over months.
+     */
+    private fun forget(call: AiToolCall, access: AiMemoryAccess): AiToolResult {
+        val store = access.store
+        if (!store.readable) return memoryRefused(call, AiMemoryOutcome.Reason.UNREADABLE, "")
+        val idText = call.argument("id")
+        if (idText != null) {
+            val id = idText.toDoubleOrNull()?.toLong()
+            val gone = id?.let { store.forget(it) }
+                ?: return memoryRefused(call, AiMemoryOutcome.Reason.NOT_FOUND, idText)
+            store.save()
+            return AiToolResult(call, "Deleted memory ${gone.id}: ${gone.text}")
+        }
+        val match = call.argument("match") ?: return missing(call, "match")
+        val found = store.matching(match)
+        if (found.isEmpty()) {
+            return refusedWith(
+                call, R.string.ftools_ai_tool_memory_none_match, R.string.ftools_ai_tool_reason_memory_none_match, match,
+            )
+        }
+        if (found.size > FORGET_AT_ONCE) {
+            val list = found.joinToString("\n") { "[${it.id}] ${it.text}" }
+            return refused(
+                call,
+                context.getString(R.string.ftools_ai_tool_memory_many_match, found.size) + "\n" + list,
+                context.getString(R.string.ftools_ai_tool_reason_memory_many_match),
+            )
+        }
+        found.forEach { store.forget(it.id) }
+        store.save()
+        return AiToolResult(call, "Deleted:\n" + found.joinToString("\n") { "[${it.id}] ${it.text}" })
+    }
+
+    private fun memoryRefused(call: AiToolCall, reason: AiMemoryOutcome.Reason, id: String): AiToolResult = when (reason) {
+        AiMemoryOutcome.Reason.SECRET ->
+            refusedWith(call, R.string.ftools_ai_tool_memory_secret, R.string.ftools_ai_tool_reason_memory_secret)
+        AiMemoryOutcome.Reason.TOO_LONG -> refused(
+            call,
+            context.getString(R.string.ftools_ai_tool_memory_too_long, AiMemoryText.MAX_CHARS),
+            context.getString(R.string.ftools_ai_tool_reason_memory_too_long),
+        )
+        AiMemoryOutcome.Reason.EMPTY ->
+            refusedWith(call, R.string.ftools_ai_tool_memory_empty, R.string.ftools_ai_tool_reason_memory_empty)
+        AiMemoryOutcome.Reason.FULL ->
+            refusedWith(call, R.string.ftools_ai_tool_memory_full, R.string.ftools_ai_tool_reason_memory_full)
+        AiMemoryOutcome.Reason.NOT_FOUND -> refused(
+            call,
+            context.getString(R.string.ftools_ai_tool_memory_no_such, id),
+            context.getString(R.string.ftools_ai_tool_reason_memory_no_such),
+        )
+        AiMemoryOutcome.Reason.UNREADABLE ->
+            refusedWith(call, R.string.ftools_ai_tool_memory_unreadable, R.string.ftools_ai_tool_reason_memory_unreadable)
+    }
+
     private fun addNote(call: AiToolCall): AiToolResult {
         val text = call.argument("text") ?: return missing(call, "text")
         if (!unlocked()) return refusedWith(call, R.string.ftools_ai_tool_locked, R.string.ftools_ai_tool_reason_locked)
@@ -1016,6 +1219,9 @@ class AiToolRunner(
 
         /** Notes handed back per search, and how much of each. */
         private const val MAX_NOTES = 5
+
+        /** Memories one `forget` by words may delete; past this it lists them instead. */
+        private const val FORGET_AT_ONCE = 3
         private const val NOTE_CHARS = 1_500
 
         /** Android's own reading is used when it is this fresh; past it a new one is taken. */

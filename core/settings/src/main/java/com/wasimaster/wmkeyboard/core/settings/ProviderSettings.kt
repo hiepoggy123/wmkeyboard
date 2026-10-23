@@ -467,6 +467,12 @@ object LegacyProviders {
             ProviderTool.PHOTO_TRANSLATE -> ProviderChain()
             ProviderTool.AI -> aiChain(s.storedAi, env, ::has)
             ProviderTool.VOICE -> voiceChain(s.storedWhisper, ::has)
+            // Harper alone, as before the list. LanguageTool is listed so it
+            // can be found, but off: it sends the text away, so it waits
+            // until the user switches it on.
+            ProviderTool.GRAMMAR -> ProviderChain(
+                listOf(entry(ProviderTypes.HARPER), entry(ProviderTypes.LANGUAGETOOL, on = false)),
+            )
         }
     }
 
@@ -529,8 +535,16 @@ object LegacyProviders {
             if (has(ProviderTypes.LIBRETRANSLATE)) add(ProviderEntry(ProviderTypes.LIBRETRANSLATE.id, enabled = !server))
             add(ProviderEntry(ProviderTypes.GOOGLE_TRANSLATE.id, enabled = !server))
         }
-        if (!env.onDeviceTranslate) return ProviderChain(online)
-        return ProviderChain(listOf(ProviderEntry(ProviderTypes.ML_KIT.id)) + online)
+        // The phone's engines first, ML Kit before Bergamot where both run:
+        // ML Kit was the one row before Bergamot came, and Bergamot is the
+        // on-device engine wherever ML Kit is not. NLLB last of the three:
+        // it covers what the others cannot, at seconds a sentence.
+        val device = listOfNotNull(
+            ProviderEntry(ProviderTypes.ML_KIT.id).takeIf { env.onDeviceTranslate },
+            ProviderEntry(ProviderTypes.BERGAMOT.id).takeIf { env.bergamot },
+            ProviderEntry(ProviderTypes.NLLB.id).takeIf { env.nllb },
+        )
+        return ProviderChain(device + online)
     }
 
     /**
@@ -673,13 +687,19 @@ fun availableVoiceEngines(): Set<String> = buildSet {
     add(ProviderTypes.ENGINE_SYSTEM)
     add(ProviderTypes.ENGINE_SERVER)
     if (isWhisperEnabled()) add("whisper")
-    // No library in lite or off arm64 (#548).
+    // No library off arm64 or where F-Droid stripped it (#548).
     if (com.wasimaster.wmkeyboard.core.voice.whistle.WhistleEngine.shipped) add("whistle")
     // The ExecuTorch runtime behind Asr4All, Parakeet and Moonshine (#289).
     if (com.wasimaster.wmkeyboard.core.voice.executorch.EtNative.shipped) {
         add("asr4all")
         add("parakeet")
         add("moonshine")
+    }
+    // sherpa-onnx on ONNX Runtime, the `onnx` gate: Sherpa's streaming
+    // models and Meta's Omnilingual.
+    if (com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative.shipped) {
+        add("sherpa")
+        add("omnilingual")
     }
 }
 

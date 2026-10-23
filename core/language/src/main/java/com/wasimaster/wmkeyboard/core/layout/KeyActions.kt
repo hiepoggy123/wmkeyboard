@@ -174,7 +174,7 @@ sealed interface KeyAction {
      *
      * The tool is fired whether or not it is one of the tools shown on the
      * toolbar — a key bound by hand is its own reason for the tool to run — but
-     * a tool this build does not ship (a full-flavour scanner on lite) or one
+     * a tool this build does not ship (an ML Kit scanner on F-Droid) or one
      * that is not usable yet (a search tool with no key configured) does
      * nothing, the same as it would on the toolbar.
      *
@@ -245,9 +245,10 @@ sealed interface KeyAction {
      * does nothing, the dead-key outcome a [Layout] naming a deleted layout
      * gets. A blank [id] is the editor's placeholder while the picker is open.
      *
-     * The second press clears a mode picked by hand. A mode that is on because
-     * a rule chose it for this app or field has no "off" to go to, so the key
-     * leaves it on.
+     * The press is a toggle against the mode that is on (#834): its own mode
+     * on, however it got there, goes back to automatic; anything else picks it.
+     * A mode that is on because a rule chose it for this app or field has no
+     * "off" to go to, so the key leaves it on, and pins nothing by hand.
      */
     @Serializable @SerialName("mode") data class Mode(val id: String = "") : KeyAction
 
@@ -576,8 +577,8 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // unlabelled one falls back to, and it is deliberately not the layer's key,
     // which is an identifier and can be any length.
     is KeyAction.LayerSwitch -> "▤"
-    // The editor writes the mode's name onto the key when it is picked, as it
-    // does a layout's; this is the glyph an unlabelled one gets.
+    // The board draws the mode's current name over this (#821, see
+    // modeBindingLabel); the glyph is for a face drawn without the modes to hand.
     is KeyAction.Mode -> "◐"
     is KeyAction.SwitchInputMethod -> "⌨"
     // A field is not a key: the cell draws its component, and the editor draws
@@ -803,6 +804,8 @@ private fun TextEditAction.fallbackGlyph(): String = when (this) {
     TextEditAction.DOC_END -> "⇲"
     TextEditAction.CUT -> "✂"
     TextEditAction.RETYPE_WORD -> "↺"
+    TextEditAction.NO_SPACE -> "⁀"
+    TextEditAction.NO_SPACE_NEXT -> "⁀›"
 }
 
 /**

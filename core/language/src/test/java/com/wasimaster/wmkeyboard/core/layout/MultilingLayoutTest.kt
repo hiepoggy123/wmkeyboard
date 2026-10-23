@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.settings.TextEditAction
+import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -267,10 +268,12 @@ class MultilingLayoutTest {
     }
 
     @Test
-    fun `a swipe on the delete key is kept as a flick action`() {
+    fun `a swipe on the delete key is kept as its flick arm`() {
+        // #769: the delete keys take arms although their hold repeats.
         val converted = converted("""{"title":"x","onScreen":{"main":["a[4D:[DEL][WDEL]]","[SPACE][ENTER]"]}}""")
         val delete = converted.keys().first { it.action == KeyAction.Delete }
         assertTrue(delete.flickActions.isNotEmpty())
+        assertTrue(converted.notes.toString(), converted.notes.none { it.pluralsRes == R.plurals.core_lang_foreign_gestures_dropped })
     }
 
     // ---- real files ----

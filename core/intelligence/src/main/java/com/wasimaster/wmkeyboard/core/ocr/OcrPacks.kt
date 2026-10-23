@@ -1,26 +1,22 @@
 package com.wasimaster.wmkeyboard.core.ocr
 
+import com.wasimaster.wmkeyboard.core.download.FileDownloader
+import com.wasimaster.wmkeyboard.core.download.DownloadException
 import android.os.StatFs
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules.awaitInstalled
-import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.intelligence.R
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
-import java.security.MessageDigest
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,13 +26,14 @@ import kotlinx.coroutines.launch
 /**
  * The Tesseract language data on disk, and its downloads; and PaddleOCR's
  * models, one pack named [PaddleOcrModel.PACK] made of three files in a
- * directory of their own (see [PaddleOcrModel]).
+ * directory of their own, the graphs in this build's runtime's format (see
+ * [PaddleOcrModel]).
  *
  * Packs live in `filesDir/ocr/tessdata/<pack>.traineddata`, which is the
- * directory handed to Tesseract as its data path. A download goes to a `.part`
- * file and is renamed into place only when complete, so a pack that exists is
- * whole. Packs are a few megabytes, so an interrupted one starts again rather
- * than resuming.
+ * directory handed to Tesseract as its data path. A download goes through
+ * [FileDownloader] into a `.part` and is renamed into place only when
+ * complete, so a pack that exists is whole; an interrupted one continues
+ * where it stopped, and Delete clears what it left.
  *
  * Process-wide like the Whisper downloader: the keyboard panel and the
  * settings page both collect [states], and a download started in one shows in
@@ -59,8 +56,6 @@ object OcrPacks {
     }
 
     private const val SPACE_MARGIN_BYTES = 16L * 1024 * 1024
-    private const val PROGRESS_INTERVAL_MS = 250L
-    private const val USER_AGENT = "WMKeyboard model downloader"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val jobs = mutableMapOf<String, Job>()
@@ -86,11 +81,13 @@ object OcrPacks {
             .orEmpty() + listOfNotNull(PaddleOcrModel.PACK.takeIf { PaddleOcrModel.isDownloaded(filesDir) })
 
     /**
-     * The on-demand module whose library reads [pack] on Play: Tesseract's
-     * own, or the LiteRT interpreter for Paddle. Installed everywhere else.
+     * The gate whose library reads [pack]: Tesseract's own, or Paddle's
+     * runtime ([PaddleOcr.module]: LiteRT, or MNN in the sticker generator's
+     * library). A Play module or a native download; installed wherever the
+     * library is in the APK.
      */
     private fun moduleFor(pack: String) =
-        if (pack == PaddleOcrModel.PACK) FeatureModules.litert else FeatureModules.ocr
+        if (pack == PaddleOcrModel.PACK) PaddleOcr.module else FeatureModules.ocr
 
     /** Seeds [states] from disk for [packs]; call when a list of packs appears. */
     fun refresh(filesDir: File, packs: Collection<String>) {
@@ -110,10 +107,10 @@ object OcrPacks {
         synchronized(jobs) {
             if (jobs[pack]?.isActive == true) return
             set(pack, Status.Downloading(0, OcrLanguages.sizeOf(pack)))
-            // Play: Tesseract itself is the on-demand :feature:ocr split (and
-            // Paddle's interpreter :feature:litert), asked for alongside the
-            // first pack so both arrive together. A no-op wherever the library
-            // is in the APK.
+            // Tesseract itself is the on-demand :feature:ocr split on Play (and
+            // Paddle's runtime :feature:litert, or the imagegen gate's MNN),
+            // asked for alongside the first pack so both arrive together. A
+            // no-op wherever the library is in the APK.
             val module = moduleFor(pack)
             module.requestInstall()
             jobs[pack] = scope.launch {
@@ -131,12 +128,6 @@ object OcrPacks {
                     set(pack, Status.Failed(e.messageRes, e.messageArg))
                 } catch (_: Exception) {
                     set(pack, Status.Failed(CommonR.string.common_error_network))
-                } finally {
-                    if (pack == PaddleOcrModel.PACK) {
-                        PaddleOcrModel.Part.entries.forEach { paddlePartFile(filesDir, it).delete() }
-                    } else {
-                        partFile(filesDir, pack).delete()
-                    }
                 }
             }
         }
@@ -174,7 +165,7 @@ object OcrPacks {
      * caller's thread.
      */
     fun installPaddle(filesDir: File, part: PaddleOcrModel.Part, source: File): Boolean {
-        if (sha256(source) != part.sha256) return false
+        if (FileDownloader.sha256(source) != part.sha256) return false
         cancel(PaddleOcrModel.PACK)
         val staged = paddlePartFile(filesDir, part)
         staged.parentFile?.mkdirs()
@@ -205,9 +196,14 @@ object OcrPacks {
 
     private fun deleteFiles(filesDir: File, pack: String) {
         if (pack == PaddleOcrModel.PACK) {
-            PaddleOcrModel.Part.entries.forEach { PaddleOcrModel.file(filesDir, it).delete() }
+            // Both runtimes' files: a backup restored from another build may hold the other pair.
+            PaddleOcrModel.Part.entries.forEach {
+                PaddleOcrModel.file(filesDir, it).delete()
+                FileDownloader.discard(paddlePartFile(filesDir, it))
+            }
         } else {
             file(filesDir, pack).delete()
+            FileDownloader.discard(partFile(filesDir, pack))
         }
     }
 
@@ -247,8 +243,10 @@ object OcrPacks {
         val expected = OcrLanguages.sizeOf(pack)
         checkSpace(dir, expected)
         val part = partFile(filesDir, pack)
-        fetch(OcrLanguages.downloadUrl(pack), part) { written, length ->
-            set(pack, Status.Downloading(written, if (length > 0) length else expected))
+        // Tesseract's files carry no pin here: the server's length is the
+        // file's, and a pack Tesseract cannot load is caught by markBroken.
+        fetch(OcrLanguages.downloadUrl(pack), part, null) { written ->
+            set(pack, Status.Downloading(written, expected))
         }
         check(part.renameTo(file(filesDir, pack))) { "could not move the finished download into place" }
     }
@@ -260,79 +258,37 @@ object OcrPacks {
      */
     private suspend fun downloadPaddle(filesDir: File) {
         val dir = PaddleOcrModel.dir(filesDir).apply { mkdirs() }
-        val missing = PaddleOcrModel.Part.entries.filter { !PaddleOcrModel.file(filesDir, it).isFile }
+        val missing = PaddleOcrModel.parts().filter { !PaddleOcrModel.file(filesDir, it).isFile }
         checkSpace(dir, missing.sumOf { it.bytes })
         val total = PaddleOcrModel.totalBytes
         var done = total - missing.sumOf { it.bytes }
         for (part in missing) {
-            val staged = paddlePartFile(filesDir, part)
-            fetch(PaddleOcrModel.url(part), staged) { written, _ ->
-                set(PaddleOcrModel.PACK, Status.Downloading(done + written, total))
+            val url = PaddleOcrModel.url(part) ?: throw FailedException(R.string.core_intel_semantic_no_source)
+            try {
+                FileDownloader.fetchVerified(
+                    url = url,
+                    target = PaddleOcrModel.file(filesDir, part),
+                    size = part.bytes,
+                    sha256 = part.sha256,
+                    source = NetSource.DOWNLOAD_OCR,
+                    part = paddlePartFile(filesDir, part),
+                    what = part.fileName,
+                ) { written -> set(PaddleOcrModel.PACK, Status.Downloading(done + written, total)) }
+            } catch (e: DownloadException) {
+                val (res, arg) = e.screenText()
+                throw FailedException(res, arg)
             }
-            if (sha256(staged) != part.sha256) throw FailedException(R.string.core_intel_ocr_download_error_mismatch)
-            check(staged.renameTo(PaddleOcrModel.file(filesDir, part))) { "could not move the finished download into place" }
             done += part.bytes
         }
     }
 
-    /** Fetches [url] into [target], reporting bytes written and the server's length (or -1). */
-    private suspend fun fetch(url: String, target: File, onProgress: (written: Long, length: Long) -> Unit) {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        val netCall = NetLog.call(NetSource.DOWNLOAD_OCR, "GET", url, route = NetLog.pathOf(url))
+    /** Fetches [url] into [target], [size] bytes long or as long as the server says. */
+    private suspend fun fetch(url: String, target: File, size: Long?, onProgress: (Long) -> Unit) {
         try {
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.instanceFollowRedirects = true
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            netCall.status = connection.responseCode
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw FailedException(
-                    R.string.core_intel_ocr_download_error_http,
-                    connection.responseCode.toString(),
-                )
-            }
-            val length = connection.contentLengthLong
-            var written = 0L
-            var lastUpdate = 0L
-            netCall.countIn(connection.inputStream).use { input ->
-                target.outputStream().use { out ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        out.write(buffer, 0, read)
-                        written += read
-                        val now = System.currentTimeMillis()
-                        if (now - lastUpdate >= PROGRESS_INTERVAL_MS) {
-                            lastUpdate = now
-                            onProgress(written, length)
-                        }
-                    }
-                }
-            }
-            if (length > 0 && written != length) {
-                throw FailedException(R.string.core_intel_ocr_download_error_interrupted)
-            }
-        } catch (t: Throwable) {
-            netCall.fail(t)
-            throw t
-        } finally {
-            connection.disconnect()
-            netCall.end()
+            FileDownloader.fetch(url, target, size, NetSource.DOWNLOAD_OCR, onBytes = onProgress)
+        } catch (e: DownloadException) {
+            val (res, arg) = e.screenText()
+            throw FailedException(res, arg)
         }
-    }
-
-    private fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }

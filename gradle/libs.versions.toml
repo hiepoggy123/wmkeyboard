@@ -98,10 +98,24 @@ vectordrawableAnimated = "1.2.0"
 lottie = "6.7.1"
 zxing = "3.5.4"
 litertlm = "0.14.0"
+# The NPU runtime behind Compute = NPU (#804), packaged as assets by the
+# wmkeyboard.npu-runtime convention, never as dependencies. Dispatch 2.3.0
+# accepts the LiteRT API that litertlm 0.14.0 reports (it asks for <= 0.1.0
+# and warns on an older one), and litertlm takes any 0.x dispatch API from
+# 0.1 on: checked in both binaries' version checks, 2026-10-20.
+litertNpu = "2.3.0"
+# Qualcomm's own licence, so full Play and sideload builds only.
+qnnRuntime = "2.51.0"
 # 2.x splits into litert + litert-api sharing one namespace, which AGP's
 # manifest merger rejects; 1.4.2 is the last single-artifact classic runtime
 # (org.tensorflow.lite.Interpreter + signature runners).
 litert = "1.4.2"
+# Microsoft's ONNX Runtime behind Offline Sherpa, never a dependency: its
+# libonnxruntime.so is pinned and read out of the AAR on Maven Central
+# (wmkeyboard.native-pins), or copied into the APK or :feature:onnx by the
+# wmkeyboard.onnxruntime convention. libwmsherpa is built against this
+# version's headers (native/sherpa-onnx-jni/build.sh ORT_TAG): keep in step.
+onnxruntime = "1.30.0"
 # Lua interpreter for the plugin sandbox. Pure JVM, MIT, no transitive deps.
 # 3.0.1 is the LAST version published to Maven Central — the 3.0.2 git tag was
 # never released as an artifact. Do not bump without re-auditing PluginSandbox:
@@ -109,6 +123,9 @@ litert = "1.4.2"
 # DebugLib.onInstruction hook path, the process-global LuaString.s_metatable)
 # that no public API pins down.
 luaj = "3.0.1"
+# Test only: the ART fold reference in WordKeyParityTest. Robolectric 4.17 pins
+# the same version, so it is already in every cache that runs the doc shots.
+icu4j = "78.3"
 # Play In-App Updates, the only piece of Play Core this app links. It reaches
 # the APK *only* when the build is a Play-channel build
 # (-Pwmkb.enablePlayStore=true) — see app/build.gradle.kts, which swaps the
@@ -243,8 +260,12 @@ androidx-vectordrawable-animated = { group = "androidx.vectordrawable", name = "
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
+litert-npu-runtime-qualcomm = { group = "com.google.ai.edge.litert", name = "litert-npu-runtime-qualcomm", version.ref = "litertNpu" }
+qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version.ref = "qnnRuntime" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
+icu4j = { group = "com.ibm.icu", name = "icu4j", version.ref = "icu4j" }
 snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
 play-feature-delivery = { group = "com.google.android.play", name = "feature-delivery", version.ref = "playFeatureDelivery" }

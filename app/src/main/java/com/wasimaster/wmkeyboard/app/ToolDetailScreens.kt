@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.wasimaster.wmkeyboard.core.barcode.BarcodeEngine
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.app.media.MusicApps
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
+import com.wasimaster.wmkeyboard.core.settings.SearchResultTap
 import com.wasimaster.wmkeyboard.core.settings.LauncherOpenMode
 import com.wasimaster.wmkeyboard.core.settings.MAX_SEARCH_RESULTS
 import com.wasimaster.wmkeyboard.ime.AppLaunchModes
@@ -85,8 +87,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.providers.ProviderTool
-import com.wasimaster.wmkeyboard.core.settings.providerChain
-import com.wasimaster.wmkeyboard.core.providers.ProviderTypes
 import com.wasimaster.wmkeyboard.core.settings.deeplLive
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
@@ -102,6 +102,7 @@ import com.wasimaster.wmkeyboard.ime.WMKeyboardService
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GrammarCategory
+import com.wasimaster.wmkeyboard.core.grammar.LanguageToolChecker
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
 import com.wasimaster.wmkeyboard.core.settings.MediaGridSpacingRange
@@ -126,12 +127,14 @@ import com.wasimaster.wmkeyboard.core.tools.typingConfigLanguage
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.translate.OfflineTranslation
 import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.OcrEngine
 import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
 import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
 import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
+import com.wasimaster.wmkeyboard.core.ocr.TesseractOcr
 import androidx.compose.runtime.collectAsState
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.settings.DeepLWriteStyle
@@ -470,48 +473,7 @@ internal fun ToolDetailSettings(
                 default = usable && tool in SettingsDefaults.enabledTools,
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
-        // Off the grid, on everywhere else: for a tool someone only reaches by
-        // name, from a selection action or pinned on the bar. Meaningless while
-        // the tool is off, since then it is in no grid to leave.
-        item(visible = toolOn) {
-            ToggleSetting(
-                R.string.tooldetail_show_in_toolbox_title,
-                stringResource(R.string.tooldetail_show_in_toolbox_subtitle),
-                settings.watch { tool !in it.toolbox.hiddenTools },
-                default = tool !in SettingsDefaults.toolbox.hiddenTools,
-            ) { scope.launch { repository.setToolHiddenInToolbox(tool, !it) } }
-        }
-        // Recolour just this tool's icon. Only meaningful while the global
-        // "Colorful tool icons" switch is on, since it's what paints them.
-        if (coloredIcons) {
-            item {
-                ColorSetting(
-                    // With the gradients off there is one colour and it needs
-                    // no qualifier; with them on the two rows have to say which
-                    // end of the gradient each one is. Named by resource rather
-                    // than resolved here, so the row picks its icon out of
-                    // [SettingsRowIcons] like every other settings row.
-                    title = if (gradient) R.string.tooldetail_icon_colour_start_title
-                    else R.string.tooldetail_icon_colour_title,
-                    color = settings.watch { it.toolColorOverrides[tool] },
-                    fallback = toolAccentColorArgb(tool),
-                    onChange = { scope.launch { repository.setToolColor(tool, it) } },
-                )
-            }
-            item(visible = gradient) {
-                ColorSetting(
-                    title = R.string.tooldetail_icon_colour_end_title,
-                    color = settings.watch { it.toolColorEndOverrides[tool] },
-                    // Derived from whichever colour the near end currently
-                    // is, so the pair moves together until it is pinned.
-                    fallback = settings.watch { toolAccentEndColorArgb(tool, it.toolColorOverrides) },
-                    onChange = { scope.launch { repository.setToolColorEnd(tool, it) } },
-                )
-            }
-        }
-        item { ToolHoldRow(repository, settings, tool) }
     }
-    ToolKeywordSetting(repository, settings, tool)
     when (tool) {
         ToolbarTool.KDE_CONNECT ->
             com.wasimaster.wmkeyboard.app.kdeconnect.KdeConnectToolSettings(repository, settings, onNavigate)
@@ -1271,25 +1233,12 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
                 }
-                // The packs source is only as good as the packs installed, and
-                // this list's switch alone said nothing about where they come
-                // from (#665).
-                item {
-                    NavRow(
-                        R.string.tooldetail_dictionary_packs_title,
-                        stringResource(R.string.tooldetail_dictionary_packs_subtitle),
-                        onClick = { onNavigate("vocab/packs") },
-                    )
-                }
-                serverItems(
-                    repository,
-                    settings,
-                    endpoints = listOf(ServiceEndpoint.KAIKKI, ServiceEndpoint.WIKTIONARY, ServiceEndpoint.DICTIONARY_API),
-                )
             }
-            DictionaryTranslationsGroup(repository, settings)
             // Where the tool looks, in the order it asks: a provider is only
             // asked when those above it did not know the word or were unreachable.
+            // The packs' screen link, the offline dictionaries' downloads, the
+            // imported dictionaries (#765) and the server addresses are on the
+            // sources' own screens.
             ProvidersGroup(
                 repository,
                 settings,
@@ -1297,10 +1246,7 @@ internal fun ToolDetailSettings(
                 titleRes = R.string.tooldetail_dictionary_sources_title,
                 info = stringResource(R.string.tooldetail_dictionary_sources_info),
             )
-            // The words the packs above do not know, with no network (#665).
-            OfflineDictionariesGroup(settings)
-            // Yomichan / Yomitan dictionaries, in any language (#765).
-            ImportedDictionariesGroup()
+            DictionaryTranslationsGroup(repository, settings)
             // The same look-up as a card over other apps (#765).
             LookupSettingsGroup(repository, settings, onNavigate)
         }
@@ -1918,6 +1864,17 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.handwritingAutoSpace,
                     ) { scope.launch { repository.setHandwritingAutoSpace(it) } }
                 }
+                // Only a choice where ML Kit is in the build: without it
+                // zinnia is all Chinese and Japanese have.
+                item(visible = HandwritingModels.mlKitInBuild) {
+                    ToggleSetting(
+                        R.string.tooldetail_handwriting_zinnia_title,
+                        stringResource(R.string.tooldetail_handwriting_zinnia_subtitle),
+                        settings.watch { it.handwritingZinnia },
+                        info = stringResource(R.string.tooldetail_handwriting_zinnia_info),
+                        default = SettingsDefaults.handwritingZinnia,
+                    ) { scope.launch { repository.setHandwritingZinnia(it) } }
+                }
                 item {
                     SliderSetting(
                         R.string.tooldetail_handwriting_pause_title,
@@ -2035,9 +1992,11 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.TRANSLATE -> {
-            // The engine row and the model list exist only where the engine
-            // does. On a build without ML Kit both would be a choice of one.
-            val onDevice = OnDeviceTranslator.AVAILABLE
+            // The engine row and the model lists exist only where an engine
+            // does: ML Kit in builds that carry it, Bergamot on Android 9 and
+            // later in every build that can fetch its models, NLLB on 64-bit
+            // phones with the memory for it.
+            val onDevice = OfflineTranslation.available
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
                 if (onDevice) {
@@ -2063,6 +2022,21 @@ internal fun ToolDetailSettings(
                             }
                         }
                     }
+                }
+            }
+            // Who translates, in order: on the device, the user's own server,
+            // DeepL, LibreTranslate, Google. The engine switch above decides
+            // which part of the list a translation asks. Each on-device
+            // engine's models, DeepL Write and Google's server address are on
+            // those providers' own screens.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.TRANSLATE,
+                info = stringResource(R.string.tooldetail_translate_providers_info),
+            )
+            if (onDevice) {
+                SettingsGroup(stringResource(R.string.tooldetail_advanced_group), foldKey = "translate_advanced") {
                     // Both shape the panel's language menus, and only mean
                     // something where models do; the subtitles say which
                     // engine each one works with.
@@ -2084,25 +2058,6 @@ internal fun ToolDetailSettings(
                     }
                 }
             }
-            if (onDevice) TranslateModelManager(settings)
-            // Who translates, in order: on the device, the user's own server,
-            // DeepL, LibreTranslate, Google. The engine switch above decides
-            // which part of the list a translation asks.
-            ProvidersGroup(
-                repository,
-                settings,
-                ProviderTool.TRANSLATE,
-                info = stringResource(R.string.tooldetail_translate_providers_info),
-            )
-            if (BuildConfig.ENABLE_FDROID) {
-                SettingsGroup(
-                    stringResource(R.string.servers_group_title),
-                    info = stringResource(R.string.servers_group_info),
-                ) {
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.TRANSLATE_GOOGLE, ServiceEndpoint.TRANSLATE_CLOUD))
-                }
-            }
-            DeepLWriteSettingsGroup(repository, settings)
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
             // Who the panel asks: KLIPY, GIPHY, Commons or another wiki,
@@ -2116,19 +2071,6 @@ internal fun ToolDetailSettings(
                 // Categories were fetched with the old key; they are not the new key's answer.
                 onChanged = { MediaCategoryCache.clear() },
             )
-            if (BuildConfig.ENABLE_FDROID && tool == ToolbarTool.GIF) {
-                SettingsGroup(
-                    stringResource(R.string.servers_group_title),
-                    info = stringResource(R.string.servers_group_info),
-                ) {
-                    serverItems(repository, settings, endpoints = listOf(
-                        ServiceEndpoint.KLIPY,
-                        ServiceEndpoint.GIPHY,
-                        ServiceEndpoint.GIFCITIES,
-                        ServiceEndpoint.WAYBACK_MACHINE,
-                    ))
-                }
-            }
             if (tool == ToolbarTool.STICKER) {
                 // Decides which rows the suggest group holds; the rows read
                 // everything else.
@@ -2355,7 +2297,6 @@ internal fun ToolDetailSettings(
                         }
                     }
                 }
-                OfflineGifPacksGroup()
             }
             // Resolved out here: the group builder lambda is not composable.
             val stickerOption = stringResource(R.string.tooldetail_media_send_sticker_option)
@@ -2447,39 +2388,27 @@ internal fun ToolDetailSettings(
                 }
             }
         }
-        ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
+        // Image search is web search's Images tab (#879): its button stays,
+        // and its settings are all on web search's page.
+        ToolbarTool.IMAGE_SEARCH -> SettingsGroup {
+            item {
+                NavRow(
+                    title = R.string.tooldetail_image_search_moved_title,
+                    subtitle = stringResource(R.string.tooldetail_image_search_moved_subtitle),
+                ) { onNavigate(toolRoute(ToolbarTool.WEB_SEARCH)) }
+            }
+        }
+        ToolbarTool.WEB_SEARCH -> {
             // Who answers, in order: a SearXNG instance, Tavily, Brave. One
-            // list for both tools, as one service always answered both.
+            // list for both tabs, as one service always answered both.
             ProvidersGroup(
                 repository,
                 settings,
                 ProviderTool.SEARCH,
                 info = stringResource(R.string.tooldetail_search_providers_info),
             )
-            if (BuildConfig.ENABLE_FDROID) {
-                SettingsGroup(
-                    stringResource(R.string.servers_group_title),
-                    info = stringResource(R.string.servers_group_info),
-                ) {
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.BRAVE_SEARCH, ServiceEndpoint.TAVILY))
-                }
-            }
-            // Tavily's own option, once Tavily is in the list.
-            val tavilyListed = settings.watch { it.providerChain(ProviderTool.SEARCH).has(ProviderTypes.TAVILY.id) }
-            SettingsGroup(
-                stringResource(R.string.tooldetail_tavily_group),
-                info = stringResource(R.string.tooldetail_tavily_info),
-            ) {
-                item(visible = tavilyListed) {
-                    ToggleSetting(
-                        R.string.tooldetail_tavily_advanced_title,
-                        stringResource(R.string.tooldetail_tavily_advanced_subtitle),
-                        settings.watch { it.webSearch.tavilyAdvanced },
-                        info = stringResource(R.string.tooldetail_tavily_advanced_info),
-                        default = SettingsDefaults.webSearch.tavilyAdvanced,
-                    ) { scope.launch { repository.setSearchTavilyAdvanced(it) } }
-                }
-            }
+            // Tavily's advanced search and the F-Droid server addresses are on
+            // those providers' own screens.
             SettingsGroup(stringResource(R.string.tooldetail_search_results_group)) {
                 item {
                     ToggleSetting(
@@ -2499,7 +2428,7 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.webSearch.resultCount.toFloat(),
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
-                item(visible = tool == ToolbarTool.WEB_SEARCH) {
+                item {
                     ToggleSetting(
                         R.string.tooldetail_search_answer_title,
                         stringResource(R.string.tooldetail_search_answer_subtitle),
@@ -2508,15 +2437,31 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.webSearch.showAnswer,
                     ) { scope.launch { repository.setSearchShowAnswer(it) } }
                 }
-                item(visible = tool == ToolbarTool.WEB_SEARCH) {
-                    ToggleSetting(
+                item {
+                    ChoiceSetting(
                         R.string.tooldetail_search_open_browser_title,
-                        stringResource(R.string.tooldetail_search_open_browser_subtitle),
-                        settings.watch { it.webSearch.openInBrowser },
-                        default = SettingsDefaults.webSearch.openInBrowser,
-                    ) { scope.launch { repository.setSearchOpenInBrowser(it) } }
+                        subtitle = stringResource(R.string.tooldetail_search_open_browser_subtitle),
+                        options = listOf(
+                            SearchResultTap.MENU to stringResource(R.string.tooldetail_search_tap_menu),
+                            SearchResultTap.INSERT to stringResource(R.string.tooldetail_search_tap_insert),
+                            SearchResultTap.OPEN to stringResource(R.string.tooldetail_search_tap_open),
+                        ),
+                        selected = settings.watch { it.webSearch.resultTap },
+                        default = SettingsDefaults.webSearch.resultTap,
+                        detail = { tap ->
+                            ChoiceDetail(
+                                stringResource(
+                                    when (tap) {
+                                        SearchResultTap.MENU -> R.string.tooldetail_search_tap_menu_desc
+                                        SearchResultTap.INSERT -> R.string.tooldetail_search_tap_insert_desc
+                                        SearchResultTap.OPEN -> R.string.tooldetail_search_tap_open_desc
+                                    },
+                                ),
+                            )
+                        },
+                    ) { scope.launch { repository.setSearchResultTap(it) } }
                 }
-                item(visible = tool == ToolbarTool.IMAGE_SEARCH) {
+                item {
                     SliderSetting(
                         R.string.tooldetail_image_columns_title,
                         subtitle = stringResource(R.string.tooldetail_image_columns_subtitle),
@@ -2545,14 +2490,25 @@ internal fun ToolDetailSettings(
                 item {
                     ChoiceSetting(
                         R.string.tooldetail_ocr_engine_title,
-                        info = stringResource(R.string.tooldetail_ocr_engine_info),
-                        options = listOf(
-                            OcrEngine.AUTO to stringResource(R.string.tooldetail_ocr_engine_auto),
-                            OcrEngine.ML_KIT to stringResource(R.string.tooldetail_ocr_engine_mlkit),
-                            OcrEngine.TESSERACT to stringResource(R.string.tooldetail_ocr_engine_tesseract),
-                            OcrEngine.ONLINE to stringResource(R.string.tooldetail_ocr_engine_online),
+                        info = stringResource(
+                            // F-Droid's build: PaddleOCR or online, nothing else.
+                            if (BuildConfig.ENABLE_ML_KIT_SCANNERS || TesseractOcr.available) R.string.tooldetail_ocr_engine_info
+                            else R.string.tooldetail_ocr_engine_info_paddle,
                         ),
-                        selected = settings.watch { it.scanner.ocrEngine },
+                        // Only what this build has: F-Droid's has neither
+                        // ML Kit nor Tesseract, and a choice of either
+                        // restored from a backup reads as Automatic.
+                        options = OcrLanguages.engines(TesseractOcr.available).map { engine ->
+                            engine to stringResource(
+                                when (engine) {
+                                    OcrEngine.AUTO -> R.string.tooldetail_ocr_engine_auto
+                                    OcrEngine.ML_KIT -> R.string.tooldetail_ocr_engine_mlkit
+                                    OcrEngine.TESSERACT -> R.string.tooldetail_ocr_engine_tesseract
+                                    OcrEngine.ONLINE -> R.string.tooldetail_ocr_engine_online
+                                },
+                            )
+                        },
+                        selected = settings.watch { OcrLanguages.usable(it.scanner.ocrEngine, TesseractOcr.available) },
                         default = SettingsDefaults.scanner.ocrEngine,
                     ) { scope.launch { repository.setOcrEngine(it) } }
                 }
@@ -2570,19 +2526,35 @@ internal fun ToolDetailSettings(
                     info = stringResource(R.string.tooldetail_ocr_online_info),
                 )
             }
-            if (settings.watch { it.scanner.ocrEngine != OcrEngine.ML_KIT && it.scanner.ocrEngine != OcrEngine.ONLINE }) {
+            val usableEngine = settings.watch { OcrLanguages.usable(it.scanner.ocrEngine, TesseractOcr.available) }
+            if (usableEngine != OcrEngine.ML_KIT && usableEngine != OcrEngine.ONLINE) {
                 SectionHeader(
                     stringResource(R.string.tooldetail_ocr_packs_header),
-                    info = stringResource(R.string.tooldetail_ocr_packs_info),
+                    info = stringResource(
+                        if (BuildConfig.ENABLE_ML_KIT_SCANNERS || TesseractOcr.available) R.string.tooldetail_ocr_packs_info
+                        else R.string.tooldetail_ocr_packs_info_paddle,
+                    ),
                 )
                 OcrPackManager(settings)
             }
         }
         ToolbarTool.QR_SCAN -> {
+            val zxing = BarcodeEngine.useZxing(settings.watch { it.scanner.qrZxing })
             SettingsGroup(
                 stringResource(R.string.tooldetail_options_group),
-                info = stringResource(R.string.tooldetail_qr_scan_info),
+                info = stringResource(if (zxing) R.string.tooldetail_qr_scan_zxing_info else R.string.tooldetail_qr_scan_info),
             ) {
+                // Only a choice where ML Kit's reader can run at all.
+                if (BarcodeEngine.mlKitUsable) {
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_qr_scan_zxing_title,
+                            stringResource(R.string.tooldetail_qr_scan_zxing_subtitle),
+                            settings.watch { it.scanner.qrZxing },
+                            default = SettingsDefaults.scanner.qrZxing,
+                        ) { scope.launch { repository.setQrScanZxing(it) } }
+                    }
+                }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_qr_scan_auto_title,
@@ -2610,10 +2582,25 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.DOC_SCAN -> {
+            val builtIn = settings.watch { it.scanner.docBuiltIn }
+            DocScanModuleBanner(settings, builtIn)
             SettingsGroup(
                 stringResource(R.string.tooldetail_options_group),
-                info = stringResource(R.string.tooldetail_doc_scan_info),
+                info = stringResource(
+                    if (googleDocScanner) R.string.tooldetail_doc_scan_info else R.string.tooldetail_doc_scan_builtin_info,
+                ),
             ) {
+                // Only a choice where Google's scanner can run at all.
+                if (googleDocScanner) {
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_doc_scan_builtin_title,
+                            stringResource(R.string.tooldetail_doc_scan_builtin_subtitle),
+                            settings.watch { it.scanner.docBuiltIn },
+                            default = SettingsDefaults.scanner.docBuiltIn,
+                        ) { scope.launch { repository.setDocScanBuiltIn(it) } }
+                    }
+                }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_doc_scan_gallery_title,
@@ -2634,6 +2621,16 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.GRAMMAR -> {
+            // Harper on the phone, and LanguageTool servers, off until picked.
+            ProvidersGroup(
+                repository,
+                settings,
+                ProviderTool.GRAMMAR,
+                titleRes = R.string.tooldetail_grammar_providers_group,
+                info = stringResource(R.string.tooldetail_grammar_providers_info),
+                // A server's answers were for its old setup.
+                onChanged = { LanguageToolChecker.reset() },
+            )
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item {
                     ChoiceSetting(
@@ -2922,7 +2919,6 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.currencyCacheHours.toFloat(),
                     ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
                 }
-                serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.CURRENCY_API, ServiceEndpoint.CURRENCY_API_MIRROR, ServiceEndpoint.FRANKFURTER, ServiceEndpoint.ER_API))
             }
             // Where rates come from, best first; the next is asked when one fails.
             ProvidersGroup(
@@ -2969,7 +2965,6 @@ internal fun ToolDetailSettings(
                             default = SettingsDefaults.rateSources.cryptoCacheMinutes.toFloat(),
                         ) { scope.launch { repository.setCryptoCacheMinutes(it.toInt()) } }
                     }
-                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.COINBASE, ServiceEndpoint.COINGECKO))
                     item { CryptoCoinPicker(repository, settings) }
                 }
             }
@@ -3158,6 +3153,7 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.TEXT_REPEAT -> TextRepeatToolSettings(repository, settings)
+        ToolbarTool.READ_BACK -> ReadBackToolSettings(settings)
         ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
         ToolbarTool.AI -> AiToolSettings(repository, settings, onNavigate)
         ToolbarTool.AI_REPLY -> AiReplyToolSettings(repository, settings, onNavigate)
@@ -3179,6 +3175,62 @@ internal fun ToolDetailSettings(
         }
         else -> {}
     }
+    // How the tool sits on the toolbar and in the toolbox: the same rows on
+    // every tool's page, so after the tool's own settings rather than
+    // before them, folded with what they hold named on the heading.
+    SettingsGroup(
+        stringResource(R.string.tooldetail_toolbar_group),
+        foldKey = "tool_toolbar",
+        foldSummary = {
+            listOfNotNull(
+                stringResource(R.string.tooldetail_show_in_toolbox_title).takeIf { toolOn },
+                stringResource(R.string.tooldetail_icon_colour_title).takeIf { coloredIcons },
+                stringResource(R.string.tooldetail_hold_title),
+            ).joinToString(", ")
+        },
+    ) {
+        // Off the grid, on everywhere else: for a tool someone only reaches by
+        // name, from a selection action or pinned on the bar. Meaningless while
+        // the tool is off, since then it is in no grid to leave.
+        item(visible = toolOn) {
+            ToggleSetting(
+                R.string.tooldetail_show_in_toolbox_title,
+                stringResource(R.string.tooldetail_show_in_toolbox_subtitle),
+                settings.watch { tool !in it.toolbox.hiddenTools },
+                default = tool !in SettingsDefaults.toolbox.hiddenTools,
+            ) { scope.launch { repository.setToolHiddenInToolbox(tool, !it) } }
+        }
+        // Recolour just this tool's icon. Only meaningful while the global
+        // "Colorful tool icons" switch is on, since it's what paints them.
+        if (coloredIcons) {
+            item {
+                ColorSetting(
+                    // With the gradients off there is one colour and it needs
+                    // no qualifier; with them on the two rows have to say which
+                    // end of the gradient each one is. Named by resource rather
+                    // than resolved here, so the row picks its icon out of
+                    // [SettingsRowIcons] like every other settings row.
+                    title = if (gradient) R.string.tooldetail_icon_colour_start_title
+                    else R.string.tooldetail_icon_colour_title,
+                    color = settings.watch { it.toolColorOverrides[tool] },
+                    fallback = toolAccentColorArgb(tool),
+                    onChange = { scope.launch { repository.setToolColor(tool, it) } },
+                )
+            }
+            item(visible = gradient) {
+                ColorSetting(
+                    title = R.string.tooldetail_icon_colour_end_title,
+                    color = settings.watch { it.toolColorEndOverrides[tool] },
+                    // Derived from whichever colour the near end currently
+                    // is, so the pair moves together until it is pinned.
+                    fallback = settings.watch { toolAccentEndColorArgb(tool, it.toolColorOverrides) },
+                    onChange = { scope.launch { repository.setToolColorEnd(tool, it) } },
+                )
+            }
+        }
+        item { ToolHoldRow(repository, settings, tool) }
+    }
+    ToolKeywordSetting(repository, settings, tool)
 }
 /**
  * The coins the keyboard reads and offers. An empty stored set means the
@@ -3768,7 +3820,7 @@ private fun ToolKeywordSetting(
  * besides translating.
  */
 @Composable
-private fun DeepLWriteSettingsGroup(repository: SettingsRepository, settings: LiveSettings) {
+internal fun DeepLWriteSettingsGroup(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
     val defaults = SettingsDefaults.translate.deepl
     // What decides which rows the group holds; each row reads its own value.
@@ -4102,20 +4154,21 @@ private fun handwritingControlOf(status: String): Int = when (status) {
 
 /**
  * Download/delete state for the handwriting model of every language the user
- * types in — drawn from ML Kit's full ink catalogue, then narrowed to the
- * enabled languages so the list is only ever as long as it is useful. Status
- * is re-read from ML Kit's model manager after every action.
+ * types in — drawn from ML Kit's full ink catalogue and zinnia's three
+ * models, then narrowed to the enabled languages so the list is only ever as
+ * long as it is useful. Status is re-read after every action.
  */
 @Composable
 private fun HandwritingModelManager(settings: LiveSettings) {
     val scope = rememberCoroutineScope()
     val enabledLanguages = settings.watch { it.enabledLanguages }
-    val languages = remember(enabledLanguages) {
-        HandwritingModels.modelsFor(enabledLanguages)
+    val zinnia = settings.watch { it.handwritingZinnia }
+    val languages = remember(enabledLanguages, zinnia) {
+        HandwritingModels.modelsFor(enabledLanguages, zinnia)
     }
     val missing = remember(enabledLanguages, languages) {
         enabledLanguages.distinctBy { it.id }
-            .filter { HandwritingModels.tagFor(it) == null }
+            .filter { HandwritingModels.tagFor(it, zinnia) == null }
     }
     val context = LocalContext.current
     val startDownload = rememberDownloadStarter()
@@ -4164,6 +4217,21 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                 val status = statuses[language.tag] ?: "checking"
                 WmRow(
                     title = language.displayName,
+                    swipeActions = if (status == "downloaded") {
+                        listOf(
+                            deleteSwipeAction(
+                                stringResource(R.string.privacy_handwriting_delete_desc, language.displayName),
+                            ) {
+                                scope.launch {
+                                    HandwritingModels.delete(language.tag)
+                                    statuses[language.tag] =
+                                        if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
+                                }
+                            },
+                        )
+                    } else {
+                        emptyList()
+                    },
                     subtitle = when (status) {
                             "checking" -> stringResource(R.string.privacy_handwriting_status_checking)
                             "downloaded" -> stringResource(R.string.privacy_handwriting_status_downloaded)
@@ -4288,7 +4356,9 @@ private fun OcrPackManager(settings: LiveSettings) {
     val filesDir = context.filesDir
     val enabledLanguages = settings.watch { it.enabledLanguages }
     val engine = settings.watch { it.scanner.ocrEngine }
-    val packs = remember(enabledLanguages, engine) { OcrLanguages.packsFor(enabledLanguages, engine) }
+    val packs = remember(enabledLanguages, engine) {
+        OcrLanguages.packsFor(enabledLanguages, engine, TesseractOcr.available)
+    }
     val states by OcrPacks.states.collectAsState()
     LaunchedEffect(packs) { OcrPacks.refresh(filesDir, packs.map { it.first }) }
     val decide = rememberDownloadDecision(settings)
@@ -4306,6 +4376,15 @@ private fun OcrPackManager(settings: LiveSettings) {
                 val status = states[pack] ?: OcrPacks.Status.NotDownloaded
                 val names = languages.joinToString(", ") { it.displayName }
                 WmRow(
+                    swipeActions = if (status == OcrPacks.Status.Downloaded) {
+                        listOf(
+                            deleteSwipeAction(stringResource(R.string.privacy_handwriting_delete_desc, names)) {
+                                OcrPacks.delete(filesDir, pack)
+                            },
+                        )
+                    } else {
+                        emptyList()
+                    },
                     title = if (pack == PaddleOcrModel.PACK) {
                         stringResource(R.string.tooldetail_ocr_pack_paddle_title, names)
                     } else {
@@ -4386,7 +4465,9 @@ private fun OcrPackManager(settings: LiveSettings) {
                 val names = languages.joinToString(", ") { it.displayName }
                 if (pack == PaddleOcrModel.PACK) {
                     // Three files, imported one by one under their own names.
-                    PaddleOcrModel.Part.entries.map { OfflineLink("$names (${it.fileName})", PaddleOcrModel.url(it)) }
+                    PaddleOcrModel.parts().mapNotNull { part ->
+                        PaddleOcrModel.url(part)?.let { OfflineLink("$names (${part.fileName})", it) }
+                    }
                 } else {
                     listOf(OfflineLink(names, OcrLanguages.downloadUrl(pack)))
                 }

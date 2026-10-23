@@ -32,6 +32,10 @@ Within a plain text field, how hard a word is taught depends on how it was commi
 
 A word needs at least two letters to be auto-learned this way. Adding one yourself (see below) has no such floor.
 
+### Languages written without spaces
+
+Thai, Lao, Khmer and Burmese put no space between words, so what you type between two spaces is usually a phrase. The keyboard finds the words inside it and learns each one, with the word pairs between them, the same as it would for words you had spaced out. A run the keyboard already knows as a single word stays whole. The words before the cursor are read the same way, so next-word suggestions follow the last word you wrote rather than the whole line. Finding words in a run takes a moment longer than splitting at spaces, so for context the keyboard reads only the last 32 characters of a long run.
+
 ## Words wait their turn
 
 Nothing you type is written to your dictionary while you're still typing it. Every committed word is held first, and only counted once the text it landed in has stopped moving. That's what gives you a chance to read back what you wrote: a word you fix, delete or re-pick was never learned in the first place. Only what you do to a word counts against it. Backspacing through it, sweeping it away with a delete swipe or typing a fix over it drops it; putting the cursor on it, or walking the cursor back through it with a spacebar swipe, leaves it waiting, and it is counted with the rest when you move on.
@@ -83,6 +87,8 @@ Keep your finger down after the menu opens and slide it instead of letting go. T
 
 - **Up** lifts the word one rank step for every 24 dp (about 4 mm) you slide, and **down** sinks it the same way. The steps are the word card's own rank, from −10 to +10, counted from wherever the word already sits, so the badge reads `"form" rank +2`. Slide back to where you started and it reads **unchanged**, and lifting does nothing.
 - **Six steps down** (about 2.5 cm) is the boundary. The badge turns red and reads **Never suggest "form"**, and lifting there puts the word on the [suggestion blacklist](/smart/blacklist/), exactly as the menu item does. **Suggest again** in the menu, or the blacklist screen, takes it back off.
+
+A word that is already on the blacklist doesn't slide: its menu stays up, and **Suggest again** there is how it comes back.
 
 The rank is stored in the same place the word card keeps it, so the card and the [personal dictionary screen](#adding-editing-and-removing-words) show it, and setting the card back to 0 undoes a slide. Nothing changes unless the finger moved a full step after the hold, so a hold you let go of in place still just opens the menu, and a quick swipe along the strip is still a swipe.
 

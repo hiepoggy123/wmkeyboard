@@ -127,10 +127,8 @@
     <!-- Screen reader name for pressing and holding a word on the suggestion
          strip, which opens the menu below. -->
     <string name="ime_suggestion_hold_label">Word options</string>
-    <!-- A recent word's chip at the start of the strip (#787), read by TalkBack as what a tap does. -->
-    <string name="ime_recent_word_open_desc">Show other words for this one</string>
-    <!-- The recent word's menu when there is nothing else it could have been. -->
-    <string name="ime_recent_word_nothing">Nothing else to offer</string>
+    <!-- An alternative on the recent-word row (#842), read by TalkBack as what a tap does. %1$s is the word written, %2$s the one that would replace it. -->
+    <string name="ime_recent_word_replace_desc">Change <xliff:g id="word" example="form">%1$s</xliff:g> to <xliff:g id="offer" example="from">%2$s</xliff:g></string>
     <!-- Shown over the strip while a held word is slid up or down (#790). %1$s is the word, %2$s its new rank, such as +2 or −3. -->
     <string name="ime_suggestion_rank_badge">\"<xliff:g id="word" example="mary">%1$s</xliff:g>\" rank <xliff:g id="rank" example="+2">%2$s</xliff:g></string>
     <!-- The same, slid back to where it started: lifting changes nothing. -->
@@ -152,6 +150,8 @@
     <!-- Menu item that decodes the swipe that wrote the word the cursor is in
          again, this time against every word list rather than the narrower set
          the user has glide typing limited to. %1$s is that word. -->
+    <!-- The held-word menu's Retype (#844): takes the word before the cursor back out to type it again. %1$s is that word. -->
+    <string name="ime_word_menu_retype">Retype \"<xliff:g id="word" example="form">%1$s</xliff:g>\"</string>
     <string name="ime_word_menu_search_all">Search all words for \"<xliff:g id="word" example="van">%1$s</xliff:g>\"</string>
     <!-- Menu item that opens the word card, where the word is spelled,
          weighted, ranked, deleted or banned. -->
@@ -268,6 +268,13 @@
     <string name="ime_undo_correction_desc">Put back the word you typed</string>
     <string name="ime_capture_undo_desc">Undo the last change</string>
     <string name="ime_capture_redo_desc">Redo the change you undid</string>
+    <!-- Screen reader names of the focus switch on a tool's own field (#665),
+         which sends the keys to the app's field or back. Each says what a
+         press does. -->
+    <string name="ime_capture_focus_to_app_desc">Type in the app instead</string>
+    <string name="ime_capture_focus_to_field_desc">Type in this box again</string>
+    <!-- In a tool's empty box while its keys go to the app's field (#665). -->
+    <string name="ime_capture_focus_app_hint">Typing in the app. Tap to type here</string>
 
     <!-- Shown under a glide's word picker once the finger has slid down away
          from the words: lifting now types nothing. -->
@@ -389,6 +396,9 @@
     <string name="ime_tool_clipboard">Clipboard</string>
     <string name="ime_tool_clipboard_search">Clipboard search</string>
     <string name="ime_tool_recent_copies">Recent copies</string>
+    <string name="ime_tool_leave_field">Leave field</string>
+    <string name="ime_tool_quick_note">Quick note</string>
+    <string name="ime_tool_read_back">Read back</string>
     <string name="ime_tool_snippets">Snippets</string>
     <string name="ime_tool_text_edit">Text editing</string>
     <string name="ime_tool_trackpad">Trackpad</string>
@@ -425,6 +435,14 @@
     <!-- The strip button on Bengali layouts. ANSI is the name of the encoding, not a word to translate. -->
     <string name="ime_ansi_button" translatable="false">ANSI</string>
     <string name="ime_ansi_output">ANSI output</string>
+    <!-- The strip button on Burmese layouts. Zawgyi is the name of the encoding, not a word to translate. -->
+    <string name="ime_zawgyi_button" translatable="false">Zawgyi</string>
+    <string name="ime_zawgyi_output">Zawgyi output</string>
+    <!-- Strip chip after a paste the keyboard found to be in Zawgyi, the old Burmese font encoding. Tapping it replaces the paste with Unicode. -->
+    <string name="ime_zawgyi_paste_offer">Pasted Zawgyi. Convert to Unicode</string>
+    <!-- Strip chip on a Burmese layout when the text box already holds Zawgyi. Tapping it makes the keyboard write Zawgyi in this text box. -->
+    <string name="ime_zawgyi_field_offer">This text is Zawgyi. Write Zawgyi here</string>
+    <string name="ime_zawgyi_offer_dismiss_desc">Leave it as it is</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>
     <string name="ime_tool_handwriting">Handwriting</string>
@@ -825,6 +843,13 @@
     <!-- Selection bar: run the copy rules over the picked clips (#612). -->
     <string name="ime_clip_tidy">Tidy</string>
     <string name="ime_clip_tidy_none_toast">The copy rules change nothing in these clips</string>
+    <!-- Clipboard selection bar button: converts the picked clips' Burmese between Zawgyi (the old font encoding) and Unicode. -->
+    <string name="ime_clip_zawgyi">Zawgyi ⇄ Unicode</string>
+    <string name="ime_clip_zawgyi_none_toast">Nothing in these clips needed converting</string>
+    <plurals name="ime_clip_zawgyi_converted_toast">
+        <item quantity="one">Converted %1$d clip</item>
+        <item quantity="other">Converted %1$d clips</item>
+    </plurals>
     <plurals name="ime_clip_tidied_toast">
         <item quantity="one">%1$d clip tidied</item>
         <item quantity="other">%1$d clips tidied</item>

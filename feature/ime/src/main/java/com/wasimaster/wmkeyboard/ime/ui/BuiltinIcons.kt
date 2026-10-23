@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowForward
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
@@ -136,6 +138,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Pets
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phonelink
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoCamera
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PictureAsPdf
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PictureInPictureAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PlayArrow
@@ -145,9 +148,10 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
+
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Save
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
@@ -198,8 +202,6 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.WbSunny
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.WbTwilight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Widgets
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.WorkOutline
-import androidx.compose.ui.graphics.vector.ImageVector
-import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
 
 /**
  * The icons the icon picker offers, keyed by a stable name.
@@ -269,6 +271,7 @@ object BuiltinIcons {
         "ContentCopy" to { Icons.Outlined.ContentCopy },
         "ContentCut" to { Icons.Outlined.ContentCut },
         "ContentPaste" to { Icons.Outlined.ContentPaste },
+        "ConvertToText" to { SymbolIcons.ConvertToText },
         "Crop" to { Icons.Outlined.Crop },
         "CurrencyExchange" to { Icons.Outlined.CurrencyExchange },
         "DarkMode" to { Icons.Outlined.DarkMode },
@@ -277,6 +280,7 @@ object BuiltinIcons {
         "Description" to { Icons.Outlined.Description },
         "Dictionary" to { SymbolIcons.Dictionary },
         "Dialpad" to { Icons.Outlined.Dialpad },
+        "Dictionary" to { SymbolIcons.Dictionary },
         "DirectionsCar" to { Icons.Outlined.DirectionsCar },
         "DocumentScanner" to { Icons.Outlined.DocumentScanner },
         "Done" to { Icons.Outlined.Done },
@@ -365,6 +369,7 @@ object BuiltinIcons {
         "Phone" to { Icons.Outlined.Phone },
         "Phonelink" to { Icons.Outlined.Phonelink },
         "PhotoCamera" to { Icons.Outlined.PhotoCamera },
+        "PhotoLibrary" to { Icons.Outlined.PhotoLibrary },
         "PictureAsPdf" to { Icons.Outlined.PictureAsPdf },
         "PictureInPictureAlt" to { Icons.Outlined.PictureInPictureAlt },
         "PlayArrow" to { Icons.Outlined.PlayArrow },
@@ -374,10 +379,11 @@ object BuiltinIcons {
         "QrCodeScanner" to { Icons.Outlined.QrCodeScanner },
         "QueryStats" to { Icons.Outlined.QueryStats },
         "Quickreply" to { Icons.Outlined.Quickreply },
-        "Repeat" to { Icons.Outlined.Repeat },
+
         "Redo" to { Icons.AutoMirrored.Outlined.Redo },
         "Refresh" to { Icons.Outlined.Refresh },
         "Remove" to { Icons.Outlined.Remove },
+        "Repeat" to { Icons.Outlined.Repeat },
         "Save" to { Icons.Outlined.Save },
         "Schedule" to { Icons.Outlined.Schedule },
         "School" to { Icons.Outlined.School },

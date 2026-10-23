@@ -58,6 +58,7 @@ class ConversionCaretStripTest {
             service,
             glideReadyState(
                 glideReady = false,
+                // 联想 obey the field's no-suggestions flag like the rest of the strip.
                 fieldNoSuggestions = false,
                 settings = KeyboardSettings(
                     learnFromTyping = false,

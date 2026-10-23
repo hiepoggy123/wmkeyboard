@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -53,6 +54,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.fonts.LayoutFonts
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.withRotation
@@ -598,13 +601,46 @@ val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
  * Same order as the key font, minus the active layout's own face (that one
  * belongs to a single grid): the user's per-script pick, the theme's face for
  * the script, the script's Noto face; then, for the scripts that ride the
- * Latin faces, the user's key font and the theme's. Null leaves the system face.
+ * Latin faces, the user's key font and the theme's; then the system face, named
+ * outright. Not null: a Text given no family takes the typography's, which is
+ * the active layout's face again, and on a script board that face changes a
+ * frame after the switch (script face alone, then chained Latin-first).
  */
 /**
  * The scripts that draw in the user's English font already, so have no script
  * face to chain it in front of (see [KeyboardFonts.latinFirstFamily]).
  */
 private val LATIN_FONT_SCRIPTS = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK, ScriptId.IPA)
+
+/**
+ * The Latin font and the script face [KeyboardFonts.latinFirstFamily] chains for
+ * a board in [scriptId], or null where the board draws in one face: a script
+ * that rides the Latin faces, no script face, or the two being one font.
+ */
+private fun latinFirstIds(
+    context: Context,
+    settings: KeyboardSettings,
+    scriptId: ScriptId,
+    layoutFontId: String?,
+    themeFontId: String?,
+    themeScriptFontId: String?,
+    unicodeMyanmar: Boolean,
+): Pair<String, String>? {
+    if (scriptId in LATIN_FONT_SCRIPTS) return null
+    val latinId = settings.keyFontId.takeIf {
+        it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
+    } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
+        ?: KeyboardFonts.DEFAULT_ID
+    val scriptFontId = KeyboardFonts.scriptFontId(
+        context,
+        scriptId,
+        settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+        layoutFontId,
+        themeScriptFontId,
+        unicodeMyanmar,
+    ) ?: return null
+    return (latinId to scriptFontId).takeIf { latinId != scriptFontId }
+}
 
 internal val LocalScriptLabelFont = staticCompositionLocalOf<(ScriptId) -> FontFamily?> { { null } }
 
@@ -1428,6 +1464,9 @@ fun KeyboardThemeProvider(
     // A layout's own face may still be on its way ([LayoutFonts]): when it
     // lands the id is the same, so this is what tells the face to resolve again.
     val layoutFontsInstalled by LayoutFonts.installs.collectAsState()
+    // Burmese's Unicode key font: Myanmar in the keyboard's own Noto face, for
+    // a phone whose Myanmar font is a Zawgyi one.
+    val unicodeMyanmar = settings.suggestionStrip.burmeseUnicodeKeysOn
     val keyFontFamily = remember(
         scriptId,
         layoutFontId,
@@ -1438,6 +1477,7 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
     ) {
         KeyboardFonts.scriptFamily(
             context,
@@ -1445,6 +1485,7 @@ fun KeyboardThemeProvider(
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
             layoutFontId,
             themeScriptFontId,
+            unicodeMyanmar,
         ) // The Latin/Cyrillic/Greek side of the same order: the user's own
             // pick, then the layout's face, then the theme's. Only a deliberate
             // pick counts — "default" is the absence of one and lets the layout
@@ -1463,9 +1504,8 @@ fun KeyboardThemeProvider(
     // the theme's, else the system's own Latin font) and a script face, the two
     // are chained per glyph instead, Latin first. System default counts too: a
     // ROM or font app may have replaced the system's Latin font, and an Avro
-    // board drew its keys in the Bengali face's Latin instead (#670). Built off
-    // the main thread: a Google face is a provider round trip. Until it lands,
-    // and below Android 10 (12 for the system font), the script face alone.
+    // board drew its keys in the Bengali face's Latin instead (#670). Below
+    // Android 10 (12 for the system font), the script face alone.
     val latinFirstIds = remember(
         scriptId,
         layoutFontId,
@@ -1476,33 +1516,69 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
     ) {
-        if (scriptId in LATIN_FONT_SCRIPTS) return@remember null
-        val latinId = settings.keyFontId.takeIf {
-            it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
-        } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
-            ?: KeyboardFonts.DEFAULT_ID
-        val scriptFontId = KeyboardFonts.scriptFontId(
-            context,
-            scriptId,
-            settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
-            layoutFontId,
-            themeScriptFontId,
-        ) ?: return@remember null
-        (latinId to scriptFontId).takeIf { latinId != scriptFontId }
+        latinFirstIds(context, settings, scriptId, layoutFontId, themeFontId, themeScriptFontId, unicodeMyanmar)
     }
-    val chainedFontFamily by produceState<FontFamily?>(null, latinFirstIds) {
-        val (latinId, scriptFontId) = latinFirstIds ?: run {
-            value = null
-            return@produceState
-        }
-        // Already built once this process: no frame in the script face alone.
-        value = KeyboardFonts.cachedLatinFirstFamily(latinId, scriptFontId)
-        if (value != null) return@produceState
-        value = withContext(Dispatchers.IO) {
-            KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+    // The same pair for every other enabled layout, built ahead off the main
+    // thread. Bengali's face is a Google one, a provider round trip: built on
+    // the switch itself, the first Avro board of a process drew its Latin keys
+    // in the Bengali face's Latin for a third of a second, then jumped.
+    LaunchedEffect(
+        settings.enabledLayoutIds,
+        settings.customLayouts,
+        themeFontId,
+        settings.keyFontId,
+        settings.scriptFontIds,
+        settings.customFontName,
+        settings.customScriptFontNames,
+        darkSlot,
+        unicodeMyanmar,
+    ) {
+        val themeSpec = settings.activeThemeSpec(darkSlot)
+        withContext(Dispatchers.IO) {
+            for (id in settings.enabledLayoutIds) {
+                val layout = resolveLayout(settings.customLayouts, id)
+                val script = layout.language().script
+                val (latinId, scriptFontId) = latinFirstIds(
+                    context,
+                    settings,
+                    script,
+                    layout.appearance?.fontId,
+                    themeFontId,
+                    themeSpec?.scriptFontIds?.get(script.name),
+                    unicodeMyanmar,
+                ) ?: continue
+                KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+            }
         }
     }
+    // Settled in the very composition that switched the board whenever it can
+    // be: one frame in the script face alone, then the chain, made every Latin
+    // label jump on a switch to Avro. Built from local files that takes a few
+    // milliseconds, once per process. A Google face is a provider round trip,
+    // so that pair alone is built off the main thread and lands a frame late.
+    val chainNow = remember(latinFirstIds) {
+        latinFirstIds?.let { (latinId, scriptFontId) ->
+            KeyboardFonts.cachedLatinFirstFamily(latinId, scriptFontId)
+                ?: if (KeyboardFonts.isLocal(latinId) && KeyboardFonts.isLocal(scriptFontId)) {
+                    KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+                } else {
+                    null
+                }
+        }
+    }
+    // Keyed by the pair it was built for: produceState keeps its last value
+    // until the effect runs, and a chain for the previous board must not draw
+    // a frame of this one.
+    val chainLate by produceState<Pair<Pair<String, String>, FontFamily?>?>(null, latinFirstIds) {
+        val ids = latinFirstIds ?: return@produceState
+        if (chainNow != null) return@produceState
+        value = ids to withContext(Dispatchers.IO) {
+            KeyboardFonts.latinFirstFamily(context, ids.first, ids.second)
+        }
+    }
+    val chainedFontFamily = chainNow ?: chainLate?.takeIf { it.first == latinFirstIds }?.second
     val boardFontFamily = chainedFontFamily ?: keyFontFamily
     // See [LocalScriptLabelFont]. Resolved per script on first ask, then kept
     // for as long as the font settings and the theme stay what they are.
@@ -1516,6 +1592,8 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
+        layoutFontsInstalled,
     ) {
         val latin by lazy {
             settings.keyFontId.takeIf { it != KeyboardFonts.DEFAULT_ID }
@@ -1534,7 +1612,8 @@ fun KeyboardThemeProvider(
                         settings.scriptFontIds[script.name] ?: KeyboardFonts.DEFAULT_ID,
                         null,
                         themeScriptFonts[script.name],
-                    ) ?: latin
+                        unicodeMyanmar,
+                    ) ?: latin ?: FontFamily.Default
                 ).also { resolved[script] = it }
             }
         }

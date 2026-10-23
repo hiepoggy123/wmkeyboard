@@ -62,6 +62,40 @@ interface AiToolHost {
     fun homeStates(query: String?): Result<String> =
         Result.failure(UnsupportedOperationException("no Home Assistant here"))
 
+    /**
+     * Whether [searchClipboard], [notesByMeaning] and [snippetsByMeaning] can
+     * answer: search by meaning is on and its model is on the phone. Without
+     * it `search_clipboard` is not offered, and `search_notes` and
+     * `search_snippets` match words only.
+     */
+    val canSearchByMeaning: Boolean get() = false
+
+    /**
+     * Clipboard history that means what [query] does, best first. Passwords
+     * and one-time codes are never among it. Blocking: the query is embedded
+     * by the model's own process.
+     */
+    fun searchClipboard(query: String): Result<List<AiMeaningHit>> =
+        Result.failure(UnsupportedOperationException("no search by meaning here"))
+
+    /** Notes that mean what [query] does, best first; never a locked or deleted one. Blocking. */
+    fun notesByMeaning(query: String): Result<List<AiMeaningHit>> =
+        Result.failure(UnsupportedOperationException("no search by meaning here"))
+
+    /** Snippets that mean what [query] does, best first; never a deleted one. Blocking. */
+    fun snippetsByMeaning(query: String): Result<List<AiMeaningHit>> =
+        Result.failure(UnsupportedOperationException("no search by meaning here"))
+
+    /** Whether [renameChat] has a chat to rename: only a chat's host does (#882). */
+    val canRenameChat: Boolean get() = false
+
+    /**
+     * Gives the chat this run answers in the name [title], once the user has
+     * accepted it, and gives back the name it got.
+     */
+    fun renameChat(title: String): Result<String> =
+        Result.failure(UnsupportedOperationException("no chat to rename here"))
+
     /** How many pictures the user has sent in this conversation (#698). */
     val imageCount: Int get() = 0
 

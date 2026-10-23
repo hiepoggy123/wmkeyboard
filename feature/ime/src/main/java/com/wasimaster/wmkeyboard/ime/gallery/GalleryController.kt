@@ -16,6 +16,7 @@ import com.wasimaster.wmkeyboard.app.StoragePermissionActivity
 import com.wasimaster.wmkeyboard.core.media.GallerySaver
 import com.wasimaster.wmkeyboard.core.media.gallery.AlbumKind
 import com.wasimaster.wmkeyboard.core.media.gallery.GalleryAlbum
+import com.wasimaster.wmkeyboard.core.media.gallery.GalleryFilter
 import com.wasimaster.wmkeyboard.core.media.gallery.GalleryItem
 import com.wasimaster.wmkeyboard.core.media.gallery.GalleryKind
 import com.wasimaster.wmkeyboard.core.media.gallery.GalleryQuality
@@ -25,11 +26,14 @@ import com.wasimaster.wmkeyboard.core.media.gallery.MediaPrep
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.EditHistory
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.PhotoEdit
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.PhotoEditRenderer
+import com.wasimaster.wmkeyboard.core.media.gallery.edit.PhotoUpscale
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.StickerLayer
 import com.wasimaster.wmkeyboard.core.media.gallery.edit.TextLayer
 import com.wasimaster.wmkeyboard.core.settings.GalleryCaption
 import com.wasimaster.wmkeyboard.core.settings.GalleryFallback
 import com.wasimaster.wmkeyboard.core.settings.GallerySettings
+import com.wasimaster.wmkeyboard.core.upscale.UpscaleKind
+import com.wasimaster.wmkeyboard.core.upscale.Upscaler
 import com.wasimaster.wmkeyboard.ime.ui.gallery.trimGalleryImageMemory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -90,6 +95,18 @@ internal class GalleryController(
 
         /** A FileProvider URI for a copy in the media cache, for share and copy. */
         fun fileUri(file: File): Uri?
+
+        /** Whether photos can be searched by what they show: search by meaning on, its pictures model here. */
+        fun photoSearchReady(): Boolean
+
+        /**
+         * Brings the photos' index up to [photos] in the background, a few at
+         * a time; an empty list drops it. Never on the typing path.
+         */
+        fun indexPhotos(photos: List<GalleryItem>)
+
+        /** The ids of the indexed photos that show what [query] says, best first, on the main thread. */
+        fun searchPhotos(query: String, onHits: (List<Long>) -> Unit)
     }
 
     /** One field: the app it is in and its id, which together outlive a keyboard restart. */
@@ -108,6 +125,9 @@ internal class GalleryController(
     private var refreshJob: Job? = null
     private var sendJob: Job? = null
     private var noticeJob: Job? = null
+    private var indexJob: Job? = null
+    private var searchJob: Job? = null
+    private var upscaleJob: Job? = null
     private var open = false
 
     /** The field the picks were made for; a different one drops them. */
@@ -140,6 +160,8 @@ internal class GalleryController(
                 editor = null,
                 peek = null,
                 sendMenuOpen = false,
+                searchAvailable = host.photoSearchReady(),
+                search = null,
             )
         }
         refreshField()
@@ -157,6 +179,8 @@ internal class GalleryController(
         observer = null
         loadJob?.cancel()
         refreshJob?.cancel()
+        indexJob?.cancel()
+        searchJob?.cancel()
         val keep = keepPicksOnClose
         keepPicksOnClose = false
         _state.update {
@@ -169,6 +193,7 @@ internal class GalleryController(
                 askFallback = 0,
                 notice = null,
                 forLink = false,
+                search = null,
                 selection = if (keep || it.sending != null) it.selection else emptyList(),
                 edits = if (keep || it.sending != null) it.edits else emptyMap(),
                 caption = if (keep) it.caption else "",
@@ -230,6 +255,88 @@ internal class GalleryController(
             loadAlbums(restore = true)
             load(reset = true)
         }
+        if (reload || changed) indexPhotos(access)
+    }
+
+    // ---- Search by meaning -------------------------------------------------
+
+    /**
+     * Hands the newest photos to the index, which embeds the ones it has not
+     * seen. Without the permission the index is dropped: what it holds was
+     * read under a grant that is gone.
+     */
+    private fun indexPhotos(access: GalleryStore.Access) {
+        if (!host.photoSearchReady()) return
+        indexJob?.cancel()
+        if (access == GalleryStore.Access.NONE) {
+            host.indexPhotos(emptyList())
+            return
+        }
+        indexJob = scope.launch {
+            val photos = withContext(Dispatchers.IO) {
+                GalleryStore.page(app, GalleryAlbum.Recents, GalleryFilter.PHOTOS, 0, INDEX_LIMIT, false, emptyList())
+            }
+            host.indexPhotos(photos)
+        }
+    }
+
+    private fun searchFocus() {
+        if (!_state.value.searchAvailable) return
+        host.beginText(GalleryTextEntry(GalleryTextField.SEARCH, _state.value.search?.query.orEmpty()))
+    }
+
+    /**
+     * A query typed: asked of the index once the typing pauses (the index
+     * does the waiting). Too short to mean anything, the album's grid stays.
+     */
+    private fun setQuery(text: String) {
+        val query = text.replace('\n', ' ').take(SEARCH_MAX)
+        if (query.isBlank()) {
+            clearSearch()
+            return
+        }
+        val searchable = query.trim().length >= MIN_SEARCH
+        _state.update { s -> s.copy(search = GallerySearch(query, pending = searchable, showing = s.search?.showing == true)) }
+        if (!searchable) return
+        host.searchPhotos(query) { ids -> showResults(query, ids) }
+    }
+
+    private fun showResults(query: String, ids: List<Long>) {
+        if (_state.value.search?.query != query) return
+        searchJob?.cancel()
+        loadJob?.cancel()
+        searchJob = scope.launch {
+            // In the order the index ranked them; a photo deleted since it
+            // was indexed is left out.
+            val found = withContext(Dispatchers.IO) { GalleryStore.byIds(app, ids) }
+            _state.update { s ->
+                val current = s.search
+                if (current == null || current.query != query) {
+                    s
+                } else {
+                    s.copy(
+                        items = found,
+                        loading = false,
+                        endReached = true,
+                        search = current.copy(pending = false, showing = true),
+                    )
+                }
+            }
+        }
+    }
+
+    /** Back to the album as it was. */
+    private fun clearSearch() {
+        val was = _state.value.search ?: return
+        searchJob?.cancel()
+        _state.update {
+            it.copy(
+                search = null,
+                items = if (was.showing) emptyList() else it.items,
+                endReached = if (was.showing) false else it.endReached,
+            )
+        }
+        if (was.showing) load(reset = true)
     }
 
     private fun scheduleRefresh() {
@@ -268,6 +375,8 @@ internal class GalleryController(
     private fun load(reset: Boolean, keepCount: Boolean = false) {
         val s = _state.value
         if (s.access == GalleryStore.Access.NONE) return
+        // Search results hold the grid; the album comes back when they go.
+        if (s.search?.showing == true) return
         if (!reset && (s.loading || s.endReached)) return
         loadJob?.cancel()
         val offset = if (reset) 0 else s.items.size
@@ -282,7 +391,7 @@ internal class GalleryController(
                 GalleryStore.page(app, album, filter, offset, limit, videos, sent)
             }
             _state.update {
-                if (it.album.key != album.key || it.filter != filter) return@update it
+                if (it.album.key != album.key || it.filter != filter || it.search?.showing == true) return@update it
                 // A pick that is in the page takes its fresh row, so a photo
                 // changed on disk (replaced from the editor) shows as it is now.
                 val fresh = page.associateBy { row -> row.id }
@@ -311,6 +420,7 @@ internal class GalleryController(
             GalleryAction.OpenSettings -> host.openSettings()
 
             is GalleryAction.OpenAlbum -> {
+                dropSearch()
                 _state.update {
                     it.copy(album = action.album, albumsOpen = false, items = emptyList(), endReached = false)
                 }
@@ -320,6 +430,7 @@ internal class GalleryController(
             GalleryAction.ToggleAlbums -> _state.update { it.copy(albumsOpen = !it.albumsOpen) }
             is GalleryAction.SetFilter -> {
                 if (action.filter == _state.value.filter) return
+                dropSearch()
                 _state.update { it.copy(filter = action.filter, items = emptyList(), endReached = false) }
                 load(reset = true)
             }
@@ -333,6 +444,11 @@ internal class GalleryController(
             GalleryAction.ToggleExpanded -> _state.update { it.copy(expanded = !it.expanded) }
             is GalleryAction.SetExpanded -> _state.update { it.copy(expanded = action.on) }
             is GalleryAction.Peek -> _state.update { it.copy(peek = action.item) }
+            GalleryAction.SearchFocus -> searchFocus()
+            GalleryAction.ClearSearch -> {
+                if (host.currentText()?.field == GalleryTextField.SEARCH) host.endText()
+                clearSearch()
+            }
 
             is GalleryAction.Toggle -> toggle(action.item)
             is GalleryAction.SelectRange -> selectRange(action.items, action.select)
@@ -375,6 +491,7 @@ internal class GalleryController(
             is GalleryAction.OpenEditor -> openEditor(action.id)
             GalleryAction.CloseEditor -> {
                 endTextIfAny()
+                upscaleJob?.cancel()
                 _state.update { it.copy(editor = null) }
             }
             is GalleryAction.Tool -> {
@@ -413,7 +530,18 @@ internal class GalleryController(
             is GalleryAction.Compare -> editor { it.copy(comparing = action.on) }
             is GalleryAction.SaveMenu -> editor { it.copy(saveMenuOpen = action.open) }
             is GalleryAction.SaveEdit -> saveEdit(action.replace)
+            is GalleryAction.UpscaleArt -> editor { it.copy(upscaleArt = action.art, upscaleFailed = false) }
+            is GalleryAction.Upscale -> upscale(action.factor)
+            GalleryAction.CancelUpscale -> upscaleJob?.cancel()
         }
+    }
+
+    /** An album or a filter picked mid-search: the search goes, and the pick loads as usual. */
+    private fun dropSearch() {
+        if (_state.value.search == null) return
+        searchJob?.cancel()
+        if (host.currentText()?.field == GalleryTextField.SEARCH) host.endText()
+        _state.update { it.copy(search = null) }
     }
 
     private fun startScreen(intent: Intent) {
@@ -508,6 +636,7 @@ internal class GalleryController(
     fun onText(entry: GalleryTextEntry) {
         when (entry.field) {
             GalleryTextField.CAPTION -> _state.update { it.copy(caption = entry.text.take(CAPTION_MAX)) }
+            GalleryTextField.SEARCH -> setQuery(entry.text)
             GalleryTextField.LAYER -> {
                 val id = _state.value.editor?.itemId ?: return
                 val edit = _state.value.editOf(id)
@@ -542,7 +671,10 @@ internal class GalleryController(
         // Editing a photo is choosing it.
         if (_state.value.selection.none { it.id == id }) toggle(item)
         if (_state.value.selection.none { it.id == id }) return
-        _state.update { it.copy(editor = EditorUi(itemId = id), sendMenuOpen = false) }
+        // A PNG is most often a screenshot or a drawing, which the network
+        // for drawings and text enlarges better; anything else is a photo.
+        val art = item.mime == "image/png" || item.mime == "image/gif"
+        _state.update { it.copy(editor = EditorUi(itemId = id, upscaleArt = art), sendMenuOpen = false) }
     }
 
     private fun editor(change: (EditorUi) -> EditorUi) = _state.update { it.copy(editor = it.editor?.let(change)) }
@@ -608,6 +740,74 @@ internal class GalleryController(
         editor { it.copy(selectedLayer = layer.id) }
     }
 
+    // ---- Upscaling ----------------------------------------------------------------
+
+    /**
+     * Enlarges the photo open in the editor by [factor] with the upscaler, in
+     * the sticker generator's process, and makes that an undoable step: the
+     * edit says which copy it draws on ([PhotoEdit.upscale]), and the copy
+     * waits in the media cache under [GalleryUi.upscaled]. The photo is read
+     * at the size the result can take ([MediaPrep.MAX_DECODE_EDGE] over the
+     * factor); the tool only offers a factor a photo is small enough for.
+     */
+    private fun upscale(factor: Int) {
+        val e = _state.value.editor ?: return
+        if (upscaleJob?.isActive == true) return
+        val item = _state.value.selection.firstOrNull { it.id == e.itemId } ?: return
+        val want = PhotoUpscale(factor, e.upscaleArt)
+        val key = upscaleKey(item.id, want)
+        endTextIfAny()
+        host.haptic()
+        if (_state.value.upscaled[key]?.isFile == true) {
+            history { it.push(it.current.copy(upscale = want)) }
+            return
+        }
+        editor { it.copy(upscaling = UpscaleProgress(), upscaleFailed = false) }
+        upscaleJob = scope.launch {
+            var input: File? = null
+            var ok = false
+            try {
+                input = withContext(Dispatchers.IO) {
+                    val photo = MediaPrep.decode(app, item.uri, MediaPrep.MAX_DECODE_EDGE / factor) ?: return@withContext null
+                    val alpha = photo.hasAlpha()
+                    val file = File(Upscaler.workDir(app), "photo_${System.nanoTime()}.${if (alpha) "png" else "jpg"}")
+                    val format = if (alpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+                    file.outputStream().use { photo.compress(format, UPSCALE_INPUT_QUALITY, it) }
+                    photo.recycle()
+                    file
+                }
+                val source = input ?: return@launch
+                val out = File(MediaPrep.outputDir(app), "UPSCALED_${System.nanoTime()}.${source.extension}")
+                val kind = if (want.art) UpscaleKind.ART else UpscaleKind.PHOTO
+                Upscaler.upscale(app, source, out, kind, factor).collect { event ->
+                    when (event) {
+                        is Upscaler.Event.Downloading -> editor {
+                            it.copy(upscaling = UpscaleProgress(if (event.total > 0) event.bytes.toFloat() / event.total else -1f, downloading = true))
+                        }
+                        is Upscaler.Event.Working -> editor {
+                            it.copy(upscaling = UpscaleProgress(event.done.toFloat() / event.total.coerceAtLeast(1)))
+                        }
+                        is Upscaler.Event.Done -> {
+                            ok = true
+                            _state.update { s -> s.copy(upscaled = s.upscaled + (key to event.file)) }
+                            // The step goes on this photo only while its editor is still the open one.
+                            if (_state.value.editor?.itemId == item.id) history { it.push(it.current.copy(upscale = want)) }
+                        }
+                        is Upscaler.Event.Failed -> Unit
+                    }
+                }
+            } finally {
+                input?.delete()
+                val failed = !ok && isActive
+                editor { if (it.itemId == item.id) it.copy(upscaling = null, upscaleFailed = failed) else it }
+            }
+        }
+    }
+
+    /** Where the photo's pixels are read for its edit: the upscaled copy, or the photo. */
+    private fun sourceOf(item: GalleryItem, edit: PhotoEdit): Uri =
+        _state.value.upscaledFile(item.id, edit)?.let(Uri::fromFile) ?: item.uri
+
     // ---- Saving to the gallery ---------------------------------------------------
 
     /**
@@ -634,7 +834,7 @@ internal class GalleryController(
             var asking = false
             try {
                 val kept = withContext(Dispatchers.IO) {
-                    MediaPrep.renderToKeep(app, item) { bmp -> PhotoEditRenderer.render(bmp, edit, StickerCache()) }
+                    MediaPrep.renderToKeep(app, item, sourceOf(item, edit)) { bmp -> PhotoEditRenderer.render(bmp, edit, StickerCache()) }
                 }
                 if (kept == null) {
                     notice(GalleryNotice.Kind.SAVE_FAILED)
@@ -766,7 +966,7 @@ internal class GalleryController(
             !mime.startsWith("image/") ->
                 MediaPrep.copyAsIs(app, item, mime, item.name.substringAfterLast('.', MediaPrep.extensionFor(mime)), opts)
             edit.isEmpty -> MediaPrep.prepareImage(app, item, opts)
-            else -> MediaPrep.prepareImage(app, item, opts) { bmp -> PhotoEditRenderer.render(bmp, edit, stickers) }
+            else -> MediaPrep.prepareImage(app, item, opts, sourceOf(item, edit)) { bmp -> PhotoEditRenderer.render(bmp, edit, stickers) }
         }
     }
 
@@ -787,6 +987,7 @@ internal class GalleryController(
         val items = s.selection
         val edits = items.associate { it.id to s.editOf(it.id) }
         val field = host.field()
+        upscaleJob?.cancel()
         _state.update { it.copy(sending = SendProgress(0, items.size), sendMenuOpen = false, editor = null, viewer = null) }
         sendJob = scope.launch {
             try {
@@ -943,10 +1144,20 @@ internal class GalleryController(
     companion object {
         const val PAGE = 120
         const val CAPTION_MAX = 4096
+
+        /** The longest search query kept. */
+        const val SEARCH_MAX = 200
+        private const val MIN_SEARCH = 2
+
+        /** The newest photos the index keeps: older ones are dropped from it. */
+        private const val INDEX_LIMIT = 3000
         private const val SEND_GAP_MS = 350L
         private const val NOTICE_MS = 2600L
         private const val REFRESH_DEBOUNCE_MS = 450L
         private const val STICKER_STAGGER = 5
+
+        /** The photo handed to the upscaler, when it has no transparency: a JPEG close enough to lossless. */
+        private const val UPSCALE_INPUT_QUALITY = 98
 
         /** The narrowest type that covers every one of [mimes]: `image/jpeg`, `image/*`, or `*/*`. */
         fun commonMime(mimes: List<String>): String {
