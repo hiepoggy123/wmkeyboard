@@ -27743,7 +27743,10 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun commitGestureSpace(ic: InputConnection, state: KeyboardUiState) {
         if (!state.settings.gesture.autoSpaceAfterGlide) return
-        if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
+        // A word glided back into the middle of a sentence lands in front of
+        // the space that was already there; the caret goes past it, ready for
+        // the next word, the same as after a typed one (#662).
+        if (stepOverFollowingSpace(ic)) return
         ic.commitText(" ", 1)
         pendingWordSpace = true
     }

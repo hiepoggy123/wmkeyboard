@@ -118,6 +118,9 @@ android {
             // The Play services module request the Home APIs need; only with the SDK.
             if (googleHome) manifest.srcFile("src/googlehome/AndroidManifest.xml")
         }
+        getByName("test") {
+            assets.srcDirs(rootProject.file("app/src/main/assets"))
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
