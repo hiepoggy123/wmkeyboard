@@ -1,7 +1,5 @@
 package com.wasimaster.wmkeyboard.ime
 
-import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
-
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.settings.fiatRateProviders
 import com.wasimaster.wmkeyboard.core.settings.cryptoRateProviders
