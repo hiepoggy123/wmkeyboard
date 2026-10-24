@@ -1,9 +1,5 @@
 package com.wasimaster.wmkeyboard.ime
 
-private val isRobolectric: Boolean
-    get() = android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
-        android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)
-
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.settings.fiatRateProviders
 import com.wasimaster.wmkeyboard.core.settings.cryptoRateProviders
@@ -866,6 +862,10 @@ import com.wasimaster.wmkeyboard.voice.R as VoiceR
  * into [onKey]/[onSuggestion]/[onEmoji]/etc.
  */
 open class WMKeyboardService : InputMethodService() {
+
+    private val isRobolectric: Boolean
+        get() = android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
+            android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
