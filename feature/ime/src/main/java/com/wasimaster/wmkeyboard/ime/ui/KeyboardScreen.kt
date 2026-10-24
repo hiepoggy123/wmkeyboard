@@ -31637,7 +31637,7 @@ internal fun signedRank(steps: Int): String = when {
 }
 
 /** Height of the recent-word row (#814): a touch target's worth, since every word in it is one. */
-internal val RecentRowHeight = 48.dp
+internal val RecentRowHeight = 40.dp
 
 /**
  * Whether the recent-word row is up: the setting is on, the words have a row
