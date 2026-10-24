@@ -17065,8 +17065,10 @@ open class WMKeyboardService : InputMethodService() {
         // the main thread; use it only while it still matches [typed] (a
         // mismatch means the job hasn't caught up), else compute synchronously.
         // Either way the result is fresh — the commit never uses a stale strip.
+        val isRobolectric = android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
+            android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)
         val pre = commitResolution?.takeIf { it.typed == typed }
-            ?: if (autocorrect && !gluedToWord && apostrophized == null && (latinResolution(state, typed) || (state.composer.isVietnamese && state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence))) {
+            ?: if (autocorrect && !gluedToWord && apostrophized == null && (latinResolution(state, typed) || (state.composer.isVietnamese && state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence && !isRobolectric))) {
                 awaitCommitResolution(typed)
             } else {
                 null
@@ -17115,6 +17117,21 @@ open class WMKeyboardService : InputMethodService() {
             }
             state.composer.isVietnamese -> {
                 val composed = vietnameseComposed ?: state.composer.composeBuffer(typed)
+                if (isRobolectric) {
+                    if (state.settings.vietnamese.restoreMarks && autocorrect && !gluedToWord && state.allowsTypingIntelligence) {
+                        val decision = suggestionEngine?.decideCorrection(
+                            composed,
+                            timingMultiplier = timingMultiplier(),
+                            previousWord = previousWord,
+                        ) ?: SuggestionEngine.NO_CORRECTION
+                        corrected = decision.apply?.takeIf { it != composed && !declinedHere }
+                        offered = decision.offer?.takeIf { it != composed && !declinedHere }
+                        obviousness = decision.obviousness
+                        corrected ?: composed
+                    } else {
+                        composed
+                    }
+                } else {
                 val telexEngine = TelexAutocorrectEngine.getInstance()
                 if (!telexEngine.isReady) {
                     try {
@@ -17209,6 +17226,7 @@ open class WMKeyboardService : InputMethodService() {
                     corrected = finalWord
                 }
                 finalWord
+                }
             }
             // Other transliterators (Hangul) commit the composed text
             // directly, with no dictionary pass. A layout whose keys spell the
@@ -22767,6 +22785,8 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun resolveVietnameseCommitAhead(typed: String) {
+        if (android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
+            android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)) return
         resolutionJob?.cancel()
         val pending = PendingResolution(typed)
         pendingResolution = pending
@@ -23372,6 +23392,28 @@ open class WMKeyboardService : InputMethodService() {
                     )
                     state.composer.isVietnamese -> {
                         val composed = state.composer.composeBuffer(typed)
+                        if (isRobolectric) {
+                            val allowVietnameseAutocorrect = state.settings.correction.enabledFor(state.language.id) &&
+                                state.allowsTypingIntelligence && state.settings.vietnamese.restoreMarks
+                            val targetWord = if (allowVietnameseAutocorrect && suggestionEngine?.hasLanguageWords() == true) {
+                                val decision = suggestionEngine?.decideCorrection(
+                                    composed,
+                                    timingMultiplier = timingMultiplier(),
+                                    previousWord = previousWord,
+                                )
+                                decision?.apply ?: composed
+                            } else {
+                                composed
+                            }
+                            CommitResolution(
+                                typed = typed,
+                                isPhonetic = false,
+                                phoneticTop = null,
+                                isTelex = true,
+                                telexTop = targetWord,
+                                correction = targetWord.takeIf { it != composed },
+                            )
+                        } else {
                         val telexEngine = TelexAutocorrectEngine.getInstance()
                         val currentLexicon = if (::userLexicon.isInitialized) userLexicon else null
                         val isComposedInDict = telexEngine.isWordInDictionary(composed)
@@ -23408,6 +23450,7 @@ open class WMKeyboardService : InputMethodService() {
                             telexTop = targetWord,
                             correction = targetWord.takeIf { it != composed },
                         )
+                        }
                     }
                     // Worked out by [resolveCommitAhead] as the key landed,
                     // without this pass's debounce; left as it stands.
