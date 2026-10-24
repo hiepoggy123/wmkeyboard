@@ -1,5 +1,9 @@
 package com.wasimaster.wmkeyboard.ime
 
+private val isRobolectric: Boolean
+    get() = android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
+        android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)
+
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.settings.fiatRateProviders
 import com.wasimaster.wmkeyboard.core.settings.cryptoRateProviders
@@ -17065,8 +17069,6 @@ open class WMKeyboardService : InputMethodService() {
         // the main thread; use it only while it still matches [typed] (a
         // mismatch means the job hasn't caught up), else compute synchronously.
         // Either way the result is fresh — the commit never uses a stale strip.
-        val isRobolectric = android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
-            android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)
         val pre = commitResolution?.takeIf { it.typed == typed }
             ?: if (autocorrect && !gluedToWord && apostrophized == null && (latinResolution(state, typed) || (state.composer.isVietnamese && state.settings.correction.enabledFor(state.language.id) && state.allowsTypingIntelligence && !isRobolectric))) {
                 awaitCommitResolution(typed)
@@ -22785,8 +22787,7 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun resolveVietnameseCommitAhead(typed: String) {
-        if (android.os.Build.FINGERPRINT.contains("robolectric", ignoreCase = true) ||
-            android.os.Build.HARDWARE.contains("robolectric", ignoreCase = true)) return
+        if (isRobolectric) return
         resolutionJob?.cancel()
         val pending = PendingResolution(typed)
         pendingResolution = pending
