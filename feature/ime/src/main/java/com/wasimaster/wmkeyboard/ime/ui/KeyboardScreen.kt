@@ -9999,13 +9999,14 @@ internal fun ToolCircle(
                     HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
                 }
             }
+            val labelColor = if (active) kb.toolCircleActiveIcon else kb.toolbarIcon
             Text(
                 label,
                 fontSize = labelSizeSp.sp,
                 lineHeight = (labelSizeSp + 1).sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = if (ghost) fullTint.copy(alpha = 0.5f) else fullTint,
+                color = if (ghost) labelColor.copy(alpha = 0.5f) else labelColor,
                 modifier = Modifier.padding(top = 1.dp, start = 1.dp, end = 1.dp),
             )
         }
@@ -10439,12 +10440,15 @@ private fun StripToolButton(
         drag.pinnedToolWidthPx.takeIf { it > 0 && !behavior.stripOwnSize }?.toDp()
     }
     val label = stringResource(toolLabelRes(tool))
+    val paint = toolAccentPaint(tool, state.settings)
     ToolCircle(
         // The emoji keeps an icon-pack slot of its own here, the one this
         // button has always had.
         slot = if (tool == ToolbarTool.EMOJI) IconSlots.CHROME_EMOJI_SHORTCUT else IconSlots.forTool(tool),
         description = label,
         active = toolActive(tool, state),
+        tint = paint?.color,
+        tintBrush = paint?.brush,
         modifier = Modifier
             .then(if (pinnedWidth != null) Modifier.widthIn(max = pinnedWidth) else Modifier)
             .animateSharedPlacement(
@@ -10842,6 +10846,7 @@ private fun RowScope.ToolbarRow(
                         onHoldMenu = { voiceMenuOpen = true },
                         holdDelayMs = state.settings.toolbarBehavior.holdDelayMs,
                     ) { dragModifier ->
+                        val paint = toolAccentPaint(tool, state.settings)
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
                             description = toolLabel(tool),
@@ -10855,6 +10860,8 @@ private fun RowScope.ToolbarRow(
                             // solid icon to look at is the floating one under
                             // the finger.
                             ghost = tool == dragTool,
+                            tint = paint?.color,
+                            tintBrush = paint?.brush,
                             wide = true,
                             hint = hints?.label(HintSurface.TOOLBAR, tools.indexOf(tool) + 1),
                             // The icon itself animates, anchored at the
@@ -31562,7 +31569,7 @@ internal fun signedRank(steps: Int): String = when {
 }
 
 /** Height of the recent-word row (#814): a touch target's worth, since every word in it is one. */
-internal val RecentRowHeight = 48.dp
+internal val RecentRowHeight = 40.dp
 
 /**
  * Whether the recent-word row is up: the setting is on, the words have a row
