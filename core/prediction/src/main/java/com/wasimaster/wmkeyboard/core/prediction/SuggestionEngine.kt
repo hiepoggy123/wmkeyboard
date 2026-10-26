@@ -4007,7 +4007,7 @@ class SuggestionEngine(
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
-        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier, keys)
+        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier, keys, previousWord)
         return withTaughtFix(word, lower, previousWord, ordinary)
     }
 
@@ -4669,6 +4669,7 @@ class SuggestionEngine(
         touch: List<TouchPoint?>?,
         timingMultiplier: Double,
         keys: KeySets? = null,
+        previousWord: String? = null,
     ): CorrectionDecision {
         // A shadowed spelling is protected by neither the lists nor the
         // lexicon. The lexicon learned it only because a list vouched for it.
@@ -4787,7 +4788,28 @@ class SuggestionEngine(
         // common: `sie` is `się`, not a slip for `nie`, and `zona` is `żona`,
         // not `ona` with a stray letter (#200). Accent readings still compete
         // among themselves, so `zle` stays open between `źle` and `żle`.
-        val candidates = shaped.filter { it.edits == 0 && it.accents > 0 }.ifEmpty { shaped }
+        val baseCandidates = shaped.filter { it.edits == 0 && it.accents > 0 }.ifEmpty { shaped }
+        val candidates = if (previousWord != null && baseCandidates.isNotEmpty()) {
+            val prev = previousWord.lowercase()
+            baseCandidates.map { c ->
+                val bigramCount = seedBigrams.count(prev, c.word) +
+                    userLexicon.pairCount(prev, c.word)
+                if (bigramCount > 0) {
+                    val boost = ln(1.0 + bigramCount).coerceAtMost(3.0)
+                    FuzzyBeamSearch.ScoredCandidate(
+                        c.word, c.score + boost, c.editCost, c.edits,
+                        c.completedChars, c.tier,
+                        c.dictScore + boost, c.userScore, c.accents, c.slips,
+                    )
+                } else {
+                    c
+                }
+            }.sortedWith(
+                compareByDescending<FuzzyBeamSearch.ScoredCandidate> { it.score }.thenBy { it.word }
+            )
+        } else {
+            baseCandidates
+        }
 
         // Two independent sources naming the same word is confidence enough
         // on its own.

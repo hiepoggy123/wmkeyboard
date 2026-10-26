@@ -256,4 +256,57 @@ object VietnameseOrthography {
         }
         return if (rest.last() in SINGLE_CODAS) rest.takeLast(1) else ""
     }
+    /**
+     * Corrects common phonotactic errors in Vietnamese typing:
+     *  - Disallowed tones on stop codas (c, ch, p, t): only acute (sác) and dot (nặng) are phonotactically permitted.
+     *  - Missing digraphs in standard orthography: ng -> ngh before e/\u00ea/i/y, g -> gh before e/\u00ea/i.
+     */
+    fun correctSyllable(word: String): String? {
+        val clean = word.trim()
+        if (clean.length < 2) return null
+        val lower = clean.lowercase()
+
+        var tone: Char? = null
+        val bare = StringBuilder(lower.length)
+        for (ch in Normalizer.normalize(lower, Normalizer.Form.NFD)) {
+            when (ch) {
+                ACUTE, GRAVE, HOOK, TILDE, DOT -> tone = ch
+                else -> bare.append(ch)
+            }
+        }
+        val base = Normalizer.normalize(bare, Normalizer.Form.NFC)
+        if (base.isEmpty()) return null
+        val onset = onsetOf(base)
+        val rest = base.substring(onset.length)
+        if (rest.isEmpty()) return null
+        val coda = codaOf(rest)
+        val nucleus = rest.dropLast(coda.length)
+
+        var newOnset = onset
+        var newTone = tone
+
+        if (onset == "ng" && (nucleus.startsWith("e") || nucleus.startsWith("\u00ea") || nucleus.startsWith("i") || nucleus.startsWith("y"))) {
+            newOnset = "ngh"
+        } else if (onset == "g" && (nucleus.startsWith("e") || nucleus.startsWith("\u00ea") || nucleus.startsWith("i"))) {
+            newOnset = "gh"
+        }
+
+        if (coda in STOP_CODAS && tone != null && tone != ACUTE && tone != DOT) {
+            newTone = if (tone == GRAVE) DOT else ACUTE
+        }
+
+        if (newOnset != onset || newTone != tone) {
+            val candidateBase = newOnset + nucleus + coda
+            val candidate = if (newTone != null) {
+                Normalizer.normalize(candidateBase + newTone, Normalizer.Form.NFC)
+            } else {
+                candidateBase
+            }
+            if (isSyllable(candidate)) {
+                return if (clean[0].isUpperCase()) candidate.replaceFirstChar { it.uppercaseChar() } else candidate
+            }
+        }
+        return null
+    }
 }
+

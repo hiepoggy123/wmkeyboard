@@ -112,6 +112,39 @@ jobs:
           path: app/build/outputs/apk/${{ matrix.language }}/debug/*.apk
           retention-days: 7
 
+  assemble-release-lite:
+    name: Assemble release lite
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
+          build-scan-terms-of-use-agree: "yes"
+
+      - name: Assemble Release Lite
+        run: ./gradlew assembleLiteRelease -Pwmkb.enableFdroid=true -Pwmkb.signReleaseWithDebug=true --stacktrace
+
+      - name: Upload Release Lite APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wmkeyboard-release-lite
+          path: |
+            app/build/outputs/apk/lite/release/*.apk
+            app/build/outputs/apk/intl/release/*.apk
+          retention-days: 14
+
+
   # ART never compiles a method of 10,000 dex instructions or more, and runs
   # one with a frame over 3 KB in its slow interpreter until the JIT gets to
   # it. Nothing else notices either: the keyboard just types slower. Reads the

@@ -57,23 +57,27 @@ class SeedBigrams private constructor(
          */
         const val SENTENCE_START_TOKEN = "<s>"
 
-        fun load(stream: InputStream): SeedBigrams {
+        fun load(stream: InputStream): SeedBigrams = loadAll(listOf(stream))
+
+        fun loadAll(streams: Iterable<InputStream>): SeedBigrams {
             val pairs = HashMap<String, ArrayList<Pair<String, Int>>>()
             val words = ArrayList<Pair<String, String>>()
-            stream.bufferedReader().useLines { lines ->
-                for (line in lines) {
-                    val trimmed = line.trim()
-                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
-                    val parts = trimmed.split(Regex("\\s+"))
-                    if (parts.size < 2) continue
-                    val frequency = parts.getOrNull(2)?.toIntOrNull() ?: 1
-                    val token = parts[0].lowercase()
-                    val previous =
-                        if (token == SENTENCE_START_TOKEN) WordContext.SENTENCE_START else token
-                    pairs.getOrPut(previous) { ArrayList() }
-                        .add(parts[1] to frequency)
-                    if (previous != WordContext.SENTENCE_START) {
-                        words.add(previous to parts[1].lowercase())
+            for (stream in streams) {
+                stream.bufferedReader().useLines { lines ->
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                        val parts = trimmed.split(Regex("\\s+"))
+                        if (parts.size < 2) continue
+                        val frequency = parts.getOrNull(2)?.toIntOrNull() ?: 1
+                        val token = parts[0].lowercase()
+                        val previous =
+                            if (token == SENTENCE_START_TOKEN) WordContext.SENTENCE_START else token
+                        pairs.getOrPut(previous) { ArrayList() }
+                            .add(parts[1] to frequency)
+                        if (previous != WordContext.SENTENCE_START) {
+                            words.add(previous to parts[1].lowercase())
+                        }
                     }
                 }
             }

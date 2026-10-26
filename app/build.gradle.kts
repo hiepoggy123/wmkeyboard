@@ -393,7 +393,7 @@ android {
             // line, the statement either goes whole or stays whole. And with
             // the block gone getByName would throw, where findByName returns
             // null and the build comes out unsigned, which is what they want.
-            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true }
+            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true } ?: signingConfigs.findByName("debug")?.takeIf { flag("wmkb.signReleaseWithDebug", "WMKB_SIGN_RELEASE_WITH_DEBUG") }
             isMinifyEnabled = true
             isShrinkResources = true
             optimization {

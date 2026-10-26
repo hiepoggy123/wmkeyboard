@@ -5366,7 +5366,15 @@ open class WMKeyboardService : InputMethodService() {
                     assets.open("emoji/animated.txt").use { AnimatedEmoji.load(it) }
                 }.getOrDefault(AnimatedEmoji.EMPTY)
                 val seeds = runCatching {
-                    assets.open("dictionaries/en_bigrams.txt").use { SeedBigrams.load(it) }
+                    val streams = listOfNotNull(
+                        runCatching { assets.open("dictionaries/en_bigrams.txt") }.getOrNull(),
+                        runCatching { assets.open("dictionaries/vi_bigrams.txt") }.getOrNull(),
+                    )
+                    try {
+                        SeedBigrams.loadAll(streams)
+                    } finally {
+                        streams.forEach { runCatching { it.close() } }
+                    }
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
@@ -17044,9 +17052,13 @@ open class WMKeyboardService : InputMethodService() {
                     timingMultiplier = timingMultiplier(),
                     previousWord = previousWord,
                 ) ?: SuggestionEngine.NO_CORRECTION
-                corrected = decision.apply?.takeIf { it != vietnameseComposed && !declinedHere }
+                val orthographyFix = if (decision.apply == null) {
+                    com.wasimaster.wmkeyboard.core.input.composer.VietnameseOrthography.correctSyllable(vietnameseComposed)
+                } else null
+                val fix = (decision.apply ?: orthographyFix)
+                corrected = fix?.takeIf { it != vietnameseComposed && !declinedHere }
                 offered = decision.offer?.takeIf { it != vietnameseComposed && !declinedHere }
-                obviousness = decision.obviousness
+                obviousness = if (orthographyFix != null) 1.0 else decision.obviousness
                 corrected ?: vietnameseComposed
             }
             // Other transliterators (Hangul) commit the composed text
@@ -48922,6 +48934,7 @@ open class WMKeyboardService : InputMethodService() {
             null
         } else {
             MappedTrie.open(DictionaryStore.downloadedFile(filesDir, langId))
+                ?: DictionaryStore.ensureBundled(dictionaryContext, langId)?.let { MappedTrie.open(it) }
         }
         // Kept apart inside the union, so the imports are searched like the
         // download but do not vote on whether the layout can glide (#288).
