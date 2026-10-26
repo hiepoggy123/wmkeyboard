@@ -1030,7 +1030,11 @@ androidComponents {
         // the dependencies with it, so the saving is a little larger than the
         // app's own strings account for. Nothing filters the `intl` variant:
         // it packages whatever values-xx the merge produced.
-        if (variant.productFlavors.any { (dimension, flavor) ->
+        val customLocales = providers.gradleProperty("wmkb.locales").orNull?.trim()?.takeIf { it.isNotEmpty() }
+            ?.split(",")?.map { it.trim() }?.toSet()
+        if (customLocales != null) {
+            variant.androidResources.localeFilters.set(customLocales)
+        } else if (variant.productFlavors.any { (dimension, flavor) ->
                 dimension == "languages" && flavor == "en"
             }
         ) {

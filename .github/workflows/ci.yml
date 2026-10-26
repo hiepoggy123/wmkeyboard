@@ -69,13 +69,11 @@ jobs:
           build-scan-publish: false
 
       - name: Assemble Release Lite (arm64-v8a)
-        run: ./gradlew assembleLiteRelease -Pwmkb.enableFdroid=true -Pwmkb.abi=arm64-v8a -Pwmkb.signReleaseWithDebug=true -Pwmkb.skipBenchmarks=true --stacktrace
+        run: ./gradlew assembleLiteRelease -Pwmkb.enableFdroid=true -Pwmkb.abi=arm64-v8a -Pwmkb.locales=en,vi -Pwmkb.signReleaseWithDebug=true -Pwmkb.skipBenchmarks=true --stacktrace
 
       - name: Upload Release Lite APK
         uses: actions/upload-artifact@v4
         with:
           name: wmkeyboard-arm64-release-lite
-          path: |
-            app/build/outputs/apk/lite/release/*.apk
-            app/build/outputs/apk/intl/release/*.apk
+          path: app/build/outputs/apk/lite/release/*.apk
           retention-days: 14
