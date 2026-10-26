@@ -5498,7 +5498,7 @@ data class VietnameseSettings(
      * purpose, and a keyboard that starts adding them unasked is rewriting
      * their text; the ones who want it ask for it.
      */
-    val restoreMarks: Boolean = true,
+    val restoreMarks: Boolean = false,
 )
 
 /**

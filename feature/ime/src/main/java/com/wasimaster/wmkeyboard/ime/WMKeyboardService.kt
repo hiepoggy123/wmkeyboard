@@ -17054,6 +17054,7 @@ open class WMKeyboardService : InputMethodService() {
                 ) ?: SuggestionEngine.NO_CORRECTION
                 val orthographyFix = if (decision.apply == null) {
                     com.wasimaster.wmkeyboard.core.input.composer.VietnameseOrthography.correctSyllable(vietnameseComposed)
+                        ?.takeIf { suggestionEngine?.inDictionaries(it) == true }
                 } else null
                 val fix = (decision.apply ?: orthographyFix)
                 corrected = fix?.takeIf { it != vietnameseComposed && !declinedHere }

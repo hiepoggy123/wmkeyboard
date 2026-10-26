@@ -42,8 +42,8 @@ class VietnameseSettingsTest {
     }
 
     @Test
-    fun `restoring marks is on by default`() = runBlocking {
-        assertTrue(repository().settings.first().vietnamese.restoreMarks)
+    fun `restoring marks is off until it is asked for`() = runBlocking {
+        assertFalse(repository().settings.first().vietnamese.restoreMarks)
     }
 
     @Test
