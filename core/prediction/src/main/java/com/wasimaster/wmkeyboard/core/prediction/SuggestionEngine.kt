@@ -4793,7 +4793,7 @@ class SuggestionEngine(
             val prev = previousWord.lowercase()
             baseCandidates.map { c ->
                 val bigramCount = seedBigrams.count(prev, c.word) +
-                    userLexicon.pairCount(prev, c.word)
+                    userLexicon.bigramCount(prev, c.word)
                 if (bigramCount > 0) {
                     val boost = ln(1.0 + bigramCount).coerceAtMost(3.0)
                     FuzzyBeamSearch.ScoredCandidate(
