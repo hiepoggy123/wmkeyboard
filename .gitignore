@@ -18,6 +18,7 @@ cmake-build-*/
 # Keystores & Signing Keys
 *.keystore
 *.jks
+!app/keystore/release.jks
 *.p12
 *.pem
 *.pk8

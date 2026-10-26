@@ -356,14 +356,16 @@ android {
     signingConfigs {
         create("release") {
             val storeFilePath = apiKey("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
-            if (storeFilePath.isNotEmpty()) {
-                val file = rootProject.file(storeFilePath)
-                if (file.exists()) {
-                    storeFile = file
-                    storePassword = apiKey("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD")
-                    keyAlias = apiKey("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS")
-                    keyPassword = apiKey("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
-                }
+            val file = if (storeFilePath.isNotEmpty()) {
+                rootProject.file(storeFilePath)
+            } else {
+                rootProject.file("app/keystore/release.jks")
+            }
+            if (file.exists()) {
+                storeFile = file
+                storePassword = apiKey("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD").ifEmpty { "wmkeyboard" }
+                keyAlias = apiKey("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS").ifEmpty { "wmkeyboard" }
+                keyPassword = apiKey("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD").ifEmpty { "wmkeyboard" }
             }
         }
     }
