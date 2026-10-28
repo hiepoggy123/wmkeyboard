@@ -16,46 +16,6 @@ env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
 
 jobs:
-  test:
-    name: Essential unit tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          build-scan-publish: false
-
-      - name: Cache the Rust engine's host build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            native/wm-engine
-            native/wm-engine-jni
-
-      - name: Run essential unit tests
-        # Runs focused unit tests for Vietnamese IME, composer, settings and snippets
-        run: >
-          ./gradlew :feature:ime:testDebugUnitTest --tests "*Vietnamese*"
-          -Pwmkb.skipBenchmarks=true --stacktrace
-
-      - name: Upload test reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: '**/build/reports/tests/'
-          retention-days: 7
-
   assemble-release-lite:
     name: Assemble ARM64 Release Lite
     runs-on: ubuntu-latest

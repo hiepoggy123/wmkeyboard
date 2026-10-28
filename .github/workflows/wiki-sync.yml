@@ -11,6 +11,7 @@ on:
 
 jobs:
   sync-wiki:
+    if: github.repository == 'wasi-master/wmkeyboard'
     runs-on: ubuntu-latest
     permissions:
       contents: write

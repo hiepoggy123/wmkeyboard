@@ -46,6 +46,7 @@ env:
 
 jobs:
   refresh:
+    if: github.repository == 'wasi-master/wmkeyboard'
     name: Refresh settings links and versions
     runs-on: ubuntu-latest
     timeout-minutes: 45
