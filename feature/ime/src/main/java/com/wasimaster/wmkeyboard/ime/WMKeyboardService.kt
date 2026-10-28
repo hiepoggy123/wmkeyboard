@@ -16893,17 +16893,25 @@ open class WMKeyboardService : InputMethodService() {
         // the trigger the user meant to type. All three also come before
         // apostrophes and autocorrect, so a trigger is matched as it was
         // actually typed.
-        if (!state.composer.isTransliterating && !state.composer.isConversion) {
-            if (tryPrefixExpansion(ic, typed)) return true
+        val allowsSnippets = (!state.composer.isTransliterating || isVietnameseTransliterator(state)) && !state.composer.isConversion
+        if (allowsSnippets) {
+            val viComposed = if (isVietnameseTransliterator(state)) state.composer.composeBuffer(typed) else null
+            val matchKey = when {
+                viComposed != null && snippetStore.matchTrigger(viComposed) != null -> viComposed
+                snippetStore.matchTrigger(typed) != null -> typed
+                else -> null
+            }
+            if (tryPrefixExpansion(ic, viComposed ?: typed)) return true
+            if (viComposed != null && viComposed != typed && tryPrefixExpansion(ic, typed)) return true
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
             // ordinary text, and the offer goes with it.
-            val snippet = snippetStore.matchTrigger(typed)?.takeIf { !snippetStore.offers(it) }
+            val snippet = matchKey?.let { snippetStore.matchTrigger(it) }?.takeIf { !snippetStore.offers(it) }
             if (snippet != null) {
                 val expanded = SnippetStore.expandWithCursor(
                     snippet.text,
                     context = snippetContext(ic),
-                    casing = SnippetStore.casingFor(snippet, typed),
+                    casing = SnippetStore.casingFor(snippet, matchKey),
                 )
                 commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
                 afterSnippetExpansion(
@@ -16913,14 +16921,14 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 publishSwapSet(
                     snippet = snippet,
-                    typed = typed,
+                    typed = matchKey,
                     inserted = expanded.text,
                     insertedCaret = expanded.cursorOffset,
                     original = null,
                 )
                 return true
             }
-            if (expandPatterns && tryPatternExpansion(ic, typed, state)) return true
+            if (expandPatterns && tryPatternExpansion(ic, viComposed ?: typed, state)) return true
         }
         // Conversion IME (Pinyin, Japanese): flush the whole reading as a
         // sequence of best candidates, each consuming its own syllables, so the
@@ -17383,7 +17391,7 @@ open class WMKeyboardService : InputMethodService() {
         endedBySpace: Boolean = false,
     ): Boolean {
         if (composing.isNotEmpty() || secureFieldRefusesSnippets(state) || state.nullField) return false
-        if (state.composer.isTransliterating || state.composer.isConversion) return false
+        if ((state.composer.isTransliterating && !isVietnameseTransliterator(state)) || state.composer.isConversion) return false
         val digitLedOnly = state.composesForSuggestions
         val prefixes = snippetStore.hasPrefixTriggers()
         if (digitLedOnly && !snippetStore.hasDigitLedTriggers() && !prefixes) return false
@@ -17838,21 +17846,26 @@ open class WMKeyboardService : InputMethodService() {
         // The number pad over a text field still has the strip (#815).
         val allowed = snippetChipField(state) && !state.secureField &&
             !state.fieldNoSuggestions && (state.panel == PanelMode.NONE || state.panel == PanelMode.NUMPAD) &&
-            !state.composer.isTransliterating && !state.composer.isConversion
+            (!state.composer.isTransliterating || isVietnameseTransliterator(state)) && !state.composer.isConversion
         if (!allowed) {
             publishSnippetOffer(null)
             return
         }
         val typed = composing.toString()
-        val trigger = typed
+        val viComposed = if (isVietnameseTransliterator(state)) state.composer.composeBuffer(typed) else null
+        val matchKey = when {
+            viComposed != null && snippetStore.matchTrigger(viComposed) != null -> viComposed
+            else -> typed
+        }
+        val trigger = matchKey
             .takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }
             ?.let { snippetStore.matchTrigger(it) }
             ?.takeIf { snippetStore.offers(it) }
         // A prefix trigger sits between the two: the lookup is free like a plain
         // trigger's, but confirming what sits in front of the buffer costs the
         // same read a pattern does. So it rides the same debounced job.
-        val wantPrefix = typed.isNotEmpty() && snippetStore.hasConfirmPrefixTriggers() &&
-            snippetStore.couldFinishPrefix(typed)
+        val wantPrefix = matchKey.isNotEmpty() && snippetStore.hasConfirmPrefixTriggers() &&
+            snippetStore.couldFinishPrefix(matchKey)
         // Most specific first, the same order the commit path uses: a trigger
         // that reaches back past the buffer outranks a plain one that happens
         // to be its last word. Only once no such trigger is possible can a
@@ -17860,14 +17873,14 @@ open class WMKeyboardService : InputMethodService() {
         if (trigger != null && !wantPrefix) {
             // The selection is not worth a blocking round-trip on the typing
             // path: a word only composes with the caret collapsed.
-            publishSnippetOffer(pickSet(trigger, typed, consumed = typed, composed = true))
+            publishSnippetOffer(pickSet(trigger, matchKey, consumed = matchKey, composed = true))
             return
         }
         // Not in a browser's address bar: a pattern that expands on its own
         // stays out of one ([tryPatternExpansion]), and one that asks first
         // keeps to the same fields.
         val wantPattern = state.allowsTypingIntelligence && snippetStore.hasConfirmPatterns() &&
-            patternGateOpen(typed)
+            patternGateOpen(matchKey)
         if (!wantPrefix && !wantPattern) {
             publishSnippetOffer(null)
             return
@@ -17904,7 +17917,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             if (window == null) {
                 publishSnippetOffer(
-                    trigger?.let { pickSet(it, typed, consumed = typed, composed = true) },
+                    trigger?.let { pickSet(it, matchKey, consumed = matchKey, composed = true) },
                 )
                 return@launch
             }
@@ -17924,16 +17937,16 @@ open class WMKeyboardService : InputMethodService() {
             // The prefix trigger goes first, for the same reason it does on the
             // commit path: it is the more specific rule.
             if (wantPrefix) {
-                val before = window.removeSuffix(typed)
+                val before = window.removeSuffix(matchKey)
                 val prefix = if (before.length == window.length) {
                     null
                 } else {
-                    snippetStore.matchPrefix(typed, before, confirm = true)
+                    snippetStore.matchPrefix(matchKey, before, confirm = true)
                 }
                 if (prefix != null) {
                     // From the field, not from the trigger: the lead-in matched
                     // case-insensitively, so this is what accepting deletes.
-                    val consumed = before.takeLast(prefix.prefix.length) + typed
+                    val consumed = before.takeLast(prefix.prefix.length) + matchKey
                     publishSnippetOffer(
                         pickSet(
                             snippet = prefix.snippet,
@@ -18353,7 +18366,11 @@ open class WMKeyboardService : InputMethodService() {
             // The buffer is the span. Nothing follows it — a terminator would
             // have committed it — so the only question is whether it is still
             // the word the chip was offering for.
-            if (composing.toString() != offer.consumed) {
+            val currentTyped = composing.toString()
+            val currentViComposed = if (isVietnameseTransliterator(_uiState.value)) {
+                _uiState.value.composer.composeBuffer(currentTyped)
+            } else null
+            if (currentTyped != offer.consumed && currentViComposed != offer.consumed) {
                 clearSnippetOffer()
                 return
             }
@@ -22814,7 +22831,9 @@ open class WMKeyboardService : InputMethodService() {
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
                 // so it wins the primary slot; deduped against the word list.
                 // An imported dictionary's shortcuts ride the same chip.
-                val shortcut = if (typed.isNotEmpty()) shortcutExpansion(state, typed) else null
+                val shortcut = if (typed.isNotEmpty()) {
+                    shortcutExpansion(state, typed) ?: (if (typedWord != typed) shortcutExpansion(state, typedWord) else null)
+                } else null
                 // A phonetic strip that keeps its first two chips still takes
                 // the expansion right after them rather than in front.
                 val fixedChips = if (engine.phoneticFixedStrip != null && state.composer.phoneticLanguage != null) {
@@ -27114,7 +27133,7 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Whether a glided trigger expands at all: not under a transliterating or converting composer. */
     private fun glideExpands(state: KeyboardUiState): Boolean =
-        !state.composer.isTransliterating && !state.composer.isConversion
+        (!state.composer.isTransliterating || isVietnameseTransliterator(state)) && !state.composer.isConversion
 
     /** The snippet a glided [word] fires, or null. A snippet that asks first never fires on a glide. */
     private fun glidedSnippet(word: String): Snippet? =
