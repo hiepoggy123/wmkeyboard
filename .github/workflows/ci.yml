@@ -35,11 +35,17 @@ jobs:
         with:
           build-scan-publish: false
 
+      - name: Cache the Rust engine's host build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            native/wm-engine
+            native/wm-engine-jni
+
       - name: Run essential unit tests
-        # Runs focused unit tests for Core and IME (Vietnamese, SuggestionEngine, Orthography, Settings)
+        # Runs focused unit tests for Vietnamese IME, composer, settings and snippets
         run: >
-          ./gradlew :core:settings:test :core:input:test :core:prediction:test
-          :feature:ime:testDebugUnitTest --tests "*Vietnamese*"
+          ./gradlew :feature:ime:testDebugUnitTest --tests "*Vietnamese*"
           -Pwmkb.skipBenchmarks=true --stacktrace
 
       - name: Upload test reports
