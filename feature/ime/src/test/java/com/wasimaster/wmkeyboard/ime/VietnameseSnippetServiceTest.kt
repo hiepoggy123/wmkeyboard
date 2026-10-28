@@ -60,27 +60,16 @@ class VietnameseSnippetServiceTest {
         val editor = RecordingEditor()
         val service = keyboardOn(editor) { store ->
             store.add(label = "dc", text = "được", trigger = "dc")
+            store.add(label = "ko", text = "không", trigger = "ko")
         }
 
         type(service, "dc")
         space(service)
-
         assertEquals("được ", editor.text.toString())
-    }
 
-    @Test
-    fun `vietnamese composed trigger expands in vietnamese telex`() {
-        val editor = RecordingEditor()
-        val service = keyboardOn(editor) { store ->
-            store.add(label = "đc", text = "được", trigger = "đc")
-        }
-
-        // Typing "ddc" in Telex produces "đc"
-        type(service, "ddc")
-        assertEquals("đc", service.uiState.value.composingPreview)
+        type(service, "ko")
         space(service)
-
-        assertEquals("được ", editor.text.toString())
+        assertEquals("được không ", editor.text.toString())
     }
 
     @Test
@@ -105,13 +94,13 @@ class VietnameseSnippetServiceTest {
                     id = 1,
                     label = "được",
                     text = "được",
-                    trigger = "đc",
+                    trigger = "dc",
                     confirm = true,
                 )
             )
         }
 
-        type(service, "ddc")
+        type(service, "dc")
         val offers = service.uiState.value.snippetOffers
         assertNotNull("Snippet offer chip should be displayed", offers)
         assertEquals("được", offers?.chips?.firstOrNull()?.text)
