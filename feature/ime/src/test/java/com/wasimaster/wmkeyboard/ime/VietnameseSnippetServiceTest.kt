@@ -1,7 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
-import com.wasimaster.wmkeyboard.core.input.Key
-import com.wasimaster.wmkeyboard.core.input.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.input.composer.ComposerType
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.language.LanguageRegistry
