@@ -49301,6 +49301,14 @@ open class WMKeyboardService : InputMethodService() {
         refused: (File) -> Unit = ::copyRefusedImage,
     ) {
         val editorInfo = currentInputEditorInfo
+        val targetPackage = editorInfo?.packageName
+        if (targetPackage?.startsWith("com.zing.zalo") == true &&
+            (sendMode == MediaSendMode.STICKER || _uiState.value.panel == PanelMode.STICKER)
+        ) {
+            if (sendZaloSticker(file, mimeType, targetPackage)) {
+                return
+            }
+        }
         val accepted = editorInfo
             ?.let { EditorInfoCompat.getContentMimeTypes(it).toList() }
             .orEmpty()
@@ -49353,6 +49361,89 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         refused(file)
+    }
+
+    /**
+     * Sends a sticker to Zalo via ACTION_SEND Intent with extra("type", 3)
+     * so that Zalo renders it as a native borderless sticker (ChatRowPhotoSticker)
+     * instead of converting it into a bordered/framed photo attachment.
+     */
+    private fun sendZaloSticker(
+        file: File,
+        mimeType: String,
+        targetPackage: String = "com.zing.zalo",
+    ): Boolean {
+        val isAnimWebp = isAnimatedWebp(file)
+        val isGif = mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
+
+        if (isAnimWebp) {
+            val side = com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.MAX_SIDE
+            val gif = File(File(cacheDir, "media").apply { mkdirs() }, "${file.nameWithoutExtension}_$side.gif")
+            if (gif.isFile && gif.length() > 0L) {
+                return dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
+            }
+            Toast.makeText(this, getString(R.string.ime_service_converting_to_gif_toast), Toast.LENGTH_SHORT).show()
+            gifConversionJob = serviceScope.launch {
+                val converted = withContext(Dispatchers.Default) {
+                    com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.transcode(file, gif)
+                }
+                if (converted && gif.isFile && gif.length() > 0L) {
+                    dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
+                } else {
+                    val png = transcodeToPng(file) ?: file
+                    val mime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
+                    dispatchZaloSticker(png, mime, targetPackage)
+                }
+            }
+            return true
+        }
+
+        val targetFile: File
+        val targetMime: String
+        if (isGif) {
+            targetFile = file
+            targetMime = MediaMime.GIF
+        } else {
+            val png = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
+                file
+            } else {
+                transcodeToPng(file) ?: file
+            }
+            targetFile = png
+            targetMime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
+        }
+
+        return dispatchZaloSticker(targetFile, targetMime, targetPackage)
+    }
+
+    private fun dispatchZaloSticker(
+        file: File,
+        mimeType: String,
+        targetPackage: String = "com.zing.zalo",
+    ): Boolean {
+        val uri = runCatching {
+            FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
+        }.getOrNull() ?: return false
+
+        runCatching {
+            grantUriPermission(targetPackage, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            setPackage(targetPackage)
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra("type", 3) // Enables Zalo ChatRowPhotoSticker (native borderless sticker)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData(ClipDescription("sticker", arrayOf(mimeType)), ClipData.Item(uri))
+        }
+
+        return runCatching {
+            startActivity(intent)
+            true
+        }.onFailure {
+            DebugLog.w("ime", "Zalo sticker send failed: ${it.message}")
+        }.getOrDefault(false)
     }
 
     /**

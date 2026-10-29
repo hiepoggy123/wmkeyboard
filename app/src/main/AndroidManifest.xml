@@ -228,6 +228,8 @@
          so a mode can be bound to specific apps; Android 11+ hides the app
          list without this. -->
     <queries>
+        <!-- Zalo, for sending native transparent photo stickers via Intent -->
+        <package android:name="com.zing.zalo" />
         <!-- AnkiDroid, its provider and its note editor, for the Look up card's
              Add to Anki (#765). -->
         <package android:name="com.ichi2.anki" />
