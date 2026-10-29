@@ -49302,10 +49302,8 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         val editorInfo = currentInputEditorInfo
         val targetPackage = editorInfo?.packageName
-        if (targetPackage?.startsWith("com.zing.zalo") == true &&
-            (sendMode == MediaSendMode.STICKER || _uiState.value.panel == PanelMode.STICKER)
-        ) {
-            if (sendZaloSticker(file, mimeType, targetPackage)) {
+        if (targetPackage?.startsWith("com.zing.zalo") == true) {
+            if (commitZaloMedia(file, mimeType, sendMode, refused)) {
                 return
             }
         }
@@ -49364,10 +49362,59 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Sends a sticker to Zalo via ACTION_SEND Intent with extra("type", 3)
-     * so that Zalo renders it as a native borderless sticker (ChatRowPhotoSticker)
-     * instead of converting it into a bordered/framed photo attachment or a tap-to-play GIF.
+     * Handles rich media delivery specifically for Zalo.
+     *
+     * 1. EmojiMix & Static Stickers:
+     *    Zalo's chat editor accepts "image/png" directly via commitContent and renders
+     *    transparent 512x512 PNGs as native borderless stickers without opening the Share sheet.
+     *    Static WebP stickers are transcoded to PNG so they also commit directly as borderless stickers.
+     *
+     * 2. Animated Stickers:
+     *    Animated WebP is transcoded to GIF and committed via commitContent("image/gif").
+     *    Zalo receives the animated GIF directly in chat, preserving all animation frames
+     *    rather than stripping them into a single static frame (which happens if sent via photo share).
+     *
+     * 3. Fallback:
+     *    If direct commitContent is refused (e.g. non-chat input field), falls back to Zalo Share.
      */
+    private fun commitZaloMedia(
+        file: File,
+        mimeType: String,
+        sendMode: MediaSendMode,
+        refused: (File) -> Unit,
+    ): Boolean {
+        val editorInfo = currentInputEditorInfo ?: return false
+        val pkg = editorInfo.packageName ?: "com.zing.zalo"
+        val isAnim = isAnimatedWebp(file) || mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
+
+        if (isAnim) {
+            if (isAnimatedWebp(file)) {
+                return commitAnimatedAsGif(file, editorInfo, otherwise = null) { gifFile ->
+                    if (!sendZaloSticker(gifFile, MediaMime.GIF, pkg)) {
+                        refused(gifFile)
+                    }
+                }
+            } else {
+                if (tryCommit(file, MediaMime.GIF)) return true
+                return sendZaloSticker(file, MediaMime.GIF, pkg)
+            }
+        }
+
+        // Static stickers & EmojiMix: ensure PNG format for borderless sticker rendering
+        val pngFile = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
+            file
+        } else {
+            transcodeToPng(file) ?: file
+        }
+        val targetMime = if (pngFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
+
+        if (tryCommit(pngFile, targetMime)) {
+            return true
+        }
+
+        return sendZaloSticker(pngFile, targetMime, pkg)
+    }
+
     private fun sendZaloSticker(
         file: File,
         mimeType: String,
@@ -49376,26 +49423,43 @@ open class WMKeyboardService : InputMethodService() {
         val isAnimWebp = isAnimatedWebp(file)
         val isGif = mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
 
-        // For animated WebP or GIF stickers:
-        // Do NOT convert to GIF or pass "image/gif"!
-        // Zalo's TempShareViaView explicitly tests `if (intent_type.equals("image/gif"))`
-        // which triggers VIDEO_GIF_ENABLE and treats the file as an external video-gif
-        // message (ChatRowGif with a tap-to-play overlay).
-        // Passing "image/*" with extra("type", 3) matches Zamoji's exact implementation:
-        // Zalo bypasses VIDEO_GIF_ENABLE, recognizes extra_photo_sticker (ChatRowPhotoSticker),
-        // and renders the animated sticker with automatic continuous looping!
-        if (isAnimWebp || isGif) {
-            return dispatchZaloSticker(file, "image/*", targetPackage)
+        if (isAnimWebp) {
+            val side = com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.MAX_SIDE
+            val gif = File(File(cacheDir, "media").apply { mkdirs() }, "${file.nameWithoutExtension}_$side.gif")
+            if (gif.isFile && gif.length() > 0L) {
+                return dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
+            }
+            Toast.makeText(this, getString(R.string.ime_service_converting_to_gif_toast), Toast.LENGTH_SHORT).show()
+            gifConversionJob = serviceScope.launch {
+                val converted = withContext(Dispatchers.Default) {
+                    com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.transcode(file, gif)
+                }
+                if (converted && gif.isFile && gif.length() > 0L) {
+                    dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
+                } else {
+                    val png = transcodeToPng(file) ?: file
+                    val mime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
+                    dispatchZaloSticker(png, mime, targetPackage)
+                }
+            }
+            return true
         }
 
-        // For static stickers:
-        // Transcode to PNG so transparency and borders are cleanly preserved.
-        val targetFile = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
-            file
+        val targetFile: File
+        val targetMime: String
+        if (isGif) {
+            targetFile = file
+            targetMime = MediaMime.GIF
         } else {
-            transcodeToPng(file) ?: file
+            val png = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
+                file
+            } else {
+                transcodeToPng(file) ?: file
+            }
+            targetFile = png
+            targetMime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
         }
-        val targetMime = if (targetFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else "image/*"
+
         return dispatchZaloSticker(targetFile, targetMime, targetPackage)
     }
 
@@ -49416,9 +49480,9 @@ open class WMKeyboardService : InputMethodService() {
             setPackage(targetPackage)
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra("type", 3) // Enables Zalo ChatRowPhotoSticker (native borderless sticker)
-            putExtra("intent_type", mimeType)
-            putExtra("intent_action", Intent.ACTION_SEND)
+            if (mimeType != MediaMime.GIF) {
+                putExtra("type", 3) // Enables Zalo ChatRowPhotoSticker (native borderless sticker)
+            }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
             clipData = ClipData(ClipDescription("sticker", arrayOf(mimeType)), ClipData.Item(uri))
         }
