@@ -49385,7 +49385,7 @@ open class WMKeyboardService : InputMethodService() {
     ): Boolean {
         val editorInfo = currentInputEditorInfo ?: return false
         val pkg = editorInfo.packageName ?: "com.zing.zalo"
-        val isAnim = isAnimatedWebp(file) || mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
+        val isAnim = com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile(file)
 
         if (isAnim) {
             if (isAnimatedWebp(file)) {
@@ -49395,7 +49395,7 @@ open class WMKeyboardService : InputMethodService() {
                     }
                 }
             } else {
-                if (tryCommit(file, MediaMime.GIF)) return true
+                if (tryCommit(file, MediaMime.GIF, label = "Sticker")) return true
                 return sendZaloSticker(file, MediaMime.GIF, pkg)
             }
         }
@@ -49408,7 +49408,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         val targetMime = if (pngFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
 
-        if (tryCommit(pngFile, targetMime)) {
+        if (tryCommit(pngFile, targetMime, label = "Sticker")) {
             return true
         }
 
@@ -49644,10 +49644,10 @@ open class WMKeyboardService : InputMethodService() {
         val gif = File(File(cacheDir, "media").apply { mkdirs() }, "${file.nameWithoutExtension}_$side.gif")
 
         fun sendAsItIs() {
-            if (otherwise == null || !tryCommit(file, otherwise)) refused(file)
+            if (otherwise == null || !tryCommit(file, otherwise, label = "Sticker")) refused(file)
         }
         if (gif.isFile && gif.length() > 0L) {
-            if (!tryCommit(gif, MediaMime.GIF)) sendAsItIs()
+            if (!tryCommit(gif, MediaMime.GIF, label = "Sticker")) sendAsItIs()
             return true
         }
         val sentToPackage = editorInfo.packageName
@@ -49663,7 +49663,7 @@ open class WMKeyboardService : InputMethodService() {
                 // Not this field's sticker any more. The clipboard keeps it
                 // within reach without putting it anywhere it was not sent.
                 !sameField -> copyRefusedImage(file)
-                !converted || !tryCommit(gif, MediaMime.GIF) -> sendAsItIs()
+                !converted || !tryCommit(gif, MediaMime.GIF, label = "Sticker") -> sendAsItIs()
             }
         }
         return true
@@ -49751,7 +49751,7 @@ open class WMKeyboardService : InputMethodService() {
     }.getOrDefault(false)
 
     /** One commitContent attempt with a settled MIME type. */
-    private fun tryCommit(file: File, mimeType: String): Boolean {
+    private fun tryCommit(file: File, mimeType: String, label: String = "image"): Boolean {
         val ic = currentInputConnection ?: return false
         val editorInfo = currentInputEditorInfo ?: return false
         val contentUri = runCatching {
@@ -49774,7 +49774,7 @@ open class WMKeyboardService : InputMethodService() {
                 editorInfo,
                 InputContentInfoCompat(
                     contentUri,
-                    ClipDescription("image", arrayOf(mimeType)),
+                    ClipDescription(label, arrayOf(mimeType)),
                     null,
                 ),
                 InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
