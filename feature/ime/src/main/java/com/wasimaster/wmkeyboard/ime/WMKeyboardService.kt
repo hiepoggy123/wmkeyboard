@@ -49366,7 +49366,7 @@ open class WMKeyboardService : InputMethodService() {
     /**
      * Sends a sticker to Zalo via ACTION_SEND Intent with extra("type", 3)
      * so that Zalo renders it as a native borderless sticker (ChatRowPhotoSticker)
-     * instead of converting it into a bordered/framed photo attachment.
+     * instead of converting it into a bordered/framed photo attachment or a tap-to-play GIF.
      */
     private fun sendZaloSticker(
         file: File,
@@ -49376,43 +49376,26 @@ open class WMKeyboardService : InputMethodService() {
         val isAnimWebp = isAnimatedWebp(file)
         val isGif = mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
 
-        if (isAnimWebp) {
-            val side = com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.MAX_SIDE
-            val gif = File(File(cacheDir, "media").apply { mkdirs() }, "${file.nameWithoutExtension}_$side.gif")
-            if (gif.isFile && gif.length() > 0L) {
-                return dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
-            }
-            Toast.makeText(this, getString(R.string.ime_service_converting_to_gif_toast), Toast.LENGTH_SHORT).show()
-            gifConversionJob = serviceScope.launch {
-                val converted = withContext(Dispatchers.Default) {
-                    com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.transcode(file, gif)
-                }
-                if (converted && gif.isFile && gif.length() > 0L) {
-                    dispatchZaloSticker(gif, MediaMime.GIF, targetPackage)
-                } else {
-                    val png = transcodeToPng(file) ?: file
-                    val mime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
-                    dispatchZaloSticker(png, mime, targetPackage)
-                }
-            }
-            return true
+        // For animated WebP or GIF stickers:
+        // Do NOT convert to GIF or pass "image/gif"!
+        // Zalo's TempShareViaView explicitly tests `if (intent_type.equals("image/gif"))`
+        // which triggers VIDEO_GIF_ENABLE and treats the file as an external video-gif
+        // message (ChatRowGif with a tap-to-play overlay).
+        // Passing "image/*" with extra("type", 3) matches Zamoji's exact implementation:
+        // Zalo bypasses VIDEO_GIF_ENABLE, recognizes extra_photo_sticker (ChatRowPhotoSticker),
+        // and renders the animated sticker with automatic continuous looping!
+        if (isAnimWebp || isGif) {
+            return dispatchZaloSticker(file, "image/*", targetPackage)
         }
 
-        val targetFile: File
-        val targetMime: String
-        if (isGif) {
-            targetFile = file
-            targetMime = MediaMime.GIF
+        // For static stickers:
+        // Transcode to PNG so transparency and borders are cleanly preserved.
+        val targetFile = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
+            file
         } else {
-            val png = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
-                file
-            } else {
-                transcodeToPng(file) ?: file
-            }
-            targetFile = png
-            targetMime = if (png.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
+            transcodeToPng(file) ?: file
         }
-
+        val targetMime = if (targetFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else "image/*"
         return dispatchZaloSticker(targetFile, targetMime, targetPackage)
     }
 
@@ -49434,6 +49417,8 @@ open class WMKeyboardService : InputMethodService() {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra("type", 3) // Enables Zalo ChatRowPhotoSticker (native borderless sticker)
+            putExtra("intent_type", mimeType)
+            putExtra("intent_action", Intent.ACTION_SEND)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
             clipData = ClipData(ClipDescription("sticker", arrayOf(mimeType)), ClipData.Item(uri))
         }
