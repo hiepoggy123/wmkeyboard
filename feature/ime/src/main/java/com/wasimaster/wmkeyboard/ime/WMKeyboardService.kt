@@ -49395,7 +49395,7 @@ open class WMKeyboardService : InputMethodService() {
         val pkg = editorInfo.packageName ?: "com.zing.zalo"
 
         // Transcode both static and animated stickers to static PNG
-        val pngFile = toStaticPng(file) ?: file
+        val pngFile = toZaloSquarePng(file) ?: file
         val targetMime = if (pngFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
 
         // Laban Key Bundle with type = 3 triggers Zalo's native ChatRowPhotoSticker
@@ -49786,15 +49786,20 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Converts any image (static PNG/WebP or animated WebP/GIF) into a static PNG
-     * representing the first frame, suitable for borderless sticker rendering in Zalo.
+     * Converts any image (static or animated, PNG/WebP/GIF) into a 512x512 square transparent PNG
+     * (representing the first frame if animated), matching Laban Key and WhatsApp's standard sticker format.
+     *
+     * Zalo's sticker detection requires:
+     * 1. Format: image/png (image/webp is routed as a normal photo).
+     * 2. Dimensions: width < 800 and height < 800 (wmkeyboard's static stickers are stored up to 1024px,
+     *    which causes Zalo to reject them as stickers and treat them as photos).
+     * 3. Transparency: the 4 outer corners must have alpha != 255. A 496x496 content box centered inside
+     *    a 512x512 transparent canvas guarantees all 4 corners are 100% transparent.
+     * 4. Extras: Bundle containing {"type": 3} to render as native borderless sticker (ChatRowPhotoSticker).
      */
-    private fun toStaticPng(file: File): File? = runCatching {
-        if (file.name.endsWith(".png", ignoreCase = true) && !com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile(file)) {
-            return file
-        }
+    private fun toZaloSquarePng(file: File): File? = runCatching {
         val dir = File(cacheDir, "media").apply { mkdirs() }
-        val target = File(dir, "${file.nameWithoutExtension}_static.png")
+        val target = File(dir, "${file.nameWithoutExtension}_zalo_${file.length()}_${file.lastModified()}.png")
         if (target.isFile && target.length() > 0L) return target
 
         val bitmap = runCatching {
@@ -49802,23 +49807,37 @@ open class WMKeyboardService : InputMethodService() {
                 val source = android.graphics.ImageDecoder.createSource(file)
                 android.graphics.ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                    decoder.isMutableRequired = true
                 }
             } else {
                 null
             }
         }.getOrNull() ?: android.graphics.BitmapFactory.decodeFile(file.absolutePath) ?: return null
 
-        target.outputStream().use {
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        val targetSize = 512
+        val maxContentSize = 496
+        val output = android.graphics.Bitmap.createBitmap(targetSize, targetSize, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(output)
+        val scale = maxContentSize.toFloat() / maxOf(bitmap.width, bitmap.height)
+        val w = (bitmap.width * scale).toInt().coerceIn(1, maxContentSize)
+        val h = (bitmap.height * scale).toInt().coerceIn(1, maxContentSize)
+        val left = (targetSize - w) / 2
+        val top = (targetSize - h) / 2
+        val src = android.graphics.Rect(0, 0, bitmap.width, bitmap.height)
+        val dst = android.graphics.Rect(left, top, left + w, top + h)
+        val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+        canvas.drawBitmap(bitmap, src, dst, paint)
+        if (bitmap !== output) {
+            bitmap.recycle()
         }
+
+        target.outputStream().use {
+            output.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        output.recycle()
         target
     }.getOrNull()
 
-    /**
-     * Re-encodes a still image as PNG in the media cache. Returns null for
-     * animated sources (their animation would be lost) and anything that
-     * won't decode.
-     */
     private fun transcodeToPng(file: File): File? = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val source = android.graphics.ImageDecoder.createSource(file)
