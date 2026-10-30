@@ -49377,6 +49377,14 @@ open class WMKeyboardService : InputMethodService() {
      * 3. Fallback:
      *    If direct commitContent is refused (e.g. non-chat input field), falls back to Zalo Share.
      */
+    /**
+     * Handles rich media delivery specifically for Zalo.
+     *
+     * In Zalo, both static and animated stickers are delivered directly as static PNG stickers
+     * using commitContent with ClipDescription("Sticker") and opts Bundle containing {"type": 3}.
+     * This matches Laban Key's exact native behavior, rendering the sticker borderless
+     * (ChatRowPhotoSticker) directly in the current chat without opening the Share dialog.
+     */
     private fun commitZaloMedia(
         file: File,
         mimeType: String,
@@ -49385,33 +49393,22 @@ open class WMKeyboardService : InputMethodService() {
     ): Boolean {
         val editorInfo = currentInputEditorInfo ?: return false
         val pkg = editorInfo.packageName ?: "com.zing.zalo"
-        val isAnim = com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile(file)
 
-        if (isAnim) {
-            if (isAnimatedWebp(file)) {
-                return commitAnimatedAsGif(file, editorInfo, otherwise = null) { gifFile ->
-                    if (!sendZaloSticker(gifFile, MediaMime.GIF, pkg)) {
-                        refused(gifFile)
-                    }
-                }
-            } else {
-                if (tryCommit(file, MediaMime.GIF, label = "Sticker")) return true
-                return sendZaloSticker(file, MediaMime.GIF, pkg)
-            }
-        }
-
-        // Static stickers & EmojiMix: ensure PNG format for borderless sticker rendering
-        val pngFile = if (mimeType == MediaMime.PNG || file.name.endsWith(".png", ignoreCase = true)) {
-            file
-        } else {
-            transcodeToPng(file) ?: file
-        }
+        // Transcode both static and animated stickers to static PNG
+        val pngFile = toStaticPng(file) ?: file
         val targetMime = if (pngFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
 
-        if (tryCommit(pngFile, targetMime, label = "Sticker")) {
+        // Laban Key Bundle with type = 3 triggers Zalo's native ChatRowPhotoSticker
+        val zaloOpts = Bundle().apply {
+            putInt("type", 3)
+        }
+
+        // Direct commitContent into the active conversation
+        if (tryCommit(pngFile, targetMime, label = "Sticker", opts = zaloOpts)) {
             return true
         }
 
+        // Fallback to Zalo Share if commitContent is refused (e.g. non-chat input field)
         return sendZaloSticker(pngFile, targetMime, pkg)
     }
 
@@ -49751,7 +49748,12 @@ open class WMKeyboardService : InputMethodService() {
     }.getOrDefault(false)
 
     /** One commitContent attempt with a settled MIME type. */
-    private fun tryCommit(file: File, mimeType: String, label: String = "image"): Boolean {
+    private fun tryCommit(
+        file: File,
+        mimeType: String,
+        label: String = "image",
+        opts: Bundle? = null,
+    ): Boolean {
         val ic = currentInputConnection ?: return false
         val editorInfo = currentInputEditorInfo ?: return false
         val contentUri = runCatching {
@@ -49778,10 +49780,39 @@ open class WMKeyboardService : InputMethodService() {
                     null,
                 ),
                 InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
-                null,
+                opts,
             )
         }.getOrDefault(false)
     }
+
+    /**
+     * Converts any image (static PNG/WebP or animated WebP/GIF) into a static PNG
+     * representing the first frame, suitable for borderless sticker rendering in Zalo.
+     */
+    private fun toStaticPng(file: File): File? = runCatching {
+        if (file.name.endsWith(".png", ignoreCase = true) && !com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile(file)) {
+            return file
+        }
+        val dir = File(cacheDir, "media").apply { mkdirs() }
+        val target = File(dir, "${file.nameWithoutExtension}_static.png")
+        if (target.isFile && target.length() > 0L) return target
+
+        val bitmap = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = android.graphics.ImageDecoder.createSource(file)
+                android.graphics.ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            } else {
+                null
+            }
+        }.getOrNull() ?: android.graphics.BitmapFactory.decodeFile(file.absolutePath) ?: return null
+
+        target.outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        target
+    }.getOrNull()
 
     /**
      * Re-encodes a still image as PNG in the media cache. Returns null for
