@@ -49394,11 +49394,60 @@ open class WMKeyboardService : InputMethodService() {
         val editorInfo = currentInputEditorInfo ?: return false
         val pkg = editorInfo.packageName ?: "com.zing.zalo"
 
-        // Transcode both static and animated stickers to static PNG
+        val isGifPanel = _uiState.value.panel == PanelMode.GIF
+        val isStickerPanel = _uiState.value.panel == PanelMode.STICKER || _uiState.value.panel == PanelMode.EMOJI_MIX
+        val isGifMime = mimeType == MediaMime.GIF || file.name.endsWith(".gif", ignoreCase = true)
+        val isAnimWebp = isAnimatedWebp(file)
+
+        // 1. GIF sending (from GIF panel or explicit GIF media):
+        // Preserve all animation frames and send directly as animated GIF (image/gif).
+        // Zalo receives the actual animated GIF directly into chat without flattening.
+        val isGif = isGifPanel || (!isStickerPanel && sendMode == MediaSendMode.IMAGE && (isGifMime || isAnimWebp))
+        if (isGif) {
+            if (isAnimWebp) {
+                val side = com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.MAX_SIDE
+                val gif = File(File(cacheDir, "media").apply { mkdirs() }, "${file.nameWithoutExtension}_$side.gif")
+                if (gif.isFile && gif.length() > 0L) {
+                    if (tryCommit(gif, MediaMime.GIF, label = "image")) return true
+                    return sendZaloSticker(gif, MediaMime.GIF, pkg)
+                }
+                Toast.makeText(this, getString(R.string.ime_service_converting_to_gif_toast), Toast.LENGTH_SHORT).show()
+                gifConversionJob = serviceScope.launch {
+                    val converted = withContext(Dispatchers.Default) {
+                        com.wasimaster.wmkeyboard.core.media.AnimatedWebpToGif.transcode(file, gif)
+                    }
+                    if (converted && gif.isFile && gif.length() > 0L) {
+                        if (!tryCommit(gif, MediaMime.GIF, label = "image")) {
+                            sendZaloSticker(gif, MediaMime.GIF, pkg)
+                        }
+                    } else {
+                        refused(file)
+                    }
+                }
+                return true
+            }
+
+            if (isGifMime) {
+                if (tryCommit(file, MediaMime.GIF, label = "image")) return true
+                return sendZaloSticker(file, MediaMime.GIF, pkg)
+            }
+
+            if (tryCommit(file, mimeType, label = "image")) return true
+            return sendZaloSticker(file, mimeType, pkg)
+        }
+
+        // 2. Normal non-sticker photos (e.g. camera photos, document scans, clipboard photos):
+        val isSticker = isStickerPanel || sendMode == MediaSendMode.STICKER
+        if (!isSticker && (mimeType == MediaMime.JPEG || file.name.endsWith(".jpg", ignoreCase = true) || file.name.endsWith(".jpeg", ignoreCase = true))) {
+            return false // Fall through to standard commitImageFile for normal photos
+        }
+
+        // 3. Stickers (Sticker panel, EmojiMix, local stickers, or animated/static stickers):
+        // Transcode both static and animated stickers to a 512x512 transparent PNG
+        // with opts Bundle {"type": 3} to trigger Zalo's native borderless ChatRowPhotoSticker.
         val pngFile = toZaloSquarePng(file) ?: file
         val targetMime = if (pngFile.name.endsWith(".png", ignoreCase = true)) MediaMime.PNG else mimeType
 
-        // Laban Key Bundle with type = 3 triggers Zalo's native ChatRowPhotoSticker
         val zaloOpts = Bundle().apply {
             putInt("type", 3)
         }
